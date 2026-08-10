@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de privacidad — Pipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F5EFE6;
+    --cream-deep:#EBE1D2;
+    --brown-dark:#6F4E37;
+    --terracotta:#C97B5A;
+    --amber:#D9A441;
+    --ink:#3A2E24;
+    --line:rgba(111,78,55,.16);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--ink);line-height:1.7}
+  .wrap{max-width:760px;margin:0 auto;padding:0 24px}
+  h1,h2{font-family:'Fraunces',serif;letter-spacing:-.02em;color:var(--brown-dark)}
+  a{color:var(--terracotta)}
+  nav{padding:26px 0;border-bottom:1px solid var(--line)}
+  .logo{font-family:'Fraunces';font-weight:600;font-size:22px;color:var(--brown-dark);text-decoration:none}
+  main{padding:48px 0 70px}
+  h1{font-size:clamp(28px,4vw,38px);margin-bottom:6px}
+  .fecha{font-size:14px;color:#8a7a68;margin-bottom:36px}
+  h2{font-size:19px;margin:30px 0 10px}
+  p,li{font-size:15.5px;color:#4a3d31}
+  ul{margin:10px 0 10px 22px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--brown-dark)}
+  .aviso-provisional{background:rgba(217,164,65,.16);border:1px solid rgba(217,164,65,.4);border-radius:14px;padding:18px 20px;margin:24px 0;font-size:14.5px}
+  footer{padding:30px 0;border-top:1px solid var(--line);text-align:center;font-size:13px;color:var(--brown-dark);opacity:.7}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap"><a class="logo" href="index.html">← Pipo</a></div></nav>
+
+<main class="wrap">
+  <h1>Política de privacidad</h1>
+  <p class="fecha">Última actualización: 10 de agosto de 2026</p>
+
+  <div class="aviso-provisional">
+    Pipo está en fase de desarrollo y pruebas (<code>localhost</code>), sin usuarios reales todavía. Esta política describe cómo funciona el tratamiento de datos en el sistema tal y como está construido hoy, para que sea correcta desde el primer día que alguien lo use de verdad.
+  </div>
+
+  <h2>1. Responsable del tratamiento</h2>
+  <p>Alberto Yules — <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>. Ver más datos en el <a href="aviso-legal.html">aviso legal</a>.</p>
+
+  <h2>2. Qué datos trata Pipo</h2>
+  <table>
+    <tr><th>Dato</th><th>Origen</th><th>Para qué</th></tr>
+    <tr><td>Dominio que se analiza</td><td>Lo introduce la persona usuaria</td><td>Ejecutar el análisis y guardar el historial del escaneo</td></tr>
+    <tr><td>Dirección IP de quien escanea</td><td>Petición HTTP</td><td>Limitar el número de escaneos por minuto y evitar abuso del servicio</td></tr>
+    <tr><td>Resultado del escaneo (hallazgos, nota)</td><td>Generado por Pipo</td><td>Mostrar el informe y guardarlo para poder recuperarlo después</td></tr>
+  </table>
+  <p>
+    Pipo <strong>no</strong> pide ni almacena contraseñas, datos bancarios, ni ningún dato del servidor del dominio analizado más allá de lo que ese servidor ya publica a cualquier visitante.
+  </p>
+
+  <h2>3. Con quién se comparte</h2>
+  <p>Para generar el informe, algunos datos viajan a proveedores externos que actúan como encargados del tratamiento:</p>
+  <ul>
+    <li><strong>Google (API Gemini)</strong>: recibe los hallazgos técnicos del escaneo para redactar la explicación en lenguaje llano y las soluciones sugeridas.</li>
+    <li><strong>Google PageSpeed Insights</strong>: si se activa el análisis de velocidad, Google audita la web analizada directamente.</li>
+  </ul>
+  <p>En ningún caso se envían datos personales de quien usa Pipo a estos proveedores — solo el dominio a analizar y los resultados técnicos del escaneo.</p>
+
+  <h2>4. Cuánto tiempo se conservan los datos</h2>
+  <p>
+    Los escaneos se guardan en la base de datos de Pipo (<code>pipo.db</code>) para poder recuperar el informe más adelante sin repetir el análisis. Mientras el proyecto esté en fase de pruebas, esta base de datos vive únicamente en el ordenador del desarrollador.
+  </p>
+
+  <h2>5. Base legal</h2>
+  <p>
+    El tratamiento se basa en la ejecución de la solicitud que la propia persona usuaria hace al introducir un dominio (art. 6.1.b RGPD) y, para la limitación de peticiones por IP, en el interés legítimo de proteger el servicio frente a abuso (art. 6.1.f RGPD).
+  </p>
+
+  <h2>6. Tus derechos</h2>
+  <p>
+    Puedes solicitar acceso, rectificación, supresión, u oposición sobre tus datos escribiendo a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>. Al no haber todavía un sistema de cuentas de usuario, la identificación de qué datos son tuyos se hará caso por caso (por ejemplo, el dominio o el identificador de escaneo que nos indiques).
+  </p>
+</main>
+
+<footer>© 2026 Pipo · Málaga</footer>
+
+</body>
+</html>

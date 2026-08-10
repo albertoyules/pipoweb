@@ -1,0 +1,19 @@
+# Secretos: claves de API de Gemini y PageSpeed. Nunca a git.
+backend/.env
+
+# Base de datos local: son datos (escaneos guardados), no código.
+# En Railway el disco es persistente pero no viene de git — se crea
+# solo la primera vez que arranca el servidor (ver inicializar_db()).
+backend/pipo.db
+
+# Entorno virtual de Python: se reconstruye con requirements.txt,
+# no tiene sentido subir sus archivos (pesan mucho y son específicos
+# de la máquina de cada uno).
+backend/.venv/
+
+# Basura estándar de Python.
+__pycache__/
+*.pyc
+
+# Basura estándar de macOS.
+.DS_Store

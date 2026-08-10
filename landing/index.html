@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipo — ¿Dudas de tu web? Pipo te la revisa y te informa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F5EFE6;
+    --cream-deep:#EBE1D2;
+    --brown:#B08968;
+    --brown-dark:#6F4E37;
+    --terracotta:#C97B5A;
+    --sage:#8A9A5B;
+    --amber:#D9A441;
+    --brick:#B34733;
+    --ink:#3A2E24;
+    --line:rgba(111,78,55,.16);
+    --shadow:0 18px 50px -22px rgba(111,78,55,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:'Nunito',sans-serif;
+    background:var(--cream);
+    color:var(--ink);
+    line-height:1.6;
+    overflow-x:hidden;
+  }
+  h1,h2,h3,.display{font-family:'Fraunces',serif;letter-spacing:-.02em;line-height:1.05}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  a{text-decoration:none;color:inherit}
+  section{position:relative}
+
+  /* NAV */
+  nav{position:sticky;top:0;z-index:50;background:rgba(245,239,230,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:70px}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'Fraunces';font-weight:600;font-size:22px;color:var(--brown-dark)}
+  .logo .mark{width:34px;height:34px}
+  .nav-links{display:flex;gap:30px;align-items:center}
+  .nav-links a{font-weight:600;font-size:15px;color:var(--brown-dark);opacity:.8;transition:opacity .2s}
+  .nav-links a:hover{opacity:1}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:'Nunito';font-weight:700;font-size:15px;padding:12px 22px;border-radius:999px;cursor:pointer;border:none;transition:transform .15s ease, box-shadow .2s ease}
+  .btn-primary{background:var(--terracotta);color:#fff;box-shadow:0 10px 24px -10px var(--terracotta)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 30px -12px var(--terracotta)}
+  .btn-ghost{background:transparent;color:var(--brown-dark);border:1.5px solid var(--line)}
+  .btn-ghost:hover{background:var(--cream-deep)}
+  @media(max-width:780px){.nav-links{display:none}}
+
+  /* HERO */
+  .hero{padding:70px 0 40px;position:relative}
+  .leaf{position:absolute;opacity:.5;pointer-events:none}
+  .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--cream-deep);border:1px solid var(--line);color:var(--brown-dark);font-weight:700;font-size:13px;padding:7px 14px;border-radius:999px;margin-bottom:22px}
+  .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--sage)}
+  .hero h1{font-size:clamp(38px,6vw,62px);font-weight:600;color:var(--ink)}
+  .hero h1 .accent{color:var(--terracotta);font-style:italic}
+  .hero p.sub{font-size:19px;color:var(--brown-dark);margin:22px 0 30px;max-width:520px}
+  .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+  .scanbox{margin-top:34px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:10px;display:flex;gap:8px;box-shadow:var(--shadow);max-width:480px}
+  .scanbox input{flex:1;border:none;outline:none;font-family:'Nunito';font-size:16px;padding:12px 16px;color:var(--ink);background:transparent}
+  .scanbox input::placeholder{color:#b6a894}
+  @media(max-width:880px){.hero-grid{grid-template-columns:1fr;text-align:center}.hero p.sub{margin-left:auto;margin-right:auto}.hero-cta,.eyebrow{justify-content:center}.scanbox{margin-left:auto;margin-right:auto}.pipo-stage{order:-1}}
+
+  /* PIPO CHARACTER */
+  .pipo-stage{display:flex;justify-content:center;align-items:center;position:relative}
+  .pipo-halo{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%)}
+  .pipo{width:280px;height:auto;position:relative;z-index:2;animation:float 5s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  .mag{animation:sniff 4s ease-in-out infinite;transform-origin:center}
+  @keyframes sniff{0%,100%{transform:rotate(0) translate(0,0)}50%{transform:rotate(-8deg) translate(-6px,4px)}}
+
+  /* MARQUEE STAT */
+  .band{background:var(--brown-dark);color:var(--cream);padding:26px 0;margin-top:30px}
+  .band .wrap{display:flex;align-items:center;gap:26px;flex-wrap:wrap;justify-content:center;text-align:center}
+  .band .big{font-family:'Fraunces';font-size:40px;font-weight:600;color:var(--amber)}
+  .band p{font-size:17px;opacity:.9;max-width:620px}
+
+  /* SECTION HEADS */
+  .sec{padding:80px 0}
+  .sec-label{font-weight:800;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--terracotta);margin-bottom:14px}
+  .sec h2{font-size:clamp(28px,4vw,44px);font-weight:600;color:var(--ink);max-width:640px;margin-bottom:16px}
+  .sec .lead{font-size:18px;color:var(--brown-dark);max-width:560px}
+
+  /* FEATURE CARDS */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;transition:transform .2s ease, box-shadow .2s ease}
+  .card:hover{transform:translateY(-5px);box-shadow:var(--shadow)}
+  .card .ico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  .card h3{font-size:20px;font-weight:600;margin-bottom:8px;color:var(--brown-dark)}
+  .card p{font-size:15px;color:#6a5c4e}
+  @media(max-width:880px){.cards{grid-template-columns:1fr}}
+
+  /* HOW / SEMAFORO DEMO */
+  .how{background:var(--cream-deep);border-radius:28px;padding:48px;margin-top:44px;display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+  .report{background:#fff;border-radius:18px;padding:24px;box-shadow:var(--shadow)}
+  .report-head{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:16px}
+  .report-head .u{font-weight:800;color:var(--brown-dark)}
+  .score{margin-left:auto;font-family:'Fraunces';font-size:30px;font-weight:600;color:var(--amber)}
+  .row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px dashed var(--line)}
+  .row:last-child{border-bottom:none}
+  .pill{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+  .pill.g{background:var(--sage)}.pill.a{background:var(--amber)}.pill.r{background:var(--brick)}
+  .row .lbl{font-weight:600;font-size:15px}
+  .row .tag{margin-left:auto;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+  .tag.g{background:rgba(138,154,91,.16);color:var(--sage)}
+  .tag.a{background:rgba(217,164,65,.18);color:#a9791d}
+  .tag.r{background:rgba(179,71,51,.14);color:var(--brick)}
+  .how-steps li{list-style:none;display:flex;gap:16px;margin-bottom:22px}
+  .how-steps .n{width:34px;height:34px;border-radius:50%;background:var(--terracotta);color:#fff;font-family:'Fraunces';font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .how-steps h4{font-size:17px;color:var(--brown-dark);margin-bottom:2px}
+  .how-steps p{font-size:15px;color:#6a5c4e}
+  @media(max-width:880px){.how{grid-template-columns:1fr;padding:32px}}
+
+  /* PRICING */
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px;align-items:stretch}
+  .plan{background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;display:flex;flex-direction:column}
+  .plan.feat{border:2px solid var(--terracotta);position:relative}
+  .plan .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--terracotta);color:#fff;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px}
+  .plan h3{font-size:20px;color:var(--brown-dark);margin-bottom:6px}
+  .plan .price{font-family:'Fraunces';font-size:38px;font-weight:600;color:var(--ink);margin:8px 0}
+  .plan .price span{font-family:'Nunito';font-size:15px;font-weight:600;color:#8a7a68}
+  .plan ul{list-style:none;margin:18px 0 26px;flex:1}
+  .plan li{font-size:15px;padding:8px 0;padding-left:26px;position:relative;color:#5f5142}
+  .plan li::before{content:"";position:absolute;left:0;top:14px;width:14px;height:14px;border-radius:50%;background:rgba(138,154,91,.25)}
+  .plan li::after{content:"✓";position:absolute;left:3px;top:7px;font-size:11px;font-weight:800;color:var(--sage)}
+  @media(max-width:880px){.plans{grid-template-columns:1fr}}
+
+  /* FAQ */
+  .faq{max-width:760px;margin:44px auto 0}
+  .q{background:#fff;border:1px solid var(--line);border-radius:16px;margin-bottom:14px;overflow:hidden}
+  .q summary{cursor:pointer;padding:20px 24px;font-weight:700;font-size:17px;color:var(--brown-dark);list-style:none;display:flex;justify-content:space-between;align-items:center}
+  .q summary::-webkit-details-marker{display:none}
+  .q summary::after{content:"+";font-size:24px;color:var(--terracotta);font-weight:400}
+  .q[open] summary::after{content:"–"}
+  .q .a{padding:0 24px 20px;color:#6a5c4e;font-size:15px}
+
+  /* CTA FINAL */
+  .final{background:var(--brown-dark);border-radius:28px;padding:60px;text-align:center;color:var(--cream);margin:60px 0}
+  .final h2{font-size:clamp(28px,4vw,42px);color:var(--cream);margin-bottom:16px}
+  .final p{opacity:.85;max-width:480px;margin:0 auto 28px;font-size:18px}
+  .final .btn-primary{background:var(--amber);color:var(--brown-dark);box-shadow:none}
+
+  footer{padding:40px 0 60px;border-top:1px solid var(--line);color:var(--brown-dark)}
+  .foot-in{display:flex;justify-content:space-between;flex-wrap:wrap;gap:20px;align-items:center}
+  .foot-in .logo{font-size:20px}
+  .foot-links{display:flex;gap:24px;font-size:14px;font-weight:600;opacity:.75}
+
+  @media(prefers-reduced-motion:reduce){.pipo,.mag{animation:none}}
+
+  /* RESULTADO DEL ESCANEO EN VIVO (hero) */
+  #zona-resultado{margin-top:22px;max-width:480px}
+  .estado-carga{display:flex;align-items:center;gap:12px;color:var(--brown-dark);font-weight:700;font-size:15px;padding:6px 4px}
+  .estado-carga svg{width:36px;height:36px;flex-shrink:0}
+  .estado-error{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;color:var(--brick);font-weight:600;font-size:15px;display:flex;gap:12px;align-items:center}
+  .estado-error svg{width:30px;height:30px;flex-shrink:0}
+  #zona-resultado .report{margin-top:0}
+  .ver-informe{display:block;text-align:center;margin-top:14px;font-weight:700;color:var(--terracotta);font-size:14px}
+  .ver-informe:hover{text-decoration:underline}
+
+  /* CONSENTIMIENTO */
+  .consentimiento{display:flex;align-items:flex-start;gap:10px;margin-top:14px;max-width:480px;text-align:left}
+  .consentimiento input{margin-top:3px;flex-shrink:0;width:17px;height:17px;accent-color:var(--terracotta);cursor:pointer}
+  .consentimiento label{font-size:13.5px;color:var(--brown-dark);opacity:.85;cursor:pointer}
+  .consentimiento a{color:var(--terracotta);font-weight:600}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+</style>
+</head>
+<body>
+
+<!-- Pipo SVG defined once, referenced via <use> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="pipo" viewBox="0 0 240 260">
+      <!-- body -->
+      <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
+      <ellipse cx="120" cy="162" rx="58" ry="66" fill="#E8D6BF"/>
+      <!-- ear tufts -->
+      <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
+      <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
+      <!-- eyes -->
+      <circle cx="92" cy="120" r="30" fill="#fff"/>
+      <circle cx="148" cy="120" r="30" fill="#fff"/>
+      <circle cx="95" cy="122" r="15" fill="#3A2E24"/>
+      <circle cx="145" cy="122" r="15" fill="#3A2E24"/>
+      <circle cx="100" cy="117" r="5" fill="#fff"/>
+      <circle cx="150" cy="117" r="5" fill="#fff"/>
+      <!-- brows -->
+      <path d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <!-- beak -->
+      <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
+      <!-- wings -->
+      <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
+      <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+      <!-- feet -->
+      <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <!-- magnifier -->
+      <g class="mag">
+        <circle cx="182" cy="196" r="26" fill="none" stroke="#C97B5A" stroke-width="7"/>
+        <circle cx="182" cy="196" r="20" fill="rgba(201,123,90,.12)"/>
+        <line x1="200" y1="214" x2="222" y2="238" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
+      </g>
+    </symbol>
+    <symbol id="leaf" viewBox="0 0 100 100">
+      <path d="M50 10 Q90 40 50 90 Q10 40 50 10Z" fill="currentColor"/>
+      <line x1="50" y1="20" x2="50" y2="80" stroke="rgba(0,0,0,.12)" stroke-width="3"/>
+    </symbol>
+  </defs>
+</svg>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="logo" href="#"><svg class="mark"><use href="#pipo"/></svg>Pipo</a>
+    <div class="nav-links">
+      <a href="#que-revisa">Qué revisa</a>
+      <a href="#como">Cómo funciona</a>
+      <a href="#precios">Precios</a>
+      <a href="#faq">FAQ</a>
+      <a href="#demo" class="btn btn-primary">Revisar mi web</a>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero">
+  <svg class="leaf" style="width:90px;top:40px;left:-20px;color:var(--terracotta);transform:rotate(20deg)"><use href="#leaf"/></svg>
+  <svg class="leaf" style="width:60px;top:260px;right:40px;color:var(--amber);transform:rotate(-30deg)"><use href="#leaf"/></svg>
+  <svg class="leaf" style="width:44px;bottom:20px;left:15%;color:var(--sage);transform:rotate(60deg)"><use href="#leaf"/></svg>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow"><span class="dot"></span>Auditoría web sin tocar tus sistemas</span>
+      <h1>¿Dudas de tu web?<br><span class="accent">Pipo</span> te la revisa<br>y te informa.</h1>
+      <p class="sub">Pipo mira tu web igual que la ve Google: seguridad, cookies, RGPD, SEO y velocidad. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.</p>
+      <div class="hero-cta">
+        <a href="#demo" class="btn btn-primary">Revisar mi web gratis →</a>
+        <a href="#como" class="btn btn-ghost">Ver cómo funciona</a>
+      </div>
+      <form class="scanbox" id="demo">
+        <input type="text" id="input-dominio" placeholder="tunegocio.es" aria-label="Tu dominio" required>
+        <button class="btn btn-primary" type="submit" id="btn-analizar" disabled>Analizar</button>
+      </form>
+      <div class="consentimiento">
+        <input type="checkbox" id="check-consentimiento">
+        <label for="check-consentimiento">Declaro ser el titular de este dominio o tener autorización para analizarlo. Ver <a href="aviso-legal.html" target="_blank">aviso legal</a> y <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+      </div>
+      <div id="zona-resultado" aria-live="polite"></div>
+    </div>
+    <div class="pipo-stage">
+      <div class="pipo-halo"></div>
+      <svg class="pipo" id="pipo-hero"><use href="#pipo"/></svg>
+    </div>
+  </div>
+</header>
+
+<!-- STAT BAND -->
+<div class="band">
+  <div class="wrap">
+    <span class="big">43%</span>
+    <p>de las pequeñas webs tienen fallos visibles de seguridad, cookies o RGPD que cualquiera puede ver desde fuera. Pipo los encuentra antes de que lo haga un cliente… o una inspección.</p>
+  </div>
+</div>
+
+<!-- QUE REVISA -->
+<section class="sec" id="que-revisa">
+  <div class="wrap">
+    <div class="sec-label">Qué revisa Pipo</div>
+    <h2>Una revisión completa, sin entrar en tus sistemas</h2>
+    <p class="lead">Todo lo que Pipo comprueba es información pública: lo mismo que ve cualquier visitante o buscador. Cero intrusión, cero riesgo.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="ico" style="background:rgba(179,71,51,.12)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B34733" stroke-width="2"><path d="M12 2 4 6v6c0 5 8 10 8 10s8-5 8-10V6z"/></svg></div>
+        <h3>Seguridad básica</h3>
+        <p>Certificado SSL, protocolo de cifrado, cabeceras de seguridad y archivos que no deberían estar a la vista.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="background:rgba(201,123,90,.14)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C97B5A" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div>
+        <h3>Cookies y RGPD</h3>
+        <p>Aviso legal, política de privacidad, banner de cookies y trackers que cargan antes de que el cliente acepte.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="background:rgba(217,164,65,.16)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <h3>Correo y suplantación</h3>
+        <p>Registros SPF, DKIM y DMARC que evitan que alguien mande emails haciéndose pasar por tu negocio.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="background:rgba(138,154,91,.16)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8A9A5B" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+        <h3>SEO técnico</h3>
+        <p>Títulos, descripciones, cómo se ve tu web al compartirla en WhatsApp y si Google puede indexarla bien.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="background:rgba(111,78,55,.12)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6F4E37" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></div>
+        <h3>Velocidad y móvil</h3>
+        <p>Tiempo de carga, peso de la página y si se ve bien en el móvil, donde entran la mayoría de tus clientes.</p>
+      </div>
+      <div class="card">
+        <div class="ico" style="background:rgba(201,123,90,.14)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C97B5A" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 8v4l3 2"/></svg></div>
+        <h3>Brechas conocidas</h3>
+        <p>Comprobamos si tu dominio aparece en filtraciones de datos públicas para que puedas reaccionar a tiempo.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="sec" id="como">
+  <div class="wrap">
+    <div class="sec-label">Cómo funciona</div>
+    <h2>De un dominio a un informe que entiendes</h2>
+    <div class="how">
+      <ul class="how-steps">
+        <li><span class="n">1</span><div><h4>Escribes tu dominio</h4><p>Confirmas que la web es tuya o que tienes permiso, y Pipo se pone a mirar.</p></div></li>
+        <li><span class="n">2</span><div><h4>Pipo revisa desde fuera</h4><p>En segundos hace decenas de comprobaciones públicas, sin entrar en tu servidor ni tocar nada.</p></div></li>
+        <li><span class="n">3</span><div><h4>Traduce lo técnico</h4><p>Cada hallazgo se explica en lenguaje normal, con su nivel de prioridad y cómo solucionarlo.</p></div></li>
+        <li><span class="n">4</span><div><h4>Te entrega el informe</h4><p>Un PDF claro con semáforo verde, ámbar y rojo que puedes guardar, compartir o accionar.</p></div></li>
+      </ul>
+      <div class="report">
+        <div class="report-head">
+          <svg width="30" height="30"><use href="#pipo"/></svg>
+          <span class="u">tunegocio.es</span>
+          <span class="score">72</span>
+        </div>
+        <div class="row"><span class="pill g"></span><span class="lbl">Certificado SSL válido</span><span class="tag g">Bien</span></div>
+        <div class="row"><span class="pill r"></span><span class="lbl">Sin banner de cookies</span><span class="tag r">Crítico</span></div>
+        <div class="row"><span class="pill a"></span><span class="lbl">Falta registro DMARC</span><span class="tag a">Aviso</span></div>
+        <div class="row"><span class="pill g"></span><span class="lbl">Web adaptada a móvil</span><span class="tag g">Bien</span></div>
+        <div class="row"><span class="pill r"></span><span class="lbl">WordPress desactualizado</span><span class="tag r">Crítico</span></div>
+        <div class="row"><span class="pill a"></span><span class="lbl">Meta descripción vacía</span><span class="tag a">Aviso</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRECIOS -->
+<section class="sec" id="precios">
+  <div class="wrap">
+    <div class="sec-label">Precios</div>
+    <h2>Empieza gratis, paga solo si te sirve</h2>
+    <div class="plans">
+      <div class="plan">
+        <h3>Vistazo</h3>
+        <div class="price">Gratis</div>
+        <ul>
+          <li>Nota global de tu web</li>
+          <li>3 comprobaciones clave</li>
+          <li>Resultado al instante</li>
+          <li>Sin registro</li>
+        </ul>
+        <a href="#demo" class="btn btn-ghost">Probar ahora</a>
+      </div>
+      <div class="plan feat">
+        <span class="badge">El más pedido</span>
+        <h3>Informe completo</h3>
+        <div class="price">59€ <span>/ único</span></div>
+        <ul>
+          <li>Todas las comprobaciones</li>
+          <li>Informe PDF con Pipo</li>
+          <li>Hallazgos explicados y priorizados</li>
+          <li>Cómo arreglar cada punto</li>
+        </ul>
+        <a href="#demo" class="btn btn-primary">Pedir informe</a>
+      </div>
+      <div class="plan">
+        <h3>Vigilancia</h3>
+        <div class="price">19€ <span>/ mes</span></div>
+        <ul>
+          <li>Todo lo del informe completo</li>
+          <li>Revisión automática cada mes</li>
+          <li>Aviso si algo empeora</li>
+          <li>Histórico de tu web</li>
+        </ul>
+        <a href="#demo" class="btn btn-ghost">Suscribirme</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="sec" id="faq">
+  <div class="wrap">
+    <div class="sec-label" style="text-align:center">Preguntas frecuentes</div>
+    <h2 style="text-align:center;margin:0 auto 8px">Todo lo que quieres saber</h2>
+    <div class="faq">
+      <details class="q" open><summary>¿Pipo entra en mi web o la hackea?</summary><div class="a">No. Pipo solo mira información pública, la misma que ve cualquier visitante o Google. No accede a tu servidor, no prueba contraseñas y no toca ningún dato. Es una revisión desde fuera.</div></details>
+      <details class="q"><summary>¿Necesito conocimientos técnicos?</summary><div class="a">Ninguno. El informe está escrito para el dueño de un negocio, no para un informático. Cada punto te dice qué pasa, por qué importa y qué hacer.</div></details>
+      <details class="q"><summary>¿Puedo revisar la web de otro negocio?</summary><div class="a">Solo debes analizar webs de las que seas responsable o tengas permiso. Al usar Pipo confirmas que es así; queda registrado.</div></details>
+      <details class="q"><summary>¿Qué pasa después del informe?</summary><div class="a">Puedes arreglar los puntos por tu cuenta con las indicaciones, o pedirnos que te echemos una mano. Sin compromiso.</div></details>
+      <details class="q"><summary>¿Esto me sirve para el RGPD?</summary><div class="a">Pipo detecta fallos visibles de cookies y privacidad y te orienta, pero no sustituye a un asesor legal ni a un Delegado de Protección de Datos. Es un buen primer diagnóstico.</div></details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="wrap">
+  <div class="final">
+    <svg width="70" height="70" style="margin-bottom:8px"><use href="#pipo"/></svg>
+    <h2>Dale a Pipo el nombre de tu web</h2>
+    <p>En un minuto sabrás qué está fallando. Gratis y sin registro.</p>
+    <a href="#demo" class="btn btn-primary">Revisar mi web →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <a class="logo" href="#"><svg class="mark" width="28" height="28"><use href="#pipo"/></svg>Pipo</a>
+    <div class="foot-links">
+      <a href="aviso-legal.html">Aviso legal</a>
+      <a href="privacidad.html">Privacidad</a>
+      <a href="cookies.html">Cookies</a>
+      <a href="mailto:alberyules11@gmail.com">Contacto</a>
+    </div>
+    <span style="font-size:13px;opacity:.6">© 2026 Pipo · Málaga</span>
+  </div>
+</footer>
+
+
+<script>
+  // Dirección del backend. En local es esto; el día del despliegue,
+  // se cambia por la URL real de la API en producción (una sola línea).
+  const API_BASE = "http://127.0.0.1:8000";
+
+  // Nombres amigables para cada check — el backend los identifica por
+  // un id técnico (ssl, dns...), aquí los traducimos para quien no es
+  // programador.
+  const NOMBRES_CHECK = {
+    ssl: "Certificado de seguridad (SSL)",
+    headers: "Cabeceras de seguridad",
+    dns: "Protección contra suplantación de email",
+    seo: "SEO técnico",
+    privacidad: "Aviso legal y cookies",
+    mixed_content: "Contenido cargado sin cifrar",
+    rendimiento: "Velocidad de carga",
+    archivos_expuestos: "Archivos sensibles expuestos",
+  };
+
+  // Misma fórmula que puntuacion.py en el backend: verde=100, ámbar=60,
+  // rojo=20, y la nota es la media. Repetirla aquí es solo para pintar
+  // el número al instante sin depender de la llamada a la IA (que es
+  // un paso aparte, más lento y de pago).
+  const PUNTOS_POR_ESTADO = { verde: 100, ambar: 60, rojo: 20 };
+
+  function calcularNota(checks) {
+    if (checks.length === 0) return 0;
+    const total = checks.reduce((suma, c) => suma + PUNTOS_POR_ESTADO[c.estado], 0);
+    return Math.round(total / checks.length);
+  }
+
+  function pintarCargando(zona) {
+    zona.innerHTML = `
+      <div class="estado-carga">
+        <svg><use href="#pipo"/></svg>
+        Pipo está revisando tu web...
+      </div>`;
+  }
+
+  function pintarError(zona, mensaje) {
+    zona.innerHTML = `
+      <div class="estado-error">
+        <svg><use href="#pipo"/></svg>
+        <span>${mensaje}</span>
+      </div>`;
+  }
+
+  function pintarResultado(zona, dominio, datos) {
+    const nota = calcularNota(datos.checks);
+    const filas = datos.checks.map((check) => {
+      const nombre = NOMBRES_CHECK[check.check] || check.check;
+      const letra = { verde: "g", ambar: "a", rojo: "r" }[check.estado];
+      const texto = { verde: "Bien", ambar: "Aviso", rojo: "Crítico" }[check.estado];
+      return `
+        <div class="row">
+          <span class="pill ${letra}"></span>
+          <span class="lbl">${nombre}</span>
+          <span class="tag ${letra}">${texto}</span>
+        </div>`;
+    }).join("");
+
+    zona.innerHTML = `
+      <div class="report">
+        <div class="report-head">
+          <svg width="30" height="30"><use href="#pipo"/></svg>
+          <span class="u">${dominio}</span>
+          <span class="score">${nota}</span>
+        </div>
+        ${filas}
+      </div>
+      <a class="ver-informe" href="informe.html?id=${datos.id}&dominio=${encodeURIComponent(dominio)}">Ver informe completo →</a>`;
+  }
+
+  // El botón "Analizar" solo se activa cuando el checkbox de
+  // consentimiento (titularidad/autorización del dominio) está marcado.
+  // Es la puerta legal del escaneo gratis (ver CLAUDE.md, punto P0).
+  const checkConsentimiento = document.getElementById("check-consentimiento");
+  const botonAnalizar = document.getElementById("btn-analizar");
+  checkConsentimiento.addEventListener("change", () => {
+    botonAnalizar.disabled = !checkConsentimiento.checked;
+  });
+
+  document.getElementById("demo").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    const input = document.getElementById("input-dominio");
+    const boton = document.getElementById("btn-analizar");
+    const zona = document.getElementById("zona-resultado");
+
+    // Defensa en profundidad: aunque el botón esté deshabilitado sin
+    // consentimiento, no confiamos solo en eso (podría reactivarse
+    // desde las devtools). Sin el checkbox marcado, no se llama al backend.
+    if (!checkConsentimiento.checked) {
+      pintarError(zona, "Antes de analizar, marca la casilla de consentimiento sobre la titularidad del dominio.");
+      return;
+    }
+
+    // Limpieza básica: quitamos "https://", "http://" y barras finales
+    // si el usuario las pega — el backend espera solo el dominio limpio.
+    const dominio = input.value.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+    if (!dominio) return;
+
+    boton.disabled = true;
+    pintarCargando(zona);
+
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/scan?dominio=${encodeURIComponent(dominio)}`);
+
+      if (respuesta.status === 429) {
+        pintarError(zona, "Se han hecho demasiadas comprobaciones seguidas. Espera un minuto y vuelve a intentarlo.");
+        return;
+      }
+      if (!respuesta.ok) {
+        pintarError(zona, "Pipo no ha podido terminar la revisión. Comprueba el dominio e inténtalo de nuevo.");
+        return;
+      }
+
+      const datos = await respuesta.json();
+      pintarResultado(zona, dominio, datos);
+    } catch (error) {
+      // Fallo de red: el backend no responde, o el navegador ha bloqueado
+      // la petición (por ejemplo, si la API no está arrancada).
+      pintarError(zona, "Pipo no ha podido conectar con el servidor. ¿Está la web bien escrita?");
+    } finally {
+      boton.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu informe — Pipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F5EFE6; --cream-deep:#EBE1D2; --brown:#B08968; --brown-dark:#6F4E37;
+    --terracotta:#C97B5A; --sage:#8A9A5B; --amber:#D9A441; --brick:#B34733;
+    --ink:#3A2E24; --line:rgba(111,78,55,.16); --shadow:0 18px 50px -22px rgba(111,78,55,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Nunito',sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;
+    min-height:100vh;display:flex;flex-direction:column;
+  }
+  main{flex:1 0 auto}
+  footer{flex-shrink:0}
+  h1,h2,h3,h4{font-family:'Fraunces',serif;letter-spacing:-.02em}
+  a{text-decoration:none;color:inherit}
+  .wrap{max-width:820px;margin:0 auto;padding:0 24px}
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:'Nunito';font-weight:700;font-size:15px;padding:12px 22px;border-radius:999px;cursor:pointer;border:none;transition:transform .15s ease, box-shadow .2s ease}
+  .btn:disabled{opacity:.6;cursor:default;transform:none!important}
+  .btn-primary{background:var(--terracotta);color:#fff;box-shadow:0 10px 24px -10px var(--terracotta)}
+  .btn-primary:not(:disabled):hover{transform:translateY(-2px)}
+  .btn-ghost{background:#fff;color:var(--brown-dark);border:1.5px solid var(--line)}
+  .btn-ghost:not(:disabled):hover{background:var(--cream-deep)}
+
+  nav{position:sticky;top:0;z-index:50;background:rgba(245,239,230,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;gap:10px;height:64px;max-width:820px;margin:0 auto;padding:0 24px}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'Fraunces';font-weight:600;font-size:20px;color:var(--brown-dark)}
+  .logo svg{width:30px;height:30px}
+
+  main{padding:44px 0 80px}
+
+  /* estado de error */
+  .estado-error{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px;font-weight:700;color:var(--brick)}
+  .estado-error svg{width:44px;height:44px;flex-shrink:0}
+
+  /* escena de carga: Pipo revisando una pantalla en vivo */
+  .escena-carga{background:#fff;border:1px solid var(--line);border-radius:20px;padding:52px 32px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;gap:26px}
+  .escena-figuras{display:flex;align-items:center;justify-content:center;gap:36px;flex-wrap:wrap}
+  .escena-pipo{width:110px;height:auto;animation:flotar 3.2s ease-in-out infinite}
+  @keyframes flotar{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-2deg)}}
+  .mag{animation:sniff 2.6s ease-in-out infinite;transform-origin:center}
+  @keyframes sniff{0%,100%{transform:rotate(0) translate(0,0)}50%{transform:rotate(-10deg) translate(-8px,5px)}}
+
+  .pantalla-mini{position:relative;width:132px;height:96px;background:var(--cream-deep);border-radius:12px;padding:14px 12px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
+  .pantalla-mini .barra{width:36px;height:6px;border-radius:3px;background:var(--terracotta);margin-bottom:10px}
+  .pantalla-mini .linea{height:6px;border-radius:3px;background:rgba(111,78,55,.18);margin-bottom:8px}
+  .pantalla-mini .linea.corta{width:55%}
+  .pantalla-mini .haz{position:absolute;left:0;right:0;height:22px;background:linear-gradient(180deg,rgba(201,123,90,0),rgba(201,123,90,.4),rgba(201,123,90,0));animation:escanear 2.4s ease-in-out infinite}
+  @keyframes escanear{0%{top:-22px}100%{top:96px}}
+
+  .escena-texto{font-weight:800;font-size:16px;color:var(--brown-dark);text-align:center;min-height:22px}
+  .escena-nota{font-size:13px;color:#8a7a68;text-align:center}
+
+  @media(prefers-reduced-motion:reduce){.escena-pipo,.mag,.pantalla-mini .haz{animation:none}}
+
+  /* cabecera del informe */
+  .informe-cabecera{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow);margin-bottom:28px}
+  .informe-cabecera svg{width:56px;height:56px;flex-shrink:0}
+  .informe-cabecera h1{font-size:24px;color:var(--ink);margin-bottom:6px}
+  .informe-cabecera p{font-size:15px;color:var(--brown-dark)}
+  .informe-nota{margin-left:auto;font-family:'Fraunces';font-size:44px;font-weight:600;color:var(--amber);flex-shrink:0;padding-left:16px}
+
+  /* hallazgos */
+  .hallazgos{display:flex;flex-direction:column;gap:12px;margin-bottom:36px}
+  .hallazgo{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 24px;display:flex;gap:14px}
+  .hallazgo .pill{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:7px}
+  .pill.g{background:var(--sage)}.pill.a{background:var(--amber)}.pill.r{background:var(--brick)}
+  .hallazgo h3{font-family:'Nunito';font-weight:800;font-size:16px;color:var(--brown-dark);margin-bottom:4px}
+  .hallazgo p{font-size:14px;color:#5f5142;margin-bottom:6px}
+  .hallazgo .impacto{font-size:13px;color:var(--terracotta);font-weight:700}
+
+  /* acciones */
+  .acciones{border-top:1px solid var(--line);padding-top:32px;display:flex;flex-direction:column;gap:28px}
+  .accion h2{font-size:19px;color:var(--ink);margin-bottom:6px}
+  .accion .desc{font-size:14px;color:var(--brown-dark);margin-bottom:14px}
+  .espera{display:flex;align-items:center;gap:10px;color:var(--brown-dark);font-weight:600;font-size:14px;margin-top:12px}
+  .espera svg{width:26px;height:26px}
+
+  .velocidad-explicacion{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--brown-dark);font-weight:600;margin-top:14px}
+  .velocidad-explicacion .pill{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+
+  /* móvil vs ordenador */
+  .dispositivos{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+  @media(max-width:640px){.dispositivos{grid-template-columns:1fr}}
+  .dispositivo{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px}
+  .dispositivo h4{display:flex;align-items:center;gap:8px;font-family:'Nunito';font-weight:800;font-size:13px;color:var(--brown-dark);margin-bottom:14px;text-transform:uppercase;letter-spacing:.05em}
+  .categorias{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .cat-chip{text-align:center;background:var(--cream-deep);border-radius:12px;padding:10px 2px}
+  .cat-chip .valor{font-family:'Fraunces';font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;display:block}
+  .cat-chip .etiqueta{font-size:9.5px;text-transform:uppercase;letter-spacing:.02em;color:#8a7a68;font-weight:700;display:block;margin-top:2px}
+  .metricas{display:flex;flex-wrap:wrap;gap:7px}
+  .metrica-chip{flex:1;min-width:64px;text-align:center;background:#faf6ef;border:1px solid var(--line);border-radius:10px;padding:8px 3px}
+  .metrica-chip .valor{font-family:'Fraunces';font-size:14px;font-weight:600;color:var(--brown-dark);display:block;font-variant-numeric:tabular-nums}
+  .metrica-chip .etiqueta{font-size:8.5px;text-transform:uppercase;letter-spacing:.02em;color:#a3937f;font-weight:700;display:block;margin-top:2px}
+
+  .comparativa{display:flex;align-items:center;gap:16px;background:var(--cream-deep);border-radius:16px;padding:18px 22px;margin-top:14px}
+  .comparativa .num{font-family:'Fraunces';font-size:30px;font-weight:600}
+  .comparativa .antes{color:var(--brown-dark)}
+  .comparativa .flecha{font-size:20px;color:var(--terracotta)}
+  .comparativa .despues{color:var(--sage)}
+  .comparativa .txt{font-size:13px;color:var(--brown-dark);margin-left:6px}
+
+  .solucion{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 24px;margin-top:12px}
+  .solucion h4{font-family:'Nunito';font-weight:800;font-size:15px;color:var(--brown-dark);margin-bottom:8px}
+  .solucion ol{margin:6px 0 10px 20px;font-size:14px;color:#5f5142;line-height:1.7}
+  .solucion .meta{display:flex;gap:16px;font-size:12px;color:#8a7a68;font-weight:700}
+
+  footer{padding:36px 0;border-top:1px solid var(--line);color:var(--brown-dark);text-align:center;font-size:13px;opacity:.7}
+
+  @media(prefers-reduced-motion:reduce){.mag{animation:none}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="pipo" viewBox="0 0 240 260">
+      <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
+      <ellipse cx="120" cy="162" rx="58" ry="66" fill="#E8D6BF"/>
+      <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
+      <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
+      <circle cx="92" cy="120" r="30" fill="#fff"/>
+      <circle cx="148" cy="120" r="30" fill="#fff"/>
+      <circle cx="95" cy="122" r="15" fill="#3A2E24"/>
+      <circle cx="145" cy="122" r="15" fill="#3A2E24"/>
+      <circle cx="100" cy="117" r="5" fill="#fff"/>
+      <circle cx="150" cy="117" r="5" fill="#fff"/>
+      <path d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+      <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
+      <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
+      <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+      <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <g class="mag">
+        <circle cx="182" cy="196" r="26" fill="none" stroke="#C97B5A" stroke-width="7"/>
+        <circle cx="182" cy="196" r="20" fill="rgba(201,123,90,.12)"/>
+        <line x1="200" y1="214" x2="222" y2="238" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<nav>
+  <div class="nav-in">
+    <a class="logo" href="index.html"><svg><use href="#pipo"/></svg>Pipo</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div id="estado-carga">
+    <div class="escena-carga">
+      <div class="escena-figuras">
+        <svg class="escena-pipo"><use href="#pipo"/></svg>
+        <div class="pantalla-mini">
+          <div class="barra"></div>
+          <div class="linea"></div>
+          <div class="linea corta"></div>
+          <div class="linea"></div>
+          <div class="haz"></div>
+        </div>
+      </div>
+      <p class="escena-texto" id="texto-carga">Pipo está revisando tu web...</p>
+      <p class="escena-nota">Puede tardar hasta medio minuto — la IA se toma su tiempo para no inventarse nada.</p>
+    </div>
+  </div>
+
+  <div id="estado-error" style="display:none"></div>
+
+  <div id="contenido" style="display:none">
+    <div class="informe-cabecera">
+      <svg><use href="#pipo"/></svg>
+      <div>
+        <h1 id="txt-dominio"></h1>
+        <p id="txt-resumen"></p>
+      </div>
+      <div class="informe-nota" id="txt-nota"></div>
+    </div>
+
+    <div class="hallazgos" id="lista-hallazgos"></div>
+
+    <div class="acciones">
+      <div class="accion">
+        <h2>¿Y la velocidad?</h2>
+        <p class="desc">Google audita tu web de verdad, con el mismo motor de Chrome — por eso tarda 20-30 segundos, no es un fallo.</p>
+        <button class="btn btn-ghost" id="btn-velocidad">Comprobar velocidad de carga</button>
+        <div id="zona-velocidad"></div>
+      </div>
+
+      <div class="accion">
+        <h2>¿Cómo lo arreglo?</h2>
+        <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, y calcula la nota que tendría tu web si los aplicas todos.</p>
+        <button class="btn btn-primary" id="btn-soluciones">Pedir soluciones y nota estimada</button>
+        <div id="zona-soluciones"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>© 2026 Pipo · Málaga · Informe generado a partir de información pública, sin acceder a tu servidor.</footer>
+
+<script>
+  const API_BASE = "http://127.0.0.1:8000";
+  const parametros = new URLSearchParams(location.search);
+  const idEscaneo = parametros.get("id");
+
+  const LETRA = { verde: "g", ambar: "a", rojo: "r" };
+  const LETRA_PRIORIDAD = { alta: "r", media: "a", baja: "g" };
+
+  // Mismos umbrales que usa Google (y que ya usa el backend en
+  // rendimiento_check.py) para decidir si una categoría es buena,
+  // mejorable o pobre — así el color de cada número es consistente.
+  function colorPorNota(nota) {
+    if (nota === null || nota === undefined) return "#a3937f";
+    if (nota >= 90) return "var(--sage)";
+    if (nota >= 50) return "var(--amber)";
+    return "var(--brick)";
+  }
+
+  function pintarDispositivo(titulo, datos) {
+    const categorias = [
+      ["Rendimiento", datos.rendimiento],
+      ["Accesibilidad", datos.accesibilidad],
+      ["Prácticas", datos.practicas],
+      ["SEO", datos.seo],
+    ];
+    const metricas = [
+      ["FCP", datos.fcp],
+      ["LCP", datos.lcp],
+      ["TBT", datos.tbt],
+      ["CLS", datos.cls],
+      ["Speed Index", datos.speed_index],
+    ];
+
+    const chipsCategorias = categorias.map(([etiqueta, valor]) => `
+      <div class="cat-chip">
+        <span class="valor" style="color:${colorPorNota(valor)}">${valor ?? "—"}</span>
+        <span class="etiqueta">${etiqueta}</span>
+      </div>`).join("");
+
+    const chipsMetricas = metricas.map(([etiqueta, valor]) => `
+      <div class="metrica-chip">
+        <span class="valor">${valor ?? "—"}</span>
+        <span class="etiqueta">${etiqueta}</span>
+      </div>`).join("");
+
+    return `
+      <div class="dispositivo">
+        <h4>${titulo}</h4>
+        <div class="categorias">${chipsCategorias}</div>
+        <div class="metricas">${chipsMetricas}</div>
+      </div>`;
+  }
+
+  // Frases que van rotando mientras se espera a la IA, para que la
+  // espera (hasta 25-30s) se sienta como que Pipo está trabajando en
+  // algo concreto, no como que la página se ha quedado colgada.
+  const FRASES_CARGA = [
+    "Pipo está revisando tu web...",
+    "Leyendo los hallazgos técnicos uno a uno...",
+    "Traduciéndolo todo a lenguaje humano...",
+    "Comprobando que no se deja nada importante...",
+    "Ya casi está...",
+  ];
+  let indiceFrase = 0;
+  let intervaloCarga = null;
+
+  function iniciarRotacionDeFrases() {
+    const texto = document.getElementById("texto-carga");
+    intervaloCarga = setInterval(() => {
+      indiceFrase = (indiceFrase + 1) % FRASES_CARGA.length;
+      texto.textContent = FRASES_CARGA[indiceFrase];
+    }, 3200);
+  }
+
+  function detenerRotacionDeFrases() {
+    clearInterval(intervaloCarga);
+  }
+
+  function mostrarError(mensaje) {
+    detenerRotacionDeFrases();
+    document.getElementById("estado-carga").style.display = "none";
+    const zona = document.getElementById("estado-error");
+    zona.style.display = "block";
+    zona.innerHTML = `
+      <div class="estado-error">
+        <svg><use href="#pipo"/></svg>
+        <span>${mensaje}</span>
+      </div>`;
+  }
+
+  async function cargarInforme() {
+    if (!idEscaneo) {
+      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.");
+      return;
+    }
+
+    iniciarRotacionDeFrases();
+
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}`);
+      if (respuesta.status === 404) {
+        mostrarError("Ese informe no existe o ha caducado. Vuelve a analizar tu web.");
+        return;
+      }
+      if (!respuesta.ok) {
+        mostrarError("Pipo no ha podido interpretar los hallazgos ahora mismo. Inténtalo de nuevo en un momento.");
+        return;
+      }
+      const datos = await respuesta.json();
+      pintarInforme(datos);
+    } catch (error) {
+      mostrarError("No se ha podido conectar con el motor de Pipo. Comprueba que el backend está encendido.");
+    }
+  }
+
+  function pintarInforme(datos) {
+    detenerRotacionDeFrases();
+    document.getElementById("estado-carga").style.display = "none";
+    document.getElementById("txt-dominio").textContent = datos.dominio;
+    document.getElementById("txt-resumen").textContent = datos.resumen_ejecutivo;
+    document.getElementById("txt-nota").textContent = datos.puntuacion_global;
+
+    const lista = document.getElementById("lista-hallazgos");
+    lista.innerHTML = datos.hallazgos.map((h) => {
+      const letra = LETRA_PRIORIDAD[h.prioridad] || "a";
+      return `
+        <div class="hallazgo">
+          <span class="pill ${letra}"></span>
+          <div>
+            <h3>${h.titulo}</h3>
+            <p>${h.explicacion_llana}</p>
+            <span class="impacto">${h.impacto_negocio}</span>
+          </div>
+        </div>`;
+    }).join("");
+
+    document.getElementById("contenido").style.display = "block";
+  }
+
+  document.getElementById("btn-velocidad").addEventListener("click", async () => {
+    const boton = document.getElementById("btn-velocidad");
+    const zona = document.getElementById("zona-velocidad");
+
+    boton.disabled = true;
+    zona.innerHTML = `
+      <div class="espera">
+        <svg><use href="#pipo"/></svg>
+        Auditando con Google PageSpeed... puede tardar hasta 30 segundos.
+      </div>`;
+
+    try {
+      // Atado al id del escaneo (no al dominio suelto) para que el
+      // backend pueda cachear el resultado: si ya se pidió antes para
+      // este escaneo, la respuesta llega al instante sin volver a
+      // pedirle la auditoría a Google.
+      const respuesta = await fetch(`${API_BASE}/api/scan/${idEscaneo}/rendimiento`);
+      const datos = await respuesta.json();
+      const letra = LETRA[datos.estado] || "a";
+      const d = datos.datos || {};
+
+      // Si no hay clave de PageSpeed configurada, datos.datos viene vacío
+      // (ver rendimiento_check.py): mostramos solo el aviso, sin cifras.
+      if (!d.mobile) {
+        zona.innerHTML = `<div class="velocidad-explicacion"><span class="pill ${letra}"></span><span>${datos.detalle}</span></div>`;
+        return;
+      }
+
+      zona.innerHTML = `
+        <div class="dispositivos">
+          ${pintarDispositivo("📱 Móvil", d.mobile)}
+          ${pintarDispositivo("💻 Ordenador", d.desktop)}
+        </div>`;
+    } catch (error) {
+      zona.innerHTML = `<p style="color:var(--brick);margin-top:10px">No se ha podido completar la comprobación de velocidad.</p>`;
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  document.getElementById("btn-soluciones").addEventListener("click", async () => {
+    const boton = document.getElementById("btn-soluciones");
+    const zona = document.getElementById("zona-soluciones");
+
+    boton.disabled = true;
+    zona.innerHTML = `
+      <div class="espera">
+        <svg><use href="#pipo"/></svg>
+        Pipo está pensando cómo arreglarlo...
+      </div>`;
+
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}/soluciones`, { method: "POST" });
+      const datos = await respuesta.json();
+
+      if (datos.soluciones.length === 0) {
+        zona.innerHTML = `<p style="margin-top:14px;color:var(--sage);font-weight:700">${datos.mensaje || "No hay nada que arreglar: todo está en verde."}</p>`;
+        return;
+      }
+
+      const comparativa = `
+        <div class="comparativa">
+          <span class="num antes">${datos.puntuacion_actual}</span>
+          <span class="flecha">→</span>
+          <span class="num despues">${datos.puntuacion_estimada_tras_cambios}</span>
+          <span class="txt">nota estimada si aplicas todas las soluciones (mejor caso)</span>
+        </div>`;
+
+      const listaSoluciones = datos.soluciones.map((s) => `
+        <div class="solucion">
+          <h4>${s.problema}</h4>
+          <ol>${s.pasos.map((p) => `<li>${p}</li>`).join("")}</ol>
+          <div class="meta">
+            <span>Lo hace: ${s.quien_lo_hace}</span>
+            <span>Dificultad: ${s.dificultad}</span>
+          </div>
+        </div>`).join("");
+
+      zona.innerHTML = comparativa + listaSoluciones;
+    } catch (error) {
+      zona.innerHTML = `<p style="color:var(--brick);margin-top:10px">No se han podido generar las soluciones ahora mismo.</p>`;
+    } finally {
+      boton.disabled = false;
+    }
+  });
+
+  cargarInforme();
+</script>
+
+</body>
+</html>
