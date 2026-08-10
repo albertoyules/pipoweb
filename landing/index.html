@@ -66,12 +66,113 @@
   @media(max-width:880px){.hero-grid{grid-template-columns:1fr;text-align:center}.hero p.sub{margin-left:auto;margin-right:auto}.hero-cta,.eyebrow{justify-content:center}.scanbox{margin-left:auto;margin-right:auto}.pipo-stage{order:-1}}
 
   /* PIPO CHARACTER */
-  .pipo-stage{display:flex;justify-content:center;align-items:center;position:relative}
-  .pipo-halo{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%)}
-  .pipo{width:280px;height:auto;position:relative;z-index:2;animation:float 5s ease-in-out infinite}
+  .pipo-stage{display:flex;justify-content:center;align-items:flex-end;position:relative;min-height:400px}
+  .pipo-halo{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%);top:30px}
+  .tree{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:250px;z-index:1}
+  .pipo{width:230px;height:auto;position:relative;z-index:2;margin-bottom:108px;animation:float 5s ease-in-out infinite}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
   .mag{animation:sniff 4s ease-in-out infinite;transform-origin:center}
   @keyframes sniff{0%,100%{transform:rotate(0) translate(0,0)}50%{transform:rotate(-8deg) translate(-6px,4px)}}
+
+  /* PIPO "ALIVE": subtle face turn, eyes looking around, occasional blink */
+  .pipo-face{transform-origin:120px 105px;animation:pipo-girar 9s ease-in-out infinite}
+  @keyframes pipo-girar{0%,100%{rotate:0deg}30%{rotate:-4deg}60%{rotate:3deg}80%{rotate:-1.5deg}}
+  .pipo-eye{transform-origin:center;animation:pipo-mirar 7s ease-in-out infinite,pipo-parpadeo 5.3s ease-in-out infinite}
+  @keyframes pipo-mirar{0%,100%{translate:0 0}20%{translate:3px 0}45%{translate:-3px 1px}70%{translate:0 -1px}}
+  @keyframes pipo-parpadeo{0%,92%,100%{scale:1 1}94%{scale:1 .12}96%{scale:1 1}}
+
+  /* SNOWFLAKE TRIGGER */
+  .snowflake-trigger{position:absolute;top:6px;right:-6px;z-index:3;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px;animation:copo-flotar 6s ease-in-out infinite}
+  .copo{font-size:30px;line-height:1;color:#8ec9e8;filter:drop-shadow(0 4px 10px rgba(80,150,200,.4));display:inline-block;animation:copo-girar 8s linear infinite}
+  .nieve-texto{font-family:'Nunito';font-weight:700;font-size:12px;color:var(--brown-dark);background:#fff;padding:5px 12px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;box-shadow:var(--shadow)}
+  .snowflake-trigger:hover .copo{color:#6fb5e0}
+  @keyframes copo-flotar{0%,100%{transform:translate(0,0)}25%{transform:translate(-10px,8px)}50%{transform:translate(6px,20px)}75%{transform:translate(-4px,6px)}}
+  @keyframes copo-girar{from{rotate:0deg}to{rotate:360deg}}
+  @media(max-width:880px){.snowflake-trigger{top:-10px;right:10%}}
+
+  /* MODO INVIERNO: el hielo se propaga en círculo desde el copo y congela la web.
+     Todo lo que se mueve usa solo transform/opacity (compositor de la GPU), y los
+     copos se crean al pulsar y se borran al terminar: fuera del efecto, coste cero. */
+
+  /* 1. Tinte azul: nace en el punto del copo y se expande en círculo (clip-path). */
+  #invierno-overlay{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;
+    background:radial-gradient(circle at var(--ox,50%) var(--oy,10%),
+      rgba(205,235,255,.45),rgba(150,210,250,.8) 45%,rgba(105,175,230,.95));
+    mix-blend-mode:color;
+    clip-path:circle(0px at var(--ox,50%) var(--oy,10%));
+    transition:clip-path 1.9s cubic-bezier(.42,.08,.5,.94),opacity .5s ease}
+  body.modo-invierno #invierno-overlay{opacity:1;clip-path:circle(115vmax at var(--ox,50%) var(--oy,10%))}
+
+  /* 2. Escarcha: blanco helado en los bordes, con la misma expansión circular. */
+  #escarcha{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0;
+    background:
+      radial-gradient(circle at 0 0,rgba(255,255,255,.9),transparent 34%),
+      radial-gradient(circle at 100% 0,rgba(255,255,255,.9),transparent 34%),
+      radial-gradient(circle at 0 100%,rgba(255,255,255,.85),transparent 32%),
+      radial-gradient(circle at 100% 100%,rgba(255,255,255,.85),transparent 32%),
+      radial-gradient(circle at 50% 50%,transparent 42%,rgba(226,244,255,.6));
+    clip-path:circle(0px at var(--ox,50%) var(--oy,10%));
+    transition:clip-path 1.9s cubic-bezier(.42,.08,.5,.94),opacity .9s ease}
+  body.modo-invierno #escarcha{opacity:.85;clip-path:circle(115vmax at var(--ox,50%) var(--oy,10%))}
+
+  /* 3. Onda de choque: aro helado que sale disparado del copo marcando el frente
+        del hielo. Se escala (no se redibuja), por eso es barata. */
+  #onda-hielo{position:fixed;top:0;left:0;width:300px;height:300px;margin:-150px 0 0 -150px;
+    border-radius:50%;z-index:10001;pointer-events:none;opacity:0;
+    background:radial-gradient(circle,transparent 58%,rgba(255,255,255,.55) 70%,rgba(214,241,255,.95) 77%,transparent 84%);
+    transform:translate(var(--ox,50%),var(--oy,10%)) scale(.06)}
+  body.modo-invierno #onda-hielo{animation:onda-expandir 1.9s cubic-bezier(.42,.08,.5,.94) forwards}
+  @keyframes onda-expandir{
+    0%{opacity:0;transform:translate(var(--ox),var(--oy)) scale(.06)}
+    12%{opacity:1}
+    100%{opacity:0;transform:translate(var(--ox),var(--oy)) scale(10)}}
+
+  /* 4. Lo que estaba vivo se queda tieso... menos Pipo, que tirita de frío. */
+  body.modo-invierno{cursor:progress}
+  body.modo-invierno .mag,
+  body.modo-invierno .pipo-face,
+  body.modo-invierno .pipo-eye,
+  body.modo-invierno .snowflake-trigger,
+  body.modo-invierno .copo{animation-play-state:paused}
+  body.modo-invierno .pipo{animation:pipo-tiritar .13s linear infinite}
+  @keyframes pipo-tiritar{
+    0%,100%{transform:translate(0,0) rotate(0)}
+    25%{transform:translate(-2.5px,1px) rotate(-1.1deg)}
+    50%{transform:translate(2px,-1px) rotate(1.1deg)}
+    75%{transform:translate(-1.5px,1.5px) rotate(-.7deg)}}
+
+  /* 5. Nieve y viento */
+  #contenedor-nieve{position:fixed;inset:0;z-index:10000;overflow:hidden;pointer-events:none}
+  .copo-cayendo{position:absolute;top:-50px;color:#f2faff;will-change:transform;
+    text-shadow:0 0 8px rgba(150,205,245,.9);animation:copo-caer linear forwards}
+  @keyframes copo-caer{
+    0%{opacity:0;transform:translate3d(0,0,0) rotate(0)}
+    12%{opacity:.95}
+    100%{opacity:.25;transform:translate3d(var(--viento,60px),115vh,0) rotate(600deg)}}
+  .racha{position:absolute;height:2px;border-radius:2px;will-change:transform;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent);
+    animation:racha-viento ease-in forwards}
+  @keyframes racha-viento{
+    0%{opacity:0;transform:translate3d(-30vw,0,0) scaleX(.4)}
+    20%{opacity:.9}
+    100%{opacity:0;transform:translate3d(115vw,26px,0) scaleX(1.6)}}
+
+  /* PIPO SALUDA AL HACERLE CLIC */
+  .pipo{cursor:pointer;transform-origin:center bottom}
+  .pipo.saludando{animation:pipo-saltar .95s cubic-bezier(.3,1.4,.5,1)}
+  @keyframes pipo-saltar{
+    0%{transform:translateY(0) scale(1,1)}
+    14%{transform:translateY(0) scale(1.1,.88)}
+    38%{transform:translateY(-40px) scale(.95,1.07)}
+    58%{transform:translateY(-34px) scale(1,1)}
+    82%{transform:translateY(0) scale(1.08,.9)}
+    100%{transform:translateY(0) scale(1,1)}}
+  .pipo.saludando .mag{animation:pipo-saludar .95s ease-in-out}
+  @keyframes pipo-saludar{
+    0%,100%{transform:rotate(0) translate(0,0)}
+    25%{transform:rotate(-30deg) translate(-6px,-14px)}
+    50%{transform:rotate(12deg) translate(3px,-18px)}
+    75%{transform:rotate(-24deg) translate(-5px,-14px)}}
 
   /* MARQUEE STAT */
   .band{background:var(--brown-dark);color:var(--cream);padding:26px 0;margin-top:30px}
@@ -149,7 +250,10 @@
   .foot-in .logo{font-size:20px}
   .foot-links{display:flex;gap:24px;font-size:14px;font-weight:600;opacity:.75}
 
-  @media(prefers-reduced-motion:reduce){.pipo,.mag{animation:none}}
+  @media(prefers-reduced-motion:reduce){
+    .pipo,.mag,.pipo-face,.pipo-eye,.snowflake-trigger,.copo,
+    body.modo-invierno .pipo,#onda-hielo{animation:none}
+  }
 
   /* RESULTADO DEL ESCANEO EN VIVO (hero) */
   #zona-resultado{margin-top:22px;max-width:480px}
@@ -181,18 +285,25 @@
       <!-- ear tufts -->
       <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
       <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
-      <!-- eyes -->
-      <circle cx="92" cy="120" r="30" fill="#fff"/>
-      <circle cx="148" cy="120" r="30" fill="#fff"/>
-      <circle cx="95" cy="122" r="15" fill="#3A2E24"/>
-      <circle cx="145" cy="122" r="15" fill="#3A2E24"/>
-      <circle cx="100" cy="117" r="5" fill="#fff"/>
-      <circle cx="150" cy="117" r="5" fill="#fff"/>
-      <!-- brows -->
-      <path d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
-      <path d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
-      <!-- beak -->
-      <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
+      <!-- face: brows, eyes and beak turn together, subtly, like Pipo is alive -->
+      <g class="pipo-face">
+        <!-- brows -->
+        <path d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+        <path d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+        <!-- eyes (each pair moves and blinks together) -->
+        <g class="pipo-eye pipo-eye-l">
+          <circle cx="92" cy="120" r="30" fill="#fff"/>
+          <circle cx="95" cy="122" r="15" fill="#3A2E24"/>
+          <circle cx="100" cy="117" r="5" fill="#fff"/>
+        </g>
+        <g class="pipo-eye pipo-eye-r">
+          <circle cx="148" cy="120" r="30" fill="#fff"/>
+          <circle cx="145" cy="122" r="15" fill="#3A2E24"/>
+          <circle cx="150" cy="117" r="5" fill="#fff"/>
+        </g>
+        <!-- beak -->
+        <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
+      </g>
       <!-- wings -->
       <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
       <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
@@ -209,6 +320,14 @@
     <symbol id="leaf" viewBox="0 0 100 100">
       <path d="M50 10 Q90 40 50 90 Q10 40 50 10Z" fill="currentColor"/>
       <line x1="50" y1="20" x2="50" y2="80" stroke="rgba(0,0,0,.12)" stroke-width="3"/>
+    </symbol>
+    <symbol id="tree" viewBox="0 0 220 300">
+      <path d="M98 300 L94 176 Q110 166 126 176 L122 300Z" fill="#6F4E37"/>
+      <path d="M110 176 L60 210 M110 186 L162 216" stroke="#6F4E37" stroke-width="8" stroke-linecap="round"/>
+      <ellipse cx="110" cy="150" rx="98" ry="82" fill="#8A9A5B"/>
+      <ellipse cx="56" cy="122" rx="56" ry="50" fill="#9CAE6E"/>
+      <ellipse cx="164" cy="132" rx="58" ry="52" fill="#7C8C4E"/>
+      <ellipse cx="110" cy="92" rx="66" ry="56" fill="#8A9A5B"/>
     </symbol>
   </defs>
 </svg>
@@ -252,7 +371,12 @@
     </div>
     <div class="pipo-stage">
       <div class="pipo-halo"></div>
+      <svg class="tree" aria-hidden="true"><use href="#tree"/></svg>
       <svg class="pipo" id="pipo-hero"><use href="#pipo"/></svg>
+      <button type="button" id="btn-nieve" class="snowflake-trigger">
+        <span class="copo" aria-hidden="true">❄</span>
+        <span class="nieve-texto">¡Haz que Pipo tenga frío!</span>
+      </button>
     </div>
   </div>
 </header>
@@ -393,6 +517,11 @@
     </div>
   </div>
 </section>
+
+<div id="invierno-overlay" aria-hidden="true"></div>
+<div id="escarcha" aria-hidden="true"></div>
+<div id="onda-hielo" aria-hidden="true"></div>
+<div id="contenedor-nieve" aria-hidden="true"></div>
 
 <!-- CTA FINAL -->
 <section class="wrap">
@@ -545,6 +674,83 @@
     } finally {
       boton.disabled = false;
     }
+  });
+
+  // "Haz que Pipo tenga frío": el hielo se propaga en círculo desde el copo,
+  // Pipo tirita, cae nieve con viento y la web se queda congelada unos
+  // segundos. Puramente decorativo, sin llamadas al backend.
+  const btnNieve = document.getElementById("btn-nieve");
+  const contenedorNieve = document.getElementById("contenedor-nieve");
+  const pipoHero = document.getElementById("pipo-hero");
+  const prefiereMenosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let congelando = false;
+
+  function crearNieveCayendo() {
+    const simbolos = "❄❆❅";
+    const fragmento = document.createDocumentFragment();
+
+    for (let i = 0; i < 28; i++) {
+      const copo = document.createElement("span");
+      copo.className = "copo-cayendo";
+      copo.textContent = simbolos[Math.floor(Math.random() * simbolos.length)];
+      // Empiezan repartidos más a la izquierda de la pantalla porque el
+      // viento los arrastra hacia la derecha mientras caen.
+      copo.style.left = `${Math.random() * 110 - 20}vw`;
+      copo.style.fontSize = `${11 + Math.random() * 17}px`;
+      // Cada copo lleva su propio empuje de viento: los pequeños (más
+      // ligeros) se desvían más, como pasaría de verdad.
+      copo.style.setProperty("--viento", `${40 + Math.random() * 160}px`);
+      copo.style.animationDuration = `${3.5 + Math.random() * 3}s`;
+      copo.style.animationDelay = `${Math.random() * 2}s`;
+      fragmento.appendChild(copo);
+    }
+
+    // Rachas de viento: líneas finas que cruzan la pantalla.
+    for (let i = 0; i < 5; i++) {
+      const racha = document.createElement("span");
+      racha.className = "racha";
+      racha.style.top = `${10 + Math.random() * 75}vh`;
+      racha.style.width = `${120 + Math.random() * 180}px`;
+      racha.style.animationDuration = `${1.1 + Math.random() * 0.9}s`;
+      racha.style.animationDelay = `${0.3 + Math.random() * 4}s`;
+      fragmento.appendChild(racha);
+    }
+
+    contenedorNieve.appendChild(fragmento);
+  }
+
+  btnNieve.addEventListener("click", () => {
+    if (congelando) return;
+    congelando = true;
+
+    // El hielo nace en el propio copo, no en el centro de la pantalla:
+    // las tres capas (tinte, escarcha y onda) leen estas dos variables.
+    const rectCopo = btnNieve.querySelector(".copo").getBoundingClientRect();
+    const raiz = document.documentElement;
+    raiz.style.setProperty("--ox", `${rectCopo.left + rectCopo.width / 2}px`);
+    raiz.style.setProperty("--oy", `${rectCopo.top + rectCopo.height / 2}px`);
+
+    document.body.classList.add("modo-invierno");
+    if (!prefiereMenosMovimiento) crearNieveCayendo();
+
+    setTimeout(() => {
+      document.body.classList.remove("modo-invierno");
+      // Los copos se borran del DOM al deshelarse: fuera del efecto no
+      // queda nada animándose de fondo.
+      setTimeout(() => {
+        contenedorNieve.innerHTML = "";
+        congelando = false;
+      }, 1000);
+    }, 5800);
+  });
+
+  // Pipo saluda de un salto si le haces clic (y no está congelado).
+  pipoHero.addEventListener("click", () => {
+    if (congelando || pipoHero.classList.contains("saludando")) return;
+    pipoHero.classList.add("saludando");
+  });
+  pipoHero.addEventListener("animationend", () => {
+    pipoHero.classList.remove("saludando");
   });
 </script>
 
