@@ -79,14 +79,14 @@ app.add_middleware(SlowAPIMiddleware)
 # Railway habría aceptado peticiones desde CUALQUIER página web que
 # alguien visitara — con la cuota diaria de Gemini tan ajustada (ver
 # CLAUDE.md, P1), eso es un riesgo real, no solo teórico.
-# PENDIENTE: cuando la landing tenga un dominio público de verdad
-# (Vercel/Firebase Hosting), añadirlo aquí y quitar los localhost si
-# ya no hace falta seguir probando en local.
+# Landing ya desplegada en Vercel (10 ago 2026) — dominio estable del
+# proyecto, no las URLs de preview con hash que cambian en cada deploy.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://127.0.0.1:5500",
         "http://localhost:5500",
+        "https://piposcan.vercel.app",
     ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
