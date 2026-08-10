@@ -20,6 +20,7 @@ from app.checks.privacidad_check import comprobar_privacidad
 from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
+from app.checks.tecnologia_check import comprobar_tecnologia
 
 
 async def ejecutar_escaneo(
@@ -63,6 +64,7 @@ async def ejecutar_escaneo(
         comprobar_seo(pagina),
         asyncio.to_thread(comprobar_privacidad, pagina),
         asyncio.to_thread(comprobar_mixed_content, pagina),
+        comprobar_tecnologia(pagina),
     )
 
     checks = [*resultados_iniciales, *resultados_dependientes_de_pagina]

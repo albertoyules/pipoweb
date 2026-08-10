@@ -26,6 +26,7 @@ from app.checks.privacidad_check import comprobar_privacidad
 from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
+from app.checks.tecnologia_check import comprobar_tecnologia
 from app.database import (
     guardar_escaneo,
     guardar_informe,
@@ -152,6 +153,13 @@ async def check_privacidad(dominio: str):
     """Endpoint de prueba del check de privacidad/RGPD."""
     pagina = await obtener_pagina(dominio)
     return comprobar_privacidad(pagina)
+
+
+@app.get("/check/tecnologia")
+async def check_tecnologia(dominio: str):
+    """Endpoint de prueba del check de tecnología/CMS desactualizada."""
+    pagina = await obtener_pagina(dominio)
+    return await comprobar_tecnologia(pagina)
 
 
 @app.get("/check/mixed-content")
