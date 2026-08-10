@@ -9,13 +9,23 @@ complicar algo que no hace falta todavía.
 """
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 
-# El archivo de la base de datos vive junto a este módulo, dentro de
-# backend/. Está en .gitignore: no se sube a git porque son datos,
-# no código.
-RUTA_DB = Path(__file__).parent.parent / "pipo.db"
+# Dónde vive el archivo de la base de datos.
+#
+# En local: junto a este módulo, dentro de backend/. Está en .gitignore
+# porque son datos, no código.
+#
+# En Railway: el disco del contenedor es EFÍMERO — se borra entero en
+# cada despliegue. Con la ruta de local, cada `git push` vaciaba la base
+# de datos y los enlaces a informe.html?id=X de escaneos anteriores
+# dejaban de funcionar. Por eso en producción se define la variable de
+# entorno PIPO_DB_DIR apuntando a un volumen persistente (ver CLAUDE.md).
+_DIRECTORIO_DB = Path(os.getenv("PIPO_DB_DIR") or Path(__file__).parent.parent)
+_DIRECTORIO_DB.mkdir(parents=True, exist_ok=True)
+RUTA_DB = _DIRECTORIO_DB / "pipo.db"
 
 
 def obtener_conexion() -> sqlite3.Connection:
