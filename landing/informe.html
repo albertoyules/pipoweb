@@ -209,7 +209,10 @@
 <footer>© 2026 Pipo · Málaga · Informe generado a partir de información pública, sin acceder a tu servidor.</footer>
 
 <script>
-  const API_BASE = "http://127.0.0.1:8000";
+  // Dirección del backend, ya desplegado en Railway (10 ago 2026).
+  // Si algún día vuelves a probar contra tu backend en local, cambia
+  // esto de vuelta a "http://127.0.0.1:8000" (una sola línea).
+  const API_BASE = "https://pipo-analiza-production.up.railway.app";
   const parametros = new URLSearchParams(location.search);
   const idEscaneo = parametros.get("id");
 

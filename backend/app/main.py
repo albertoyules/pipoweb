@@ -73,13 +73,21 @@ app.add_middleware(SlowAPIMiddleware)
 
 # CORS: por defecto, un navegador bloquea que una página en un origen
 # (p.ej. tu landing servida en localhost:5500) llame a una API en otro
-# origen (localhost:8000) — es una protección estándar del navegador,
-# no de nuestro servidor. Aquí la abrimos explícitamente para desarrollo.
-# En producción, cuando la landing tenga un dominio real, se restringe
-# allow_origins a ese dominio en concreto en vez de "*".
+# origen (Railway) — es una protección estándar del navegador, no de
+# nuestro servidor. Aquí solo dejamos pasar tu entorno de desarrollo
+# local. Antes, con allow_origins=["*"], el backend ya desplegado en
+# Railway habría aceptado peticiones desde CUALQUIER página web que
+# alguien visitara — con la cuota diaria de Gemini tan ajustada (ver
+# CLAUDE.md, P1), eso es un riesgo real, no solo teórico.
+# PENDIENTE: cuando la landing tenga un dominio público de verdad
+# (Vercel/Firebase Hosting), añadirlo aquí y quitar los localhost si
+# ya no hace falta seguir probando en local.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )

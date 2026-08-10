@@ -419,9 +419,10 @@
 
 
 <script>
-  // Dirección del backend. En local es esto; el día del despliegue,
-  // se cambia por la URL real de la API en producción (una sola línea).
-  const API_BASE = "http://127.0.0.1:8000";
+  // Dirección del backend, ya desplegado en Railway (10 ago 2026).
+  // Si algún día vuelves a probar contra tu backend en local, cambia
+  // esto de vuelta a "http://127.0.0.1:8000" (una sola línea).
+  const API_BASE = "https://pipo-analiza-production.up.railway.app";
 
   // Nombres amigables para cada check — el backend los identifica por
   // un id técnico (ssl, dns...), aquí los traducimos para quien no es
