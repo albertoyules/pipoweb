@@ -271,6 +271,26 @@
   .consentimiento label{font-size:13.5px;color:var(--brown-dark);opacity:.85;cursor:pointer}
   .consentimiento a{color:var(--terracotta);font-weight:600}
   .btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+
+  /* BLOQUEO DE RESULTADOS: desbloquear con email (punto 5.2 del planning) */
+  .zona-bloqueada{position:relative;margin-top:4px}
+  .filas-bloqueadas{filter:blur(5px);user-select:none;pointer-events:none}
+  .capa-desbloqueo{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;gap:10px;padding:18px 20px;
+    background:linear-gradient(180deg,rgba(255,255,255,.35),rgba(255,255,255,.92) 35%);
+  }
+  .capa-desbloqueo svg{width:34px;height:34px}
+  .capa-desbloqueo .titulo{font-family:'Fraunces';font-weight:600;font-size:16px;color:var(--brown-dark)}
+  .capa-desbloqueo .sub{font-size:13.5px;color:#6a5c4e;max-width:320px}
+  .form-desbloqueo{display:flex;gap:6px;width:100%;max-width:300px;margin-top:2px}
+  .form-desbloqueo input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-family:'Nunito';font-size:14px;color:var(--ink)}
+  .form-desbloqueo button{padding:9px 16px;font-size:14px;white-space:nowrap}
+  .consentimiento-lead{display:flex;align-items:flex-start;gap:7px;max-width:300px;text-align:left;margin-top:2px}
+  .consentimiento-lead input{margin-top:2px;flex-shrink:0;width:14px;height:14px;accent-color:var(--terracotta);cursor:pointer}
+  .consentimiento-lead label{font-size:11.5px;color:var(--brown-dark);opacity:.8;cursor:pointer;line-height:1.4}
+  .consentimiento-lead a{color:var(--terracotta);font-weight:600}
+  .error-desbloqueo{font-size:12.5px;color:var(--brick);font-weight:600;min-height:15px}
 </style>
 </head>
 <body>
@@ -596,9 +616,17 @@
       </div>`;
   }
 
+  // Cuántos checks se enseñan gratis, sin dejar email — coincide a
+  // propósito con "3 comprobaciones clave" del plan "Vistazo" en la
+  // sección de precios (punto 5.2 del planning).
+  const NUM_CHECKS_GRATIS = 3;
+
   function pintarResultado(zona, dominio, datos) {
     const nota = calcularNota(datos.checks);
-    const filas = datos.checks.map((check) => {
+    const checksVisibles = datos.checks.slice(0, NUM_CHECKS_GRATIS);
+    const checksBloqueados = datos.checks.slice(NUM_CHECKS_GRATIS);
+
+    const filaHTML = (check) => {
       const nombre = NOMBRES_CHECK[check.check] || check.check;
       const letra = { verde: "g", ambar: "a", rojo: "r" }[check.estado];
       const texto = { verde: "Bien", ambar: "Aviso", rojo: "Crítico" }[check.estado];
@@ -608,7 +636,36 @@
           <span class="lbl">${nombre}</span>
           <span class="tag ${letra}">${texto}</span>
         </div>`;
-    }).join("");
+    };
+
+    const filasVisibles = checksVisibles.map(filaHTML).join("");
+    const filasBloqueadas = checksBloqueados.map(filaHTML).join("");
+
+    // Si ya dejó el email antes para este mismo escaneo (p.ej. recarga
+    // de página), no se lo volvemos a pedir.
+    const yaDesbloqueado = localStorage.getItem(`pipo_desbloqueado_${datos.id}`) === "true";
+    const hayAlgoQueBloquear = checksBloqueados.length > 0 && !yaDesbloqueado;
+
+    const bloqueHTML = !hayAlgoQueBloquear
+      ? filasBloqueadas
+      : `
+        <div class="zona-bloqueada" id="zona-bloqueada">
+          <div class="filas-bloqueadas">${filasBloqueadas}</div>
+          <div class="capa-desbloqueo">
+            <svg><use href="#pipo"/></svg>
+            <span class="titulo">Quedan ${checksBloqueados.length} comprobaciones más</span>
+            <span class="sub">Deja tu email y desbloquea el resto del informe al instante.</span>
+            <form class="form-desbloqueo" id="form-desbloqueo">
+              <input type="email" id="input-email-lead" placeholder="tu@email.com" required>
+              <button class="btn btn-primary" type="submit">Ver</button>
+            </form>
+            <div class="consentimiento-lead">
+              <input type="checkbox" id="check-consiento-lead">
+              <label for="check-consiento-lead">Acepto que Pipo me contacte sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+            </div>
+            <span class="error-desbloqueo" id="error-desbloqueo"></span>
+          </div>
+        </div>`;
 
     zona.innerHTML = `
       <div class="report">
@@ -617,9 +674,60 @@
           <span class="u">${dominio}</span>
           <span class="score">${nota}</span>
         </div>
-        ${filas}
+        ${filasVisibles}
+        ${bloqueHTML}
       </div>
-      <a class="ver-informe" href="informe.html?id=${datos.id}&dominio=${encodeURIComponent(dominio)}">Ver informe completo →</a>`;
+      <a class="ver-informe" id="link-informe" href="informe.html?id=${datos.id}&dominio=${encodeURIComponent(dominio)}"${hayAlgoQueBloquear ? ' style="display:none"' : ""}>Ver informe completo →</a>`;
+
+    // El link al informe completo (con IA) también queda oculto hasta
+    // desbloquear: si no, se podría saltar el formulario simplemente
+    // pinchando ahí en vez de dejar el email.
+    const formDesbloqueo = document.getElementById("form-desbloqueo");
+    if (!formDesbloqueo) return;
+
+    formDesbloqueo.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+
+      const checkConsientoLead = document.getElementById("check-consiento-lead");
+      const errorDesbloqueo = document.getElementById("error-desbloqueo");
+      const email = document.getElementById("input-email-lead").value.trim();
+
+      if (!checkConsientoLead.checked) {
+        errorDesbloqueo.textContent = "Marca la casilla para continuar.";
+        return;
+      }
+
+      const boton = formDesbloqueo.querySelector("button");
+      boton.disabled = true;
+      errorDesbloqueo.textContent = "";
+
+      try {
+        const respuesta = await fetch(
+          `${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominio)}&id_escaneo=${datos.id}`,
+          { method: "POST" }
+        );
+
+        if (respuesta.status === 429) {
+          errorDesbloqueo.textContent = "Demasiados intentos seguidos. Espera un minuto.";
+          return;
+        }
+        if (!respuesta.ok) {
+          errorDesbloqueo.textContent = "Ese email no parece válido.";
+          return;
+        }
+
+        localStorage.setItem(`pipo_desbloqueado_${datos.id}`, "true");
+
+        // Sustituye el bloque difuminado por las filas normales, sin
+        // volver a pedir nada al backend: los datos ya los teníamos.
+        document.getElementById("zona-bloqueada").outerHTML = filasBloqueadas;
+        document.getElementById("link-informe").style.display = "";
+      } catch (error) {
+        errorDesbloqueo.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
+      } finally {
+        boton.disabled = false;
+      }
+    });
   }
 
   // El botón "Analizar" solo se activa cuando el checkbox de

@@ -70,6 +70,27 @@ def inicializar_db() -> None:
         for columna in ("informe_json", "soluciones_json", "rendimiento_json"):
             _asegurar_columna(conexion, "escaneos", columna)
 
+        # Leads captados en el escaneo gratis: al enseñar solo un
+        # adelanto del informe (ver /api/leads en main.py), quien quiere
+        # ver el resto deja su email. Es lo que convierte el escaneo
+        # gratis en algo que alimenta una lista de leads de verdad, en
+        # vez de enseñarlo todo sin pedir nada a cambio (punto 5.2 del
+        # planning). No hay FOREIGN KEY hacia escaneos a propósito: si
+        # algún día se borra un escaneo antiguo, no queremos perder el
+        # lead por una restricción de integridad — son datos con ciclos
+        # de vida distintos.
+        conexion.execute(
+            """
+            CREATE TABLE IF NOT EXISTS leads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                dominio TEXT NOT NULL,
+                id_escaneo INTEGER NOT NULL,
+                fecha TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+
 
 def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) -> None:
     """
@@ -156,4 +177,18 @@ def guardar_rendimiento(id_escaneo: int, rendimiento: dict) -> None:
         conexion.execute(
             "UPDATE escaneos SET rendimiento_json = ? WHERE id = ?",
             (json.dumps(rendimiento), id_escaneo),
+        )
+
+
+def guardar_lead(email: str, dominio: str, id_escaneo: int) -> None:
+    """
+    Guarda un lead: alguien que ha dejado su email para desbloquear el
+    resto del informe de un escaneo. Se permite dejarlo más de una vez
+    para el mismo escaneo (por ejemplo, si recarga la página) sin que
+    eso sea un error — simplemente queda otra fila con la fecha.
+    """
+    with obtener_conexion() as conexion:
+        conexion.execute(
+            "INSERT INTO leads (email, dominio, id_escaneo) VALUES (?, ?, ?)",
+            (email, dominio, id_escaneo),
         )

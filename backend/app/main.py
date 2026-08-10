@@ -8,6 +8,7 @@ aquí como endpoints a medida que los construyamos.
 """
 
 import asyncio
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -30,6 +31,7 @@ from app.checks.tecnologia_check import comprobar_tecnologia
 from app.database import (
     guardar_escaneo,
     guardar_informe,
+    guardar_lead,
     guardar_rendimiento,
     guardar_soluciones,
     inicializar_db,
@@ -44,6 +46,12 @@ from app.scanner import ejecutar_escaneo
 # ventana de tiempo. get_remote_address identifica a quién limitar por
 # su dirección IP (lo mismo que usaría cualquier firewall básico).
 limiter = Limiter(key_func=get_remote_address)
+
+# Comprobación ligera de que el email tiene forma de email — no es un
+# validador RFC 5322 completo (eso exigiría una librería aparte para
+# poca ganancia real). Solo pretende filtrar errores de escritura
+# evidentes antes de guardar el lead.
+REGEX_EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 @asynccontextmanager
@@ -248,6 +256,33 @@ def obtener_scan(id_escaneo: int):
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
     return escaneo
+
+
+@app.post("/api/leads")
+@limiter.limit("5/minute")
+async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int):
+    """
+    Guarda un lead: alguien que ha dejado su email en el escaneo
+    gratis para desbloquear el resto del informe (ver landing/index.html,
+    la sección que queda difuminada hasta que se envía este formulario).
+
+    `id_escaneo` tiene que ser el de un escaneo real — así no se puede
+    usar este endpoint para acumular emails sueltos sin que estén
+    atados a un escaneo de verdad. Es POST porque escribe datos nuevos,
+    igual que /api/scan.
+
+    Limitado a 5 peticiones por minuto y por IP, mismo motivo que el
+    resto: evitar que alguien reviente el formulario con un script.
+    """
+    if obtener_escaneo(id_escaneo) is None:
+        raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+
+    email_limpio = email.strip().lower()
+    if not REGEX_EMAIL.match(email_limpio):
+        raise HTTPException(status_code=400, detail="Ese email no parece válido.")
+
+    guardar_lead(email=email_limpio, dominio=dominio, id_escaneo=id_escaneo)
+    return {"ok": True}
 
 
 @app.get("/api/scan/{id_escaneo}/rendimiento")
