@@ -36,7 +36,27 @@
   .logo{display:flex;align-items:center;gap:10px;font-family:'Fraunces';font-weight:600;font-size:20px;color:var(--brown-dark)}
   .logo svg{width:30px;height:30px}
 
-  main{padding:44px 0 80px}
+  main{padding:44px 0 120px}
+
+  /* cabecera de página: para que nav no quede pegada directamente al
+     primer bloque, en cualquier estado (cargando, bloqueado, error...) */
+  .titulo-pagina{display:flex;align-items:center;gap:8px;margin-bottom:22px}
+  .titulo-pagina svg{width:24px;height:24px}
+  .titulo-pagina span{font-family:'Fraunces';font-weight:600;font-size:15px;color:var(--brown-dark);text-transform:uppercase;letter-spacing:.06em}
+
+  /* bloqueo del informe: se pide el email antes de gastar la llamada a
+     la IA, no solo antes de enseñar el resultado (ver CLAUDE.md) */
+  .escena-bloqueo{background:#fff;border:1px solid var(--line);border-radius:20px;padding:44px 32px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+  .escena-bloqueo svg{width:64px;height:64px}
+  .escena-bloqueo h2{font-size:21px;color:var(--ink)}
+  .escena-bloqueo .sub{font-size:14.5px;color:var(--brown-dark);max-width:380px}
+  .form-desbloqueo-informe{display:flex;gap:8px;width:100%;max-width:340px;margin-top:8px}
+  .form-desbloqueo-informe input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:'Nunito';font-size:15px;color:var(--ink)}
+  .consentimiento-lead{display:flex;align-items:flex-start;gap:8px;max-width:340px;text-align:left;margin-top:2px}
+  .consentimiento-lead input{margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:var(--terracotta);cursor:pointer}
+  .consentimiento-lead label{font-size:12.5px;color:var(--brown-dark);opacity:.85;cursor:pointer;line-height:1.4}
+  .consentimiento-lead a{color:var(--terracotta);font-weight:600}
+  .error-desbloqueo{font-size:13px;color:var(--brick);font-weight:600;min-height:16px}
 
   /* estado de error */
   .estado-error{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px;font-weight:700;color:var(--brick)}
@@ -114,7 +134,7 @@
   .solucion ol{margin:6px 0 10px 20px;font-size:14px;color:#5f5142;line-height:1.7}
   .solucion .meta{display:flex;gap:16px;font-size:12px;color:#8a7a68;font-weight:700}
 
-  footer{padding:36px 0;border-top:1px solid var(--line);color:var(--brown-dark);text-align:center;font-size:13px;opacity:.7}
+  footer{padding:48px 0;border-top:1px solid var(--line);color:var(--brown-dark);text-align:center;font-size:13px;opacity:.7}
 
   @media(prefers-reduced-motion:reduce){.mag{animation:none}}
 </style>
@@ -157,7 +177,29 @@
 </nav>
 
 <main class="wrap">
-  <div id="estado-carga">
+  <div class="titulo-pagina">
+    <svg><use href="#pipo"/></svg>
+    <span>Informe</span>
+  </div>
+
+  <div id="estado-bloqueo" style="display:none">
+    <div class="escena-bloqueo">
+      <svg><use href="#pipo"/></svg>
+      <h2>Antes de ver tu informe</h2>
+      <p class="sub">Pipo ya tiene el semáforo de tu web. Deja tu email y te enseña al instante los hallazgos explicados en cristiano, con prioridades y por qué importan.</p>
+      <form class="form-desbloqueo-informe" id="form-desbloqueo-informe">
+        <input type="email" id="input-email-lead" placeholder="tu@email.com" required>
+        <button class="btn btn-primary" type="submit">Ver informe</button>
+      </form>
+      <div class="consentimiento-lead">
+        <input type="checkbox" id="check-consiento-lead">
+        <label for="check-consiento-lead">Acepto que Pipo me contacte sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+      </div>
+      <span class="error-desbloqueo" id="error-desbloqueo"></span>
+    </div>
+  </div>
+
+  <div id="estado-carga" style="display:none">
     <div class="escena-carga">
       <div class="escena-figuras">
         <svg class="escena-pipo"><use href="#pipo"/></svg>
@@ -215,6 +257,7 @@
   const API_BASE = "https://pipo-analiza-production.up.railway.app";
   const parametros = new URLSearchParams(location.search);
   const idEscaneo = parametros.get("id");
+  const dominioParam = parametros.get("dominio") || "";
 
   const LETRA = { verde: "g", ambar: "a", rojo: "r" };
   const LETRA_PRIORIDAD = { alta: "r", media: "a", baja: "g" };
@@ -292,6 +335,7 @@
   function mostrarError(mensaje) {
     detenerRotacionDeFrases();
     document.getElementById("estado-carga").style.display = "none";
+    document.getElementById("estado-bloqueo").style.display = "none";
     const zona = document.getElementById("estado-error");
     zona.style.display = "block";
     zona.innerHTML = `
@@ -302,11 +346,7 @@
   }
 
   async function cargarInforme() {
-    if (!idEscaneo) {
-      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.");
-      return;
-    }
-
+    document.getElementById("estado-carga").style.display = "block";
     iniciarRotacionDeFrases();
 
     try {
@@ -436,7 +476,69 @@
     }
   });
 
-  cargarInforme();
+  // Punto de entrada: decide si hace falta pedir el email o si ya se
+  // dejó antes para este mismo escaneo (recuerda con localStorage, así
+  // no se vuelve a pedir cada vez que se recarga la página). El email
+  // se pide ANTES de llamar a /api/informe a propósito: esa llamada
+  // gasta cuota de IA, así que no tiene sentido pagarla por alguien que
+  // ni siquiera va a dejar el contacto.
+  function verificarAccesoInforme() {
+    if (!idEscaneo) {
+      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.");
+      return;
+    }
+
+    const yaDesbloqueado = localStorage.getItem(`pipo_desbloqueado_${idEscaneo}`) === "true";
+    if (yaDesbloqueado) {
+      cargarInforme();
+      return;
+    }
+
+    document.getElementById("estado-bloqueo").style.display = "block";
+  }
+
+  document.getElementById("form-desbloqueo-informe").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+
+    const checkConsientoLead = document.getElementById("check-consiento-lead");
+    const errorDesbloqueo = document.getElementById("error-desbloqueo");
+    const email = document.getElementById("input-email-lead").value.trim();
+
+    if (!checkConsientoLead.checked) {
+      errorDesbloqueo.textContent = "Marca la casilla para continuar.";
+      return;
+    }
+
+    const formulario = document.getElementById("form-desbloqueo-informe");
+    const boton = formulario.querySelector("button");
+    boton.disabled = true;
+    errorDesbloqueo.textContent = "";
+
+    try {
+      const respuesta = await fetch(
+        `${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`,
+        { method: "POST" }
+      );
+
+      if (respuesta.status === 429) {
+        errorDesbloqueo.textContent = "Demasiados intentos seguidos. Espera un minuto.";
+        return;
+      }
+      if (!respuesta.ok) {
+        errorDesbloqueo.textContent = "Ese email no parece válido.";
+        return;
+      }
+
+      localStorage.setItem(`pipo_desbloqueado_${idEscaneo}`, "true");
+      document.getElementById("estado-bloqueo").style.display = "none";
+      cargarInforme();
+    } catch (error) {
+      errorDesbloqueo.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
+      boton.disabled = false;
+    }
+  });
+
+  verificarAccesoInforme();
 </script>
 
 </body>
