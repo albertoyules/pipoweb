@@ -39,3 +39,9 @@ ANTHROPIC_API_KEY = _leer_clave("ANTHROPIC_API_KEY")
 # clave de API, pero se trata igual: fuera del código, en variables de
 # entorno, para no dejarlo en claro en el repo (aunque sea privado).
 TELEFONO_BIZUM = _leer_clave("TELEFONO_BIZUM")
+
+# Envío de emails (confirmación de pedido al cliente + aviso a Alberto)
+# por Gmail SMTP con una "contraseña de aplicación" — ver
+# app/notificaciones/enviar.py para el porqué de esta elección.
+GMAIL_EMAIL = _leer_clave("GMAIL_EMAIL")
+GMAIL_APP_PASSWORD = _leer_clave("GMAIL_APP_PASSWORD")

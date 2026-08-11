@@ -110,8 +110,9 @@
   .accion-pago{background:var(--cream-deep);border-radius:18px;padding:24px 26px}
   .precio-informe-completo{font-family:'Fraunces';font-size:26px;font-weight:600;color:var(--ink);margin-bottom:14px}
   .precio-informe-completo span{font-family:'Nunito';font-size:13px;font-weight:600;color:#8a7a68}
-  .form-pedido{display:flex;gap:8px;max-width:360px;margin-top:14px}
-  .form-pedido input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-family:'Nunito';font-size:14.5px;color:var(--ink)}
+  .form-pedido{display:flex;flex-wrap:wrap;gap:8px;max-width:480px;margin-top:14px}
+  .form-pedido input{flex:1 1 160px;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-family:'Nunito';font-size:14.5px;color:var(--ink)}
+  .form-pedido button{flex-shrink:0}
   .confirmacion-pedido{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-top:14px}
   .confirmacion-pedido h4{font-size:16px;color:var(--brown-dark);margin-bottom:8px}
   .confirmacion-pedido p{font-size:14px;color:#5f5142;margin-bottom:6px}
@@ -234,7 +235,7 @@
           <div class="accion accion-pago" id="accion-informe-completo">
             <h2>¿Cómo lo arreglo?</h2>
             <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, calcula la nota que tendría tu web si los aplicas todos, y te da el informe en PDF con la marca de Pipo para guardarlo o compartirlo.</p>
-            <div class="precio-informe-completo">19€ <span>· pago único por Bizum</span></div>
+            <div class="precio-informe-completo">19€ <span>· pago único</span></div>
             <button class="btn btn-primary" id="btn-pedir-completo">Pedir informe completo</button>
             <div id="zona-pedido"></div>
           </div>
@@ -509,37 +510,52 @@
     }
   });
 
-  // NIVEL DE PAGO "informe completo" (soluciones + PDF, 19€ por Bizum,
-  // cobro manual — ver CLAUDE.md, P2). Al pulsar, pide el email (puede
-  // ser distinto del que se dejó para desbloquear el informe gratis) y
-  // registra el pedido; la confirmación enseña el número de Bizum, la
-  // referencia a poner en el concepto, y un precio orientativo del
-  // nivel superior ("que lo arreglemos nosotros"), calculado por
-  // fórmula fija a partir de los checks, no por la IA.
+  // NIVEL DE PAGO "informe completo" (soluciones + PDF, 19€, cobro
+  // manual por Bizum — ver CLAUDE.md, P2). A propósito, la web NO
+  // enseña el número de Bizum ni la referencia a la vista de cualquiera:
+  // le llegan al cliente por email, en privado, junto con su diagnóstico
+  // concreto (nota + qué falla). Alberto recibe un segundo email
+  // avisando del pedido para poder hacer seguimiento.
   //
   // Importante: esto NO desbloquea nada todavía de forma automática —
   // no existe (aún) un mecanismo para marcar un pedido como pagado, así
   // que tras el Bizum el desbloqueo real lo hace Alberto a mano.
-  function pintarConfirmacionPedido(datos) {
-    const asunto = encodeURIComponent(`Quiero que me arregléis ${dominioParam}`);
-    const cuerpo = encodeURIComponent(`Referencia del pedido: ${datos.referencia}`);
+  function pintarConfirmacionPedido(datos, email) {
+    // Plan B si el email al cliente no ha podido enviarse (Gmail sin
+    // configurar, corte de red...): mejor enseñar el Bizum directamente
+    // en la página que dejar a alguien que ya ha pedido esto sin
+    // ninguna forma de pagar.
+    if (!datos.email_enviado) {
+      const asunto = encodeURIComponent(`Quiero que me arregléis ${dominioParam}`);
+      const cuerpo = encodeURIComponent(`Referencia del pedido: ${datos.referencia}`);
+      document.getElementById("zona-pedido").innerHTML = `
+        <div class="confirmacion-pedido">
+          <h4>Pedido registrado</h4>
+          <p>No hemos podido escribirte por email, así que aquí tienes cómo pagar: Bizum de <strong>${datos.precio}€</strong> al <span class="telefono">${datos.telefono_bizum}</span>, indicando en el concepto la referencia: <span class="referencia">${datos.referencia}</span></p>
+          <p>En cuanto confirmemos el pago, te escribimos con las soluciones y el PDF.</p>
+          <div class="upsell-arreglo">
+            ¿Prefieres que te lo arreglemos nosotros? Precio orientativo: <strong>${datos.precio_arreglo_estimado}€</strong>.
+            <a href="mailto:alberyules11@gmail.com?subject=${asunto}&body=${cuerpo}">Contáctanos</a>.
+          </div>
+        </div>`;
+      return;
+    }
+
     document.getElementById("zona-pedido").innerHTML = `
       <div class="confirmacion-pedido">
         <h4>Pedido registrado</h4>
-        <p>Haz un Bizum de <strong>${datos.precio}€</strong> al <span class="telefono">${datos.telefono_bizum}</span>, indicando en el concepto la referencia: <span class="referencia">${datos.referencia}</span></p>
-        <p>En cuanto confirmemos el pago, te escribimos con las soluciones y el PDF.</p>
-        <div class="upsell-arreglo">
-          ¿Prefieres que te lo arreglemos nosotros? Precio orientativo: <strong>${datos.precio_arreglo_estimado}€</strong>.
-          <a href="mailto:alberyules11@gmail.com?subject=${asunto}&body=${cuerpo}">Contáctanos</a>.
-        </div>
+        <p>Te hemos escrito a <strong>${email}</strong> con el diagnóstico completo de ${dominioParam} y cómo completar el pago.</p>
+        <p>¿No te llega? Revisa spam o escríbenos a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>.</p>
       </div>`;
   }
 
   document.getElementById("btn-pedir-completo").addEventListener("click", (evento) => {
     evento.target.style.display = "none";
     document.getElementById("zona-pedido").innerHTML = `
+      <p class="desc" style="margin-bottom:10px">Te escribimos en privado con el diagnóstico completo y cómo pagar.</p>
       <form class="form-pedido" id="form-pedido">
         <input type="email" id="input-email-pedido" placeholder="tu@email.com" required>
+        <input type="tel" id="input-telefono-pedido" placeholder="teléfono (opcional)">
         <button class="btn btn-primary" type="submit">Pedir</button>
       </form>
       <p class="error-desbloqueo" id="error-pedido"></p>`;
@@ -547,6 +563,7 @@
     document.getElementById("form-pedido").addEventListener("submit", async (evento) => {
       evento.preventDefault();
       const email = document.getElementById("input-email-pedido").value.trim();
+      const telefono = document.getElementById("input-telefono-pedido").value.trim();
       const boton = evento.target.querySelector("button");
       const errorPedido = document.getElementById("error-pedido");
 
@@ -554,10 +571,10 @@
       errorPedido.textContent = "";
 
       try {
-        const respuesta = await fetch(
-          `${API_BASE}/api/pedidos?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`,
-          { method: "POST" }
-        );
+        let url = `${API_BASE}/api/pedidos?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`;
+        if (telefono) url += `&telefono=${encodeURIComponent(telefono)}`;
+
+        const respuesta = await fetch(url, { method: "POST" });
         if (respuesta.status === 400) {
           errorPedido.textContent = "Ese email no parece válido.";
           return;
@@ -566,7 +583,7 @@
           errorPedido.textContent = "No se ha podido registrar el pedido. Inténtalo de nuevo.";
           return;
         }
-        pintarConfirmacionPedido(await respuesta.json());
+        pintarConfirmacionPedido(await respuesta.json(), email);
       } catch (error) {
         errorPedido.textContent = "No se ha podido conectar con el servidor.";
       } finally {

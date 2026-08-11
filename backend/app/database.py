@@ -111,6 +111,11 @@ def inicializar_db() -> None:
             )
             """
         )
+        # Teléfono opcional del cliente (para identificar su Bizum entrante,
+        # ya que Bizum solo enseña el número de quien paga). Añadida después
+        # de crear la tabla, así que usa la misma migración seguridad que
+        # las columnas de caché de arriba.
+        _asegurar_columna(conexion, "pedidos", "telefono")
 
 
 def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) -> None:
@@ -215,10 +220,12 @@ def guardar_lead(email: str, dominio: str, id_escaneo: int) -> None:
         )
 
 
-def guardar_pedido(referencia: str, email: str, dominio: str, id_escaneo: int, precio: int) -> None:
+def guardar_pedido(
+    referencia: str, email: str, dominio: str, id_escaneo: int, precio: int, telefono: str | None = None
+) -> None:
     """Guarda un pedido del nivel de pago, pendiente de confirmar por Bizum."""
     with obtener_conexion() as conexion:
         conexion.execute(
-            "INSERT INTO pedidos (referencia, email, dominio, id_escaneo, precio) VALUES (?, ?, ?, ?, ?)",
-            (referencia, email, dominio, id_escaneo, precio),
+            "INSERT INTO pedidos (referencia, email, dominio, id_escaneo, precio, telefono) VALUES (?, ?, ?, ?, ?, ?)",
+            (referencia, email, dominio, id_escaneo, precio, telefono),
         )

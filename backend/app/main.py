@@ -29,7 +29,7 @@ from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
-from app.config import TELEFONO_BIZUM
+from app.config import GMAIL_EMAIL, TELEFONO_BIZUM
 from app.database import (
     guardar_escaneo,
     guardar_informe,
@@ -43,6 +43,8 @@ from app.database import (
 from app.ia.cliente import ErrorIA
 from app.ia.interpretar import interpretar_hallazgos
 from app.ia.soluciones import generar_soluciones
+from app.notificaciones.enviar import ErrorEmail, enviar_email
+from app.notificaciones.mensajes import mensaje_pedido_alberto, mensaje_pedido_cliente
 from app.pdf.generar_pdf import generar_pdf_informe
 from app.puntuacion import calcular_precio_arreglo
 from app.scanner import ejecutar_escaneo
@@ -295,7 +297,7 @@ async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int
 
 @app.post("/api/pedidos")
 @limiter.limit("5/minute")
-async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: int):
+async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: int, telefono: str | None = None):
     """
     Pedido del nivel de pago "soluciones + PDF" (19€). Hoy el cobro es
     manual por Bizum (ver CLAUDE.md, P2) — este endpoint no cobra nada,
@@ -303,10 +305,16 @@ async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: i
     identificarlo cuando le llegue el Bizum y, más adelante, marcarlo
     como pagado (ese mecanismo todavía no existe, queda pendiente).
 
-    Devuelve también `precio_arreglo_estimado`: el precio orientativo
-    de que Pipo aplique las soluciones en vez del dueño del negocio
-    (nivel superior, contacto manual) — se calcula con una fórmula fija
-    a partir de los checks del escaneo, nunca con IA (ver puntuacion.py).
+    A propósito, la web pública no enseña el número de Bizum ni la
+    referencia directamente — le llegan al cliente por email, en
+    privado, junto con un resumen de su caso (nota y checks a mejorar).
+    Alberto recibe un segundo email avisando del pedido nuevo.
+
+    `email_enviado` en la respuesta le dice al frontend si el email al
+    cliente salió bien. Si falló (Gmail no configurado, corte de red...),
+    el frontend usa eso como señal para enseñar el Bizum y la referencia
+    directamente en la página — mejor un poco menos elegante que dejar
+    a alguien que ya ha pedido esto sin ninguna forma de pagar.
     """
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
@@ -317,19 +325,50 @@ async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: i
         raise HTTPException(status_code=400, detail="Ese email no parece válido.")
 
     referencia = f"PIPO{id_escaneo}-{secrets.token_hex(2).upper()}"
+    precio_arreglo_estimado = calcular_precio_arreglo(escaneo["resultado"]["checks"])
     guardar_pedido(
         referencia=referencia,
         email=email_limpio,
         dominio=dominio,
         id_escaneo=id_escaneo,
         precio=PRECIO_INFORME_COMPLETO,
+        telefono=telefono,
     )
+
+    email_enviado = False
+    try:
+        asunto_cliente, cuerpo_cliente = mensaje_pedido_cliente(
+            dominio=dominio,
+            checks=escaneo["resultado"]["checks"],
+            precio=PRECIO_INFORME_COMPLETO,
+            telefono_bizum=TELEFONO_BIZUM or "(número no configurado)",
+            referencia=referencia,
+            precio_arreglo_estimado=precio_arreglo_estimado,
+        )
+        await asyncio.to_thread(enviar_email, email_limpio, asunto_cliente, cuerpo_cliente)
+        email_enviado = True
+    except ErrorEmail:
+        pass  # el frontend cae al plan B (enseñar el Bizum en la propia página)
+
+    try:
+        asunto_alberto, cuerpo_alberto = mensaje_pedido_alberto(
+            dominio=dominio,
+            email_cliente=email_limpio,
+            telefono_cliente=telefono,
+            referencia=referencia,
+            precio=PRECIO_INFORME_COMPLETO,
+            precio_arreglo_estimado=precio_arreglo_estimado,
+        )
+        await asyncio.to_thread(enviar_email, GMAIL_EMAIL, asunto_alberto, cuerpo_alberto)
+    except ErrorEmail:
+        pass  # aviso interno, best-effort: no debe romper el pedido del cliente
 
     return {
         "referencia": referencia,
         "precio": PRECIO_INFORME_COMPLETO,
         "telefono_bizum": TELEFONO_BIZUM,
-        "precio_arreglo_estimado": calcular_precio_arreglo(escaneo["resultado"]["checks"]),
+        "precio_arreglo_estimado": precio_arreglo_estimado,
+        "email_enviado": email_enviado,
     }
 
 
