@@ -315,7 +315,7 @@
     clearInterval(intervaloCarga);
   }
 
-  function mostrarError(mensaje) {
+  function mostrarError(mensaje, permiteReintentar = true) {
     detenerRotacionDeFrases();
     document.getElementById("estado-carga").style.display = "none";
     const zona = document.getElementById("estado-error");
@@ -324,12 +324,16 @@
       <div class="estado-error">
         <svg><use href="#pipo"/></svg>
         <span>${mensaje}</span>
-      </div>`;
+      </div>
+      ${permiteReintentar ? '<button class="btn btn-primary" id="btn-reintentar-informe" style="margin-top:16px">Reintentar</button>' : ""}`;
+    if (permiteReintentar) {
+      document.getElementById("btn-reintentar-informe").addEventListener("click", cargarInforme);
+    }
   }
 
   async function cargarInforme() {
     if (!idEscaneo) {
-      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.");
+      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.", false);
       return;
     }
 
@@ -339,7 +343,7 @@
     try {
       const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}`);
       if (respuesta.status === 404) {
-        mostrarError("Ese informe no existe o ha caducado. Vuelve a analizar tu web.");
+        mostrarError("Ese informe no existe o ha caducado. Vuelve a analizar tu web.", false);
         return;
       }
       if (!respuesta.ok) {
