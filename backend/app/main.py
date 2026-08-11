@@ -11,7 +11,7 @@ import asyncio
 import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -40,6 +40,7 @@ from app.database import (
 from app.ia.cliente import ErrorIA
 from app.ia.interpretar import interpretar_hallazgos
 from app.ia.soluciones import generar_soluciones
+from app.pdf.generar_pdf import generar_pdf_informe
 from app.scanner import ejecutar_escaneo
 
 # El "limitador": decide cuántas peticiones permite por IP y en qué
@@ -397,3 +398,39 @@ async def informe_soluciones(request: Request, id_escaneo: int):
 
     guardar_soluciones(id_escaneo, resultado)
     return resultado
+
+
+@app.get("/api/informe/{id_escaneo}/pdf")
+@limiter.limit("5/minute")
+async def informe_pdf(request: Request, id_escaneo: int):
+    """
+    El informe en PDF descargable, con la marca de Pipo — el
+    entregable del informe de pago (ver CLAUDE.md, P2). Reaprovecha
+    el informe interpretado (lo genera si todavía no está en caché,
+    igual que /api/informe) y las soluciones si ya se pidieron antes;
+    no hace ninguna llamada a la IA que no fuera a hacer falta de todos
+    modos, solo compone el PDF con lo que hay guardado.
+    """
+    escaneo = obtener_escaneo(id_escaneo)
+    if escaneo is None:
+        raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+
+    if escaneo["informe"] is None:
+        try:
+            resultado = await asyncio.to_thread(interpretar_hallazgos, escaneo["resultado"])
+        except ErrorIA as error:
+            raise HTTPException(status_code=502, detail=str(error)) from error
+        guardar_informe(id_escaneo, resultado)
+        escaneo["informe"] = resultado
+
+    # WeasyPrint es una librería pesada y el renderizado no es
+    # instantáneo — se manda a un hilo aparte, igual que las llamadas
+    # a la IA, para no bloquear el resto de peticiones al servidor.
+    pdf_bytes = await asyncio.to_thread(generar_pdf_informe, escaneo)
+
+    nombre_archivo = re.sub(r"[^a-zA-Z0-9.-]", "_", escaneo["dominio"])
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="informe-pipo-{nombre_archivo}.pdf"'},
+    )

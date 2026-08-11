@@ -223,6 +223,12 @@
             <button class="btn btn-primary" id="btn-soluciones">Pedir soluciones y nota estimada</button>
             <div id="zona-soluciones"></div>
           </div>
+
+          <div class="accion">
+            <h2>Guárdatelo</h2>
+            <p class="desc">Descarga el informe en PDF, con la marca de Pipo, para guardarlo o compartirlo con quien lleve tu web.</p>
+            <button class="btn btn-ghost" id="btn-pdf">Descargar informe en PDF</button>
+          </div>
         </div>
       </div>
 
@@ -538,6 +544,13 @@
     } finally {
       boton.disabled = false;
     }
+  });
+
+  document.getElementById("btn-pdf").addEventListener("click", () => {
+    // GET normal, no fetch: el backend ya manda Content-Disposition:
+    // attachment, así que el propio navegador descarga el archivo sin
+    // que haya que gestionar el blob a mano desde aquí.
+    window.open(`${API_BASE}/api/informe/${idEscaneo}/pdf`, "_blank");
   });
 
   cargarInforme();

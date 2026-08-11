@@ -57,10 +57,11 @@ PIPO ANALIZA/
 └── backend/
     ├── .env                     → claves de API (NUNCA se sube a git, ver .gitignore)
     ├── requirements.txt
+    ├── nixpacks.toml             → librerías de sistema (Pango/Cairo) que necesita WeasyPrint en Railway
     ├── pipo.db                   → SQLite con historial de escaneos (tampoco se sube a git)
     └── app/
         ├── main.py                → todos los endpoints FastAPI
-        ├── config.py               → lee .env (claves de Gemini y PageSpeed)
+        ├── config.py               → lee .env (claves de Anthropic, Gemini y PageSpeed)
         ├── database.py              → guardar/leer escaneos en SQLite
         ├── scanner.py                → orquestador: lanza todos los checks en paralelo
         ├── puntuacion.py              → nota 0-100, calculada por FÓRMULA FIJA, nunca por la IA
@@ -72,12 +73,15 @@ PIPO ANALIZA/
         │   ├── seo_check.py                 → verde
         │   ├── privacidad_check.py           → verde (aviso legal/cookies/trackers)
         │   ├── mixed_content_check.py         → verde
+        │   ├── tecnologia_check.py             → verde (CMS desactualizado)
         │   ├── rendimiento_check.py            → verde, opt-in (PageSpeed, móvil+ordenador, 4 categorías cada uno)
         │   └── archivos_expuestos.py            → ÁMBAR, opt-in solo con consentimiento
-        └── ia/
-            ├── cliente.py               → envoltorio del proveedor de IA (hoy Gemini — ver nota abajo)
-            ├── interpretar.py            → botón 1: hallazgos en lenguaje llano
-            └── soluciones.py               → botón 2: soluciones + nota estimada tras aplicarlas
+        ├── ia/
+        │   ├── cliente.py               → envoltorio del proveedor de IA (hoy Claude/Anthropic — ver nota abajo)
+        │   ├── interpretar.py            → botón 1: hallazgos en lenguaje llano
+        │   └── soluciones.py              → botón 2: soluciones + nota estimada tras aplicarlas
+        └── pdf/
+            └── generar_pdf.py             → informe de marca en PDF (WeasyPrint), reaprovecha informe+soluciones ya cacheados
 ```
 
 No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta "namespace packages" implícitos. No hace falta añadirlos.
@@ -95,6 +99,7 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 | `GET /api/scan/{id}/rendimiento` | Audita velocidad (PageSpeed) del dominio de ese escaneo | Rate limited 5/min. **Cacheado** en `rendimiento_json`; sustituye al uso directo de `/check/rendimiento?dominio=` desde `informe.html` |
 | `GET /api/informe/{id}` | Hallazgos interpretados por IA + nota (determinista) | Rate limited 5/min. **Cacheado** en `informe_json` — la 2ª petición para el mismo escaneo no vuelve a llamar a Gemini |
 | `POST /api/informe/{id}/soluciones` | Soluciones + nota estimada tras aplicarlas | Es POST a propósito (dispara gasto de IA cada vez, no debe cachear el navegador). Rate limited 5/min. **Cacheado** en `soluciones_json` |
+| `GET /api/informe/{id}/pdf` | Informe en PDF con marca Pipo (`app/pdf/generar_pdf.py`) | Rate limited 5/min. Genera el informe si no estaba cacheado (igual que `/api/informe`); incluye soluciones solo si ya se pidieron antes. No usa fuentes de marca (Fraunces/Nunito) a propósito, para no depender de una descarga de red en cada PDF |
 
 ---
 
@@ -150,8 +155,13 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
   - Rendimiento (preocupación explícita de Alberto): todo se anima con `transform`/`opacity` (compositor de la GPU) y los ~33 elementos de nieve/viento se crean al pulsar y **se borran del DOM al terminar** — en reposo el coste es cero.
 
 ### 🟡 P2 — Monetización (Fase 6 del planning)
-- **Generador de PDF** con la marca de Pipo (WeasyPrint o ReportLab, según planning) — el informe completo de pago (59€) necesita un entregable descargable, no solo una página web.
-- **Pasarela de pago (Stripe)** para el informe one-shot.
+- ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:
+  - Endpoint `GET /api/informe/{id}/pdf` (ver tabla de endpoints arriba). Genera el informe interpretado si aún no estaba en caché (igual que `/api/informe`) y añade una sección de soluciones solo si `/soluciones` ya se había pedido antes para ese escaneo — no dispara ninguna llamada a la IA que no fuera a hacer falta de todos modos.
+  - `app/pdf/generar_pdf.py` construye el HTML a mano (f-strings, no Jinja2 — es una sola plantilla, no compensa añadir esa dependencia) con los colores de marca, y usa fuentes genéricas (Georgia/Helvetica) en vez de Fraunces/Nunito **a propósito**: esas son fuentes de Google Fonts, y WeasyPrint tendría que descargarlas por red en cada PDF generado — una dependencia y una latencia que no compensan por una diferencia tipográfica menor.
+  - **Railway necesita un archivo nuevo, `backend/nixpacks.toml`**, con `aptPkgs` para las librerías de sistema que pide WeasyPrint (Pango, Cairo, gdk-pixbuf) — sin él, el `import weasyprint` fallaría en producción aunque funcione en local (donde esas librerías ya estaban instaladas vía Homebrew). Es un archivo de configuración de Nixpacks, no de la app; Railway lo recoge solo al hacer build si vive en el mismo directorio que `requirements.txt` (con el Root Directory puesto a `backend`, como ya estaba).
+  - Frontend: nuevo botón "Descargar informe en PDF" en `informe.html`, dentro del mismo bloque `#detalle-difuminable` que ya estaba detrás del gate de email (ver captura de email más abajo) — **no está detrás de ningún pago todavía**, solo del email, igual que las soluciones y la velocidad. Cuando se añada Stripe (punto siguiente), decidir si el PDF pasa a requerir pago o se queda como parte de lo que desbloquea el email.
+  - Probado con curl real en local y en Railway: PDF de 2-3 páginas (crece a 3 si ya hay soluciones cacheadas), contenido en español verificado extrayendo el texto del PDF con `pypdf`, `Content-Disposition: attachment` fuerza la descarga en el navegador en vez de abrirlo inline.
+- **Pasarela de pago (Stripe)** para el informe one-shot — siguiente paso de P2. Ver conversación sobre Stripe vs. Lemon Squeezy/Paddle (Merchant of Record): Stripe es sencillo de programar, pero cobrar de verdad en España pide estar dado de alta como autónomo/empresa (mismo bloqueante que el NIF pendiente en `aviso-legal.html`); se puede desarrollar en modo test sin ese papeleo.
 - ✅ **Captura de email** — hecho (11 ago 2026, punto 5.2 del planning), pasó por **dos diseños** antes del definitivo (ver los porqués abajo — no repetir ninguno de los dos pasos intermedios sin releer esto). **Diseño final**: el semáforo completo (los 7 checks) se enseña siempre en `index.html`, sin pedir nada — es el gancho que demuestra que hay problemas de verdad. En `informe.html`, el informe **se genera siempre** (la cabecera con dominio/nota/resumen de la IA se ve siempre), pero el detalle — hallazgos uno a uno + las acciones de velocidad/soluciones — sale **difuminado** (`filter:blur()`) con una tarjeta flotante encima pidiendo el email para desbloquearlo.
   - **Primer diseño descartado** (difuminar 4 de 7 checks en la propia `index.html`): Alberto vio el riesgo de que ocultar resultados en crudo generase desconfianza y espantase visitas en vez de convertirlas — mejor enseñar todo el diagnóstico gratis (crea la urgencia de "tengo 3 críticos") y cobrar la puerta de entrada por la parte que sí cuesta generar (la IA).
   - **Segundo diseño descartado** (pedir el email en `informe.html` *antes* de llamar a `/api/informe`, con una tarjeta de bloqueo previa a cualquier contenido): ahorraba cuota de IA a cambio de peor conversión — Alberto prefirió enseñar el informe ya generado (aunque difuminado) porque genera más curiosidad/FOMO que una tarjeta vacía pidiendo el email sin haber demostrado nada todavía. **Contrapartida asumida a propósito**: la llamada a `/api/informe` (cuota de Gemini) se dispara en cuanto se abre `informe.html`, la ha dejado o no el email — ya no hay ahorro de cuota por no convertir. Si la cuota vuelve a ser un problema real, el primer sitio donde mirar es aquí.
