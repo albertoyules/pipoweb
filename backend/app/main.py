@@ -9,6 +9,7 @@ aquí como endpoints a medida que los construyamos.
 
 import asyncio
 import re
+import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -28,10 +29,12 @@ from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
+from app.config import TELEFONO_BIZUM
 from app.database import (
     guardar_escaneo,
     guardar_informe,
     guardar_lead,
+    guardar_pedido,
     guardar_rendimiento,
     guardar_soluciones,
     inicializar_db,
@@ -41,7 +44,11 @@ from app.ia.cliente import ErrorIA
 from app.ia.interpretar import interpretar_hallazgos
 from app.ia.soluciones import generar_soluciones
 from app.pdf.generar_pdf import generar_pdf_informe
+from app.puntuacion import calcular_precio_arreglo
 from app.scanner import ejecutar_escaneo
+
+# Precio del nivel de pago "soluciones + PDF" (ver CLAUDE.md, P2).
+PRECIO_INFORME_COMPLETO = 19
 
 # El "limitador": decide cuántas peticiones permite por IP y en qué
 # ventana de tiempo. get_remote_address identifica a quién limitar por
@@ -284,6 +291,46 @@ async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int
 
     guardar_lead(email=email_limpio, dominio=dominio, id_escaneo=id_escaneo)
     return {"ok": True}
+
+
+@app.post("/api/pedidos")
+@limiter.limit("5/minute")
+async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: int):
+    """
+    Pedido del nivel de pago "soluciones + PDF" (19€). Hoy el cobro es
+    manual por Bizum (ver CLAUDE.md, P2) — este endpoint no cobra nada,
+    solo guarda el pedido con una referencia para que Alberto pueda
+    identificarlo cuando le llegue el Bizum y, más adelante, marcarlo
+    como pagado (ese mecanismo todavía no existe, queda pendiente).
+
+    Devuelve también `precio_arreglo_estimado`: el precio orientativo
+    de que Pipo aplique las soluciones en vez del dueño del negocio
+    (nivel superior, contacto manual) — se calcula con una fórmula fija
+    a partir de los checks del escaneo, nunca con IA (ver puntuacion.py).
+    """
+    escaneo = obtener_escaneo(id_escaneo)
+    if escaneo is None:
+        raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+
+    email_limpio = email.strip().lower()
+    if not REGEX_EMAIL.match(email_limpio):
+        raise HTTPException(status_code=400, detail="Ese email no parece válido.")
+
+    referencia = f"PIPO{id_escaneo}-{secrets.token_hex(2).upper()}"
+    guardar_pedido(
+        referencia=referencia,
+        email=email_limpio,
+        dominio=dominio,
+        id_escaneo=id_escaneo,
+        precio=PRECIO_INFORME_COMPLETO,
+    )
+
+    return {
+        "referencia": referencia,
+        "precio": PRECIO_INFORME_COMPLETO,
+        "telefono_bizum": TELEFONO_BIZUM,
+        "precio_arreglo_estimado": calcular_precio_arreglo(escaneo["resultado"]["checks"]),
+    }
 
 
 @app.get("/api/scan/{id_escaneo}/rendimiento")

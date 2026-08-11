@@ -106,6 +106,20 @@
   .velocidad-explicacion{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--brown-dark);font-weight:600;margin-top:14px}
   .velocidad-explicacion .pill{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 
+  /* nivel de pago: soluciones + PDF por Bizum */
+  .accion-pago{background:var(--cream-deep);border-radius:18px;padding:24px 26px}
+  .precio-informe-completo{font-family:'Fraunces';font-size:26px;font-weight:600;color:var(--ink);margin-bottom:14px}
+  .precio-informe-completo span{font-family:'Nunito';font-size:13px;font-weight:600;color:#8a7a68}
+  .form-pedido{display:flex;gap:8px;max-width:360px;margin-top:14px}
+  .form-pedido input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-family:'Nunito';font-size:14.5px;color:var(--ink)}
+  .confirmacion-pedido{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-top:14px}
+  .confirmacion-pedido h4{font-size:16px;color:var(--brown-dark);margin-bottom:8px}
+  .confirmacion-pedido p{font-size:14px;color:#5f5142;margin-bottom:6px}
+  .confirmacion-pedido .referencia{display:inline-block;background:var(--cream-deep);border-radius:8px;padding:4px 10px;font-weight:800;font-family:monospace;letter-spacing:.03em}
+  .confirmacion-pedido .telefono{font-family:'Fraunces';font-size:22px;font-weight:600;color:var(--terracotta)}
+  .upsell-arreglo{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--brown-dark)}
+  .upsell-arreglo a{color:var(--terracotta);font-weight:700}
+
   /* móvil vs ordenador */
   .dispositivos{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
   @media(max-width:640px){.dispositivos{grid-template-columns:1fr}}
@@ -217,17 +231,12 @@
             <div id="zona-velocidad"></div>
           </div>
 
-          <div class="accion">
+          <div class="accion accion-pago" id="accion-informe-completo">
             <h2>¿Cómo lo arreglo?</h2>
-            <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, y calcula la nota que tendría tu web si los aplicas todos.</p>
-            <button class="btn btn-primary" id="btn-soluciones">Pedir soluciones y nota estimada</button>
-            <div id="zona-soluciones"></div>
-          </div>
-
-          <div class="accion">
-            <h2>Guárdatelo</h2>
-            <p class="desc">Descarga el informe en PDF, con la marca de Pipo, para guardarlo o compartirlo con quien lleve tu web.</p>
-            <button class="btn btn-ghost" id="btn-pdf">Descargar informe en PDF</button>
+            <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, calcula la nota que tendría tu web si los aplicas todos, y te da el informe en PDF con la marca de Pipo para guardarlo o compartirlo.</p>
+            <div class="precio-informe-completo">19€ <span>· pago único por Bizum</span></div>
+            <button class="btn btn-primary" id="btn-pedir-completo">Pedir informe completo</button>
+            <div id="zona-pedido"></div>
           </div>
         </div>
       </div>
@@ -500,57 +509,70 @@
     }
   });
 
-  document.getElementById("btn-soluciones").addEventListener("click", async () => {
-    const boton = document.getElementById("btn-soluciones");
-    const zona = document.getElementById("zona-soluciones");
-
-    boton.disabled = true;
-    zona.innerHTML = `
-      <div class="espera">
-        <svg><use href="#pipo"/></svg>
-        Pipo está pensando cómo arreglarlo...
+  // NIVEL DE PAGO "informe completo" (soluciones + PDF, 19€ por Bizum,
+  // cobro manual — ver CLAUDE.md, P2). Al pulsar, pide el email (puede
+  // ser distinto del que se dejó para desbloquear el informe gratis) y
+  // registra el pedido; la confirmación enseña el número de Bizum, la
+  // referencia a poner en el concepto, y un precio orientativo del
+  // nivel superior ("que lo arreglemos nosotros"), calculado por
+  // fórmula fija a partir de los checks, no por la IA.
+  //
+  // Importante: esto NO desbloquea nada todavía de forma automática —
+  // no existe (aún) un mecanismo para marcar un pedido como pagado, así
+  // que tras el Bizum el desbloqueo real lo hace Alberto a mano.
+  function pintarConfirmacionPedido(datos) {
+    const asunto = encodeURIComponent(`Quiero que me arregléis ${dominioParam}`);
+    const cuerpo = encodeURIComponent(`Referencia del pedido: ${datos.referencia}`);
+    document.getElementById("zona-pedido").innerHTML = `
+      <div class="confirmacion-pedido">
+        <h4>Pedido registrado</h4>
+        <p>Haz un Bizum de <strong>${datos.precio}€</strong> al <span class="telefono">${datos.telefono_bizum}</span>, indicando en el concepto la referencia: <span class="referencia">${datos.referencia}</span></p>
+        <p>En cuanto confirmemos el pago, te escribimos con las soluciones y el PDF.</p>
+        <div class="upsell-arreglo">
+          ¿Prefieres que te lo arreglemos nosotros? Precio orientativo: <strong>${datos.precio_arreglo_estimado}€</strong>.
+          <a href="mailto:alberyules11@gmail.com?subject=${asunto}&body=${cuerpo}">Contáctanos</a>.
+        </div>
       </div>`;
+  }
 
-    try {
-      const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}/soluciones`, { method: "POST" });
-      const datos = await respuesta.json();
+  document.getElementById("btn-pedir-completo").addEventListener("click", (evento) => {
+    evento.target.style.display = "none";
+    document.getElementById("zona-pedido").innerHTML = `
+      <form class="form-pedido" id="form-pedido">
+        <input type="email" id="input-email-pedido" placeholder="tu@email.com" required>
+        <button class="btn btn-primary" type="submit">Pedir</button>
+      </form>
+      <p class="error-desbloqueo" id="error-pedido"></p>`;
 
-      if (datos.soluciones.length === 0) {
-        zona.innerHTML = `<p style="margin-top:14px;color:var(--sage);font-weight:700">${datos.mensaje || "No hay nada que arreglar: todo está en verde."}</p>`;
-        return;
+    document.getElementById("form-pedido").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      const email = document.getElementById("input-email-pedido").value.trim();
+      const boton = evento.target.querySelector("button");
+      const errorPedido = document.getElementById("error-pedido");
+
+      boton.disabled = true;
+      errorPedido.textContent = "";
+
+      try {
+        const respuesta = await fetch(
+          `${API_BASE}/api/pedidos?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`,
+          { method: "POST" }
+        );
+        if (respuesta.status === 400) {
+          errorPedido.textContent = "Ese email no parece válido.";
+          return;
+        }
+        if (!respuesta.ok) {
+          errorPedido.textContent = "No se ha podido registrar el pedido. Inténtalo de nuevo.";
+          return;
+        }
+        pintarConfirmacionPedido(await respuesta.json());
+      } catch (error) {
+        errorPedido.textContent = "No se ha podido conectar con el servidor.";
+      } finally {
+        boton.disabled = false;
       }
-
-      const comparativa = `
-        <div class="comparativa">
-          <span class="num antes">${datos.puntuacion_actual}</span>
-          <span class="flecha">→</span>
-          <span class="num despues">${datos.puntuacion_estimada_tras_cambios}</span>
-          <span class="txt">nota estimada si aplicas todas las soluciones (mejor caso)</span>
-        </div>`;
-
-      const listaSoluciones = datos.soluciones.map((s) => `
-        <div class="solucion">
-          <h4>${s.problema}</h4>
-          <ol>${s.pasos.map((p) => `<li>${p}</li>`).join("")}</ol>
-          <div class="meta">
-            <span>Lo hace: ${s.quien_lo_hace}</span>
-            <span>Dificultad: ${s.dificultad}</span>
-          </div>
-        </div>`).join("");
-
-      zona.innerHTML = comparativa + listaSoluciones;
-    } catch (error) {
-      zona.innerHTML = `<p style="color:var(--brick);margin-top:10px">No se han podido generar las soluciones ahora mismo.</p>`;
-    } finally {
-      boton.disabled = false;
-    }
-  });
-
-  document.getElementById("btn-pdf").addEventListener("click", () => {
-    // GET normal, no fetch: el backend ya manda Content-Disposition:
-    // attachment, así que el propio navegador descarga el archivo sin
-    // que haya que gestionar el blob a mano desde aquí.
-    window.open(`${API_BASE}/api/informe/${idEscaneo}/pdf`, "_blank");
+    });
   });
 
   cargarInforme();

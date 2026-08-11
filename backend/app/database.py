@@ -91,6 +91,27 @@ def inicializar_db() -> None:
             """
         )
 
+        # Pedidos del nivel de pago "soluciones + PDF" (19€, cobrado por
+        # Bizum a mano — ver CLAUDE.md, P2). `pagado` empieza en 0 y hoy
+        # no hay ningún mecanismo automático que lo cambie a 1: eso es
+        # trabajo pendiente (un panel para marcar pedidos como pagados a
+        # mano tras comprobar el Bizum). Igual que en `leads`, sin
+        # FOREIGN KEY hacia escaneos a propósito.
+        conexion.execute(
+            """
+            CREATE TABLE IF NOT EXISTS pedidos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                referencia TEXT NOT NULL,
+                email TEXT NOT NULL,
+                dominio TEXT NOT NULL,
+                id_escaneo INTEGER NOT NULL,
+                precio INTEGER NOT NULL,
+                pagado INTEGER NOT NULL DEFAULT 0,
+                fecha TEXT NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+
 
 def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) -> None:
     """
@@ -191,4 +212,13 @@ def guardar_lead(email: str, dominio: str, id_escaneo: int) -> None:
         conexion.execute(
             "INSERT INTO leads (email, dominio, id_escaneo) VALUES (?, ?, ?)",
             (email, dominio, id_escaneo),
+        )
+
+
+def guardar_pedido(referencia: str, email: str, dominio: str, id_escaneo: int, precio: int) -> None:
+    """Guarda un pedido del nivel de pago, pendiente de confirmar por Bizum."""
+    with obtener_conexion() as conexion:
+        conexion.execute(
+            "INSERT INTO pedidos (referencia, email, dominio, id_escaneo, precio) VALUES (?, ?, ?, ?, ?)",
+            (referencia, email, dominio, id_escaneo, precio),
         )

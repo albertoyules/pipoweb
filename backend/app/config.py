@@ -33,3 +33,9 @@ GOOGLE_PAGESPEED_API_KEY = _leer_clave("GOOGLE_PAGESPEED_API_KEY")
 # aquí sin usar por si algún día hiciera falta volver atrás.
 GOOGLE_GEMINI_API_KEY = _leer_clave("GOOGLE_GEMINI_API_KEY")
 ANTHROPIC_API_KEY = _leer_clave("ANTHROPIC_API_KEY")
+
+# Número de Bizum donde se cobra a mano el nivel de pago "soluciones +
+# PDF" (ver CLAUDE.md, P2) — es un dato personal de Alberto, no una
+# clave de API, pero se trata igual: fuera del código, en variables de
+# entorno, para no dejarlo en claro en el repo (aunque sea privado).
+TELEFONO_BIZUM = _leer_clave("TELEFONO_BIZUM")

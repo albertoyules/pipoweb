@@ -41,3 +41,34 @@ def calcular_puntuacion_potencial(checks: list[dict], nombres_resueltos: set[str
         for check in checks
     )
     return round(total / len(checks))
+
+
+# Precio estimado del nivel "lo arreglamos nosotros" (ver CLAUDE.md, P2).
+# Igual que la nota, esto NUNCA lo calcula la IA: sería fácil que un
+# modelo "regalara" un precio bajo para parecer más simpático, o al
+# revés. Puntos por dificultad real de arreglar cada cosa, no por lo
+# grave que sea (un check rojo puede ser fácil de arreglar y uno ámbar
+# puede no serlo) — solo cuentan los checks que no están ya en verde.
+PRECIO_BASE_ARREGLO = 59
+PRECIO_MAXIMO_ARREGLO = 99
+PUNTOS_POR_PRIORIDAD = {
+    "baja": 3,
+    "media": 8,
+    "alta": 15,
+}
+
+
+def calcular_precio_arreglo(checks: list[dict]) -> int:
+    """
+    Precio orientativo de que Pipo aplique las soluciones en vez del
+    dueño del negocio. Se calcula a partir de los checks del escaneo
+    (no de las soluciones interpretadas por IA), así que está disponible
+    desde el momento del pedido, sin depender de haber llamado antes al
+    botón de soluciones.
+    """
+    incremento = sum(
+        PUNTOS_POR_PRIORIDAD.get(check["prioridad"], 0)
+        for check in checks
+        if check["estado"] != "verde"
+    )
+    return min(PRECIO_MAXIMO_ARREGLO, PRECIO_BASE_ARREGLO + incremento)
