@@ -132,7 +132,7 @@
   .scanbox{margin-top:34px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:10px;display:flex;gap:8px;box-shadow:var(--shadow);max-width:480px}
   .scanbox input{flex:1;border:none;outline:none;font-family:'Nunito';font-size:16px;padding:12px 16px;color:var(--ink);background:transparent}
   .scanbox input::placeholder{color:#b6a894}
-  @media(max-width:880px){.hero-grid{grid-template-columns:1fr;text-align:center}.hero p.sub{margin-left:auto;margin-right:auto}.hero-cta,.eyebrow{justify-content:center}.scanbox{margin-left:auto;margin-right:auto}.pipo-stage{order:-1}}
+  @media(max-width:880px){.hero-grid{grid-template-columns:1fr;text-align:center}.hero p.sub{margin-left:auto;margin-right:auto}.hero-cta,.eyebrow{justify-content:center}.scanbox{margin-left:auto;margin-right:auto}}
 
   /* PIPO CHARACTER */
   .pipo-stage{display:flex;justify-content:center;align-items:flex-end;position:relative;min-height:400px}
@@ -149,6 +149,54 @@
   .pipo-eye{transform-origin:center;animation:pipo-mirar 7s ease-in-out infinite,pipo-parpadeo 5.3s ease-in-out infinite}
   @keyframes pipo-mirar{0%,100%{translate:0 0}20%{translate:3px 0}45%{translate:-3px 1px}70%{translate:0 -1px}}
   @keyframes pipo-parpadeo{0%,92%,100%{scale:1 1}94%{scale:1 .12}96%{scale:1 1}}
+
+  /* PIPO REACCIONA A LA NOTA: al revelarse el resultado del escaneo
+     rápido, Pipo se inclina hacia la tarjeta (izquierda) y su
+     expresión cambia según el semáforo.
+
+     IMPORTANTE — por qué esto se reparte en dos mecanismos distintos:
+     se probó a fondo (capturas comparadas, document.getAnimations())
+     que una animación por keyframes AÑADIDA POR JS a un elemento
+     dentro de <symbol id="pipo"> no se pinta de forma fiable en el
+     clon que renderiza <use> — el navegador la reporta como
+     "running", pero visualmente no se ve. Los valores ESTÁTICOS (sin
+     @keyframes) sí se pintan bien siempre. Por eso:
+     - La expresión (cejas) usa solo cambios ESTÁTICOS con transition,
+       aplicados a los elementos originales dentro de <symbol> (nunca
+       a través de #pipo-hero con selector descendiente — eso sí
+       falla incluso para valores estáticos).
+     - El "acercarse/inclinarse" usa una animación por keyframes, pero
+       en el propio #pipo-hero (el <svg> host, fuera de <use>), no en
+       el contenido del símbolo — ahí las animaciones sí son fiables.
+
+     Efecto secundario asumido a propósito: como <symbol id="pipo"> es
+     compartido, el cambio de cejas también afecta a los iconos
+     pequeños de Pipo (report-head, 30px) — imperceptible a ese
+     tamaño. */
+  .ceja{transition:transform .5s cubic-bezier(.3,.9,.4,1.1)}
+  .ceja-izq.animo-rojo{transform:rotate(12deg) translate(2px,-1px)}
+  .ceja-der.animo-rojo{transform:rotate(-12deg) translate(-2px,-1px)}
+  .ceja-izq.animo-ambar{transform:rotate(-15deg) translate(-3px,-7px)}
+  .ceja-der.animo-ambar{transform:rotate(3deg) translate(0,2px)}
+  .ceja-izq.animo-verde{transform:rotate(-7deg) translateY(-3px)}
+  .ceja-der.animo-verde{transform:rotate(7deg) translateY(-3px)}
+
+  /* #pipo-hero ya tiene "animation:float" (transform legacy con
+     translateY+rotate incluidos) — usar aquí las propiedades
+     independientes "translate"/"rotate" en vez de "transform" evita
+     que esta animación pise a "float"; el navegador compone ambas. */
+  .pipo.reaccionando{animation:float 5s ease-in-out infinite,pipo-inclinarse .9s ease-out forwards}
+  @keyframes pipo-inclinarse{0%{rotate:0deg;translate:0 0}55%{rotate:-9deg;translate:-6px -3px}100%{rotate:-6deg;translate:-4px -2px}}
+
+  .mensaje-animo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;padding:10px 14px;border-radius:12px;margin-bottom:14px}
+  .mensaje-animo.rojo{background:rgba(179,71,51,.1);color:var(--brick)}
+  .mensaje-animo.ambar{background:rgba(217,164,65,.16);color:#a9791d}
+  .mensaje-animo.verde{background:rgba(138,154,91,.16);color:var(--sage)}
+
+  @media(prefers-reduced-motion:reduce){
+    .pipo.reaccionando{animation:none}
+    .ceja{transition:none}
+  }
 
   /* SNOWFLAKE TRIGGER */
   .snowflake-trigger{position:absolute;top:6px;right:-6px;z-index:3;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px;animation:copo-flotar 6s ease-in-out infinite}
@@ -398,9 +446,10 @@
       <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
       <!-- face: brows, eyes and beak turn together, subtly, like Pipo is alive -->
       <g class="pipo-face">
-        <!-- brows -->
-        <path d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
-        <path d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+        <!-- brows: cada una lleva su propio transform-origin para poder
+             fruncirlas o levantarlas por separado según el ánimo -->
+        <path class="ceja ceja-izq" d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round" style="transform-origin:93px 86px"/>
+        <path class="ceja ceja-der" d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round" style="transform-origin:147px 86px"/>
         <!-- eyes (each pair moves and blinks together) -->
         <g class="pipo-eye pipo-eye-l">
           <circle cx="92" cy="120" r="30" fill="#fff"/>
@@ -726,6 +775,15 @@
       </div>`;
   }
 
+  // Mensaje de Pipo según el semáforo global del escaneo — acompaña a
+  // la reacción visual (ver reaccionarPipo) para que quede claro por
+  // qué está poniendo esa cara, no solo decorativo.
+  const MENSAJES_ANIMO = {
+    rojo: "Pipo está preocupado por tu web.",
+    ambar: "Pipo cree que se puede mejorar.",
+    verde: "Pipo ve muy bien tu web.",
+  };
+
   function pintarResultado(zona, dominio, datos) {
     // El semáforo completo (los 7 checks) se enseña siempre, sin pedir
     // nada — es el gancho que convence de que merece la pena desbloquear
@@ -733,6 +791,7 @@
     // informe.html, justo antes de la interpretación con IA (que es lo
     // que de verdad tiene valor, no el semáforo en crudo). Ver CLAUDE.md.
     const nota = calcularNota(datos.checks);
+    const estadoGlobal = datos.resumen.estado_global;
     const filas = datos.checks.map((check) => {
       const nombre = NOMBRES_CHECK[check.check] || check.check;
       const letra = { verde: "g", ambar: "a", rojo: "r" }[check.estado];
@@ -746,6 +805,7 @@
     }).join("");
 
     zona.innerHTML = `
+      <div class="mensaje-animo ${estadoGlobal}">${MENSAJES_ANIMO[estadoGlobal]}</div>
       <div class="report">
         <div class="report-head">
           <svg width="30" height="30"><use href="#pipo"/></svg>
@@ -759,6 +819,31 @@
     // La nota del escaneo real también sube animada, igual que los
     // contadores de ejemplo de más abajo en la página.
     animarNumero(zona.querySelector("[data-contador]"), nota);
+    reaccionarPipo(estadoGlobal);
+  }
+
+  // Pipo se inclina hacia la tarjeta de resultado (a su izquierda) en
+  // cuanto se revela la nota, con una expresión que cambia según el
+  // semáforo — cejas fruncidas en rojo, una ceja levantada (escéptico)
+  // en ámbar, cejas relajadas en verde. La inclinación es temporal (se
+  // retira sola); la expresión de ánimo se queda puesta hasta el
+  // siguiente escaneo. Ver el comentario largo en el CSS sobre por qué
+  // esto se reparte en dos mecanismos (cejas vs. inclinación).
+  function reaccionarPipo(estadoGlobal) {
+    const simboloPipo = document.getElementById("pipo");
+    const pipoHero = document.getElementById("pipo-hero");
+    if (!simboloPipo || !pipoHero) return;
+
+    const clasesAnimo = ["animo-verde", "animo-ambar", "animo-rojo"];
+    const cejas = [
+      simboloPipo.querySelector(".ceja-izq"),
+      simboloPipo.querySelector(".ceja-der"),
+    ].filter(Boolean);
+    cejas.forEach((el) => el.classList.remove(...clasesAnimo));
+    cejas.forEach((el) => el.classList.add(`animo-${estadoGlobal}`));
+
+    pipoHero.classList.add("reaccionando");
+    setTimeout(() => pipoHero.classList.remove("reaccionando"), 900);
   }
 
   // El botón "Analizar" solo se activa cuando el checkbox de

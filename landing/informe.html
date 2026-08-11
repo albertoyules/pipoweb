@@ -63,13 +63,31 @@
   .estado-error{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px;font-weight:700;color:var(--brick)}
   .estado-error svg{width:44px;height:44px;flex-shrink:0}
 
-  /* escena de carga: Pipo revisando una pantalla en vivo */
+  /* escena de carga: Pipo revisando una pantalla en vivo. Más
+     separación respecto al nav/título de lo que da main{padding-top}
+     por defecto, para que la tarjeta no se sienta pegada a la barra
+     de arriba. */
+  #estado-carga{margin-top:28px}
   .escena-carga{background:#fff;border:1px solid var(--line);border-radius:20px;padding:52px 32px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;gap:26px}
   .escena-figuras{display:flex;align-items:center;justify-content:center;gap:36px;flex-wrap:wrap}
   .escena-pipo{width:110px;height:auto;animation:flotar 3.2s ease-in-out infinite}
   @keyframes flotar{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-2deg)}}
   .mag{animation:sniff 2.6s ease-in-out infinite;transform-origin:center}
   @keyframes sniff{0%,100%{transform:rotate(0) translate(0,0)}50%{transform:rotate(-10deg) translate(-8px,5px)}}
+
+  /* Pipo de espaldas "investigando" la pantalla: se acerca y se aleja
+     un poco sin parar, como si estuviera rebuscando — combina el bob
+     vertical y el vaivén horizontal en un único keyframe (si fueran
+     dos animaciones separadas, ambas pelearían por la misma propiedad
+     "transform" y una anularía a la otra). Va después de .escena-pipo
+     en la hoja para ganarle el empate de especificidad. */
+  .escena-pipo-espaldas{animation:pipo-investigando 3.6s ease-in-out infinite}
+  @keyframes pipo-investigando{
+    0%,100%{transform:translate(0,0) rotate(0deg)}
+    25%{transform:translate(9px,-6px) rotate(-2deg)}
+    50%{transform:translate(15px,0) rotate(1deg)}
+    75%{transform:translate(8px,-4px) rotate(-1deg)}
+  }
 
   .pantalla-mini{position:relative;width:132px;height:96px;background:var(--cream-deep);border-radius:12px;padding:14px 12px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
   .pantalla-mini .barra{width:36px;height:6px;border-radius:3px;background:var(--terracotta);margin-bottom:10px}
@@ -183,6 +201,28 @@
         <line x1="200" y1="214" x2="222" y2="238" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
       </g>
     </symbol>
+    <!-- Pipo visto de espaldas, para la escena de carga: mismo cuerpo,
+         orejas, alas, pies y lupa que el símbolo de siempre, pero sin
+         el grupo de la cara (nada de cejas/ojos/pico) — la ausencia de
+         cara es justo lo que lo lee como "de espaldas". Unas líneas
+         sutiles de plumaje rompen el óvalo para que no se vea plano. -->
+    <symbol id="pipo-espaldas" viewBox="0 0 240 260">
+      <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
+      <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
+      <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
+      <path d="M100 96 Q120 112 100 150" stroke="#96745A" stroke-width="5" fill="none" stroke-linecap="round" opacity=".45"/>
+      <path d="M140 96 Q120 112 140 150" stroke="#96745A" stroke-width="5" fill="none" stroke-linecap="round" opacity=".45"/>
+      <path d="M120 104 L120 190" stroke="#96745A" stroke-width="4" fill="none" stroke-linecap="round" opacity=".35"/>
+      <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
+      <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+      <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <g class="mag">
+        <circle cx="182" cy="196" r="26" fill="none" stroke="#C97B5A" stroke-width="7"/>
+        <circle cx="182" cy="196" r="20" fill="rgba(201,123,90,.12)"/>
+        <line x1="200" y1="214" x2="222" y2="238" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
+      </g>
+    </symbol>
   </defs>
 </svg>
 
@@ -197,7 +237,7 @@
   <div id="estado-carga" style="display:none">
     <div class="escena-carga">
       <div class="escena-figuras">
-        <svg class="escena-pipo"><use href="#pipo"/></svg>
+        <svg class="escena-pipo escena-pipo-espaldas"><use href="#pipo-espaldas"/></svg>
         <div class="pantalla-mini">
           <div class="barra"></div>
           <div class="linea"></div>
