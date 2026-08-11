@@ -3,7 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Pipo — ¿Dudas de tu web? Pipo te la revisa y te informa</title>
+<meta name="description" content="Pipo analiza tu web gratis: seguridad, RGPD/cookies, SEO técnico y velocidad, sin tocar tu servidor. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.">
+<link rel="canonical" href="https://piposcan.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://piposcan.vercel.app/">
+<meta property="og:site_name" content="Pipo">
+<meta property="og:title" content="¿Dudas de tu web? Pipo te la revisa y te informa">
+<meta property="og:description" content="Seguridad, RGPD, SEO y velocidad — gratis, en un minuto. Sin tocar tu servidor.">
+<meta property="og:image" content="https://piposcan.vercel.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="es_ES">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="¿Dudas de tu web? Pipo te la revisa y te informa">
+<meta name="twitter:description" content="Seguridad, RGPD, SEO y velocidad — gratis, en un minuto. Sin tocar tu servidor.">
+<meta name="twitter:image" content="https://piposcan.vercel.app/og-image.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Pipo",
+  "url": "https://piposcan.vercel.app/",
+  "logo": "https://piposcan.vercel.app/favicon-192.png",
+  "description": "Pipo analiza tu web gratis: seguridad, RGPD/cookies, SEO técnico y velocidad, sin tocar tu servidor.",
+  "email": "alberyules11@gmail.com",
+  "areaServed": "ES"
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -52,6 +82,22 @@
   .btn-ghost{background:transparent;color:var(--brown-dark);border:1.5px solid var(--line)}
   .btn-ghost:hover{background:var(--cream-deep);border-color:var(--terracotta)}
   @media(max-width:780px){.nav-links{display:none}}
+
+  /* CTA FIJA EN MÓVIL: en escritorio el botón del nav siempre está a la
+     vista, pero en móvil el menú entero se oculta (regla de arriba) —
+     sin esto, alguien que hace scroll pierde de vista cualquier forma
+     de empezar el escaneo hasta llegar al final de la página. */
+  .cta-fija-movil{display:none}
+  @media(max-width:780px){
+    .cta-fija-movil{
+      display:block;position:fixed;left:0;right:0;bottom:0;z-index:60;
+      padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+      background:rgba(245,239,230,.92);backdrop-filter:blur(12px);
+      border-top:1px solid var(--line);
+    }
+    .cta-fija-movil .btn{display:flex;justify-content:center;width:100%}
+    body{padding-bottom:76px}
+  }
 
   /* HERO */
   .hero{padding:70px 0 40px;position:relative}
@@ -587,6 +633,7 @@
       <details class="q reveal-blur" style="transition-delay:.12s"><summary>¿Puedo revisar la web de otro negocio?</summary><div class="a">Solo debes analizar webs de las que seas responsable o tengas permiso. Al usar Pipo confirmas que es así; queda registrado.</div></details>
       <details class="q reveal-blur" style="transition-delay:.18s"><summary>¿Qué pasa después del informe?</summary><div class="a">Puedes arreglar los puntos por tu cuenta con las indicaciones, o pedirnos que te echemos una mano. Sin compromiso.</div></details>
       <details class="q reveal-blur" style="transition-delay:.24s"><summary>¿Esto me sirve para el RGPD?</summary><div class="a">Pipo detecta fallos visibles de cookies y privacidad y te orienta, pero no sustituye a un asesor legal ni a un Delegado de Protección de Datos. Es un buen primer diagnóstico.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.3s"><summary>Si pido el informe completo, ¿cuánto tardo en recibirlo?</summary><div class="a">El escaneo gratis y el diagnóstico son al instante. Si pides el nivel de pago (soluciones + PDF), confirmamos el pago normalmente en menos de 24 horas y te escribimos con todo desbloqueado.</div></details>
     </div>
   </div>
 </section>
@@ -619,6 +666,9 @@
   </div>
 </footer>
 
+<div class="cta-fija-movil" id="cta-fija-movil">
+  <a href="#demo" class="btn btn-primary">Revisar mi web gratis →</a>
+</div>
 
 <script>
   // Dirección del backend, ya desplegado en Railway (10 ago 2026).
@@ -985,6 +1035,19 @@
         boton.style.transform = "";
       });
     });
+  }
+
+  // La CTA fija de móvil se esconde mientras el formulario real (#demo)
+  // está a la vista, para no enseñar dos botones de "escanear" a la vez.
+  const ctaFijaMovil = document.getElementById("cta-fija-movil");
+  const formularioDemo = document.getElementById("demo");
+  if (ctaFijaMovil && formularioDemo) {
+    new IntersectionObserver(
+      (entradas) => {
+        ctaFijaMovil.style.display = entradas[0].isIntersecting ? "none" : "";
+      },
+      { threshold: 0.1 }
+    ).observe(formularioDemo);
   }
 </script>
 

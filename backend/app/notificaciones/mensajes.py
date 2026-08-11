@@ -48,7 +48,7 @@ La forma más rápida es Bizum al {telefono_bizum}, indicando en el concepto est
 
 Si prefieres pagar de otra forma (tarjeta, PayPal...), contesta a este email y lo vemos.
 
-En cuanto confirmemos el pago, te escribimos con todo desbloqueado.
+En cuanto confirmemos el pago (normalmente en menos de 24 horas), te escribimos con todo desbloqueado.
 
 Si prefieres que seamos nosotros quienes apliquemos los cambios en vez de hacerlos tú, el precio orientativo para tu web es de {precio_arreglo_estimado}€ — contesta a este email y hablamos.
 

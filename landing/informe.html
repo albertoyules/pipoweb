@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Tu informe — Pipo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -532,7 +535,7 @@
         <div class="confirmacion-pedido">
           <h4>Pedido registrado</h4>
           <p>No hemos podido escribirte por email, así que aquí tienes cómo pagar: Bizum de <strong>${datos.precio}€</strong> al <span class="telefono">${datos.telefono_bizum}</span>, indicando en el concepto la referencia: <span class="referencia">${datos.referencia}</span></p>
-          <p>En cuanto confirmemos el pago, te escribimos con las soluciones y el PDF.</p>
+          <p>En cuanto confirmemos el pago (normalmente en menos de 24 horas), te escribimos con las soluciones y el PDF.</p>
           <div class="upsell-arreglo">
             ¿Prefieres que te lo arreglemos nosotros? Precio orientativo: <strong>${datos.precio_arreglo_estimado}€</strong>.
             <a href="mailto:alberyules11@gmail.com?subject=${asunto}&body=${cuerpo}">Contáctanos</a>.
@@ -544,7 +547,7 @@
     document.getElementById("zona-pedido").innerHTML = `
       <div class="confirmacion-pedido">
         <h4>Pedido registrado</h4>
-        <p>Te hemos escrito a <strong>${email}</strong> con el diagnóstico completo de ${dominioParam} y cómo completar el pago.</p>
+        <p>Te hemos escrito a <strong>${email}</strong> con el diagnóstico completo de ${dominioParam} y cómo completar el pago. Confirmamos los pagos normalmente en menos de 24 horas.</p>
         <p>¿No te llega? Revisa spam o escríbenos a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>.</p>
       </div>`;
   }

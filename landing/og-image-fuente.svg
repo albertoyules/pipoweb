@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F5EFE6"/>
+  <circle cx="960" cy="140" r="220" fill="#C97B5A" opacity=".12"/>
+  <circle cx="120" cy="560" r="180" fill="#8A9A5B" opacity=".12"/>
+
+  <text x="90" y="220" font-family="Georgia, serif" font-size="66" font-weight="700" fill="#3A2E24">¿Dudas de tu web?</text>
+  <text x="90" y="296" font-family="Georgia, serif" font-style="italic" font-size="66" font-weight="700" fill="#C97B5A">Pipo</text>
+  <text x="275" y="296" font-family="Georgia, serif" font-size="66" font-weight="700" fill="#3A2E24">te la revisa.</text>
+  <text x="90" y="352" font-family="Helvetica, Arial, sans-serif" font-size="27" fill="#6F4E37">Seguridad, RGPD, SEO y velocidad — gratis, en un minuto.</text>
+
+  <g transform="translate(870,300)">
+    <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
+    <ellipse cx="120" cy="162" rx="58" ry="66" fill="#E8D6BF"/>
+    <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
+    <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
+    <path d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="92" cy="120" r="30" fill="#fff"/>
+    <circle cx="95" cy="122" r="15" fill="#3A2E24"/>
+    <circle cx="100" cy="117" r="5" fill="#fff"/>
+    <circle cx="148" cy="120" r="30" fill="#fff"/>
+    <circle cx="145" cy="122" r="15" fill="#3A2E24"/>
+    <circle cx="150" cy="117" r="5" fill="#fff"/>
+    <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
+    <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
+    <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+    <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+    <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="182" cy="196" r="26" fill="none" stroke="#C97B5A" stroke-width="7"/>
+    <circle cx="182" cy="196" r="20" fill="rgba(201,123,90,.12)"/>
+    <line x1="200" y1="214" x2="222" y2="238" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
+  </g>
+</svg>
