@@ -19,8 +19,10 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
+from app.checks.accesibilidad_check import comprobar_accesibilidad
 from app.checks.archivos_expuestos import comprobar_archivos_expuestos
 from app.checks.dns_check import comprobar_dns
+from app.checks.dominio_check import comprobar_dominio
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
 from app.checks.pagina import obtener_pagina
@@ -29,6 +31,7 @@ from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
+from app.checks.whois_check import comprobar_whois
 from app.config import CLAVE_ADMIN, GMAIL_EMAIL, TELEFONO_BIZUM
 from app.database import (
     existe_pedido_pagado,
@@ -202,6 +205,25 @@ async def check_mixed_content(dominio: str):
     """Endpoint de prueba del check de mixed content."""
     pagina = await obtener_pagina(dominio)
     return comprobar_mixed_content(pagina)
+
+
+@app.get("/check/dominio")
+async def check_dominio(dominio: str):
+    """Endpoint de prueba del check de dominio (CAA/DNSSEC)."""
+    return await comprobar_dominio(dominio)
+
+
+@app.get("/check/whois")
+async def check_whois(dominio: str):
+    """Endpoint de prueba del check de WHOIS (caducidad del dominio)."""
+    return await asyncio.to_thread(comprobar_whois, dominio)
+
+
+@app.get("/check/accesibilidad")
+async def check_accesibilidad(dominio: str):
+    """Endpoint de prueba del check de accesibilidad básica."""
+    pagina = await obtener_pagina(dominio)
+    return comprobar_accesibilidad(pagina)
 
 
 @app.get("/check/archivos-expuestos")

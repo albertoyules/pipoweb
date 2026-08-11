@@ -13,11 +13,50 @@ Qué comprobamos:
 - Cuántos días le quedan antes de caducar.
 - Qué versión de TLS se ha negociado (las viejas, TLS 1.0/1.1, ya se
   consideran inseguras y los navegadores avisan de ellas).
+- Si http:// (sin cifrar) redirige de verdad a https://. Tener un
+  buen certificado no sirve de mucho si alguien escribe el dominio sin
+  "https://" y la web le sirve la versión sin cifrar en vez de mandarle
+  directa a la segura.
 """
 
 import socket
 import ssl
 from datetime import datetime, timezone
+
+import requests
+
+TIMEOUT_REDIRECCION = 5.0
+
+
+def _verificar_redireccion_http_https(dominio: str) -> dict:
+    """
+    Pide http://dominio (sin cifrar) y mira a dónde se acaba llegando.
+    Es una petición HTTP normal, la misma que haría un navegador si
+    alguien escribe el dominio sin "https://" delante.
+
+    Devuelve un diccionario con "ok" (True si termina en https, o si
+    el puerto 80 ni siquiera responde — eso también es seguro, es que
+    no hay ninguna puerta sin cifrar) y "detalle" para el caso malo.
+    """
+    try:
+        respuesta = requests.get(
+            f"http://{dominio}", timeout=TIMEOUT_REDIRECCION, allow_redirects=True
+        )
+    except requests.exceptions.RequestException:
+        # No responde por HTTP: no hay ninguna puerta de entrada sin
+        # cifrar, así que no hay nada que redirigir. Se cuenta como
+        # correcto, no como un fallo del check.
+        return {"ok": True, "url_final": None}
+
+    url_final = str(respuesta.url)
+    if url_final.startswith("https://"):
+        return {"ok": True, "url_final": url_final}
+
+    return {
+        "ok": False,
+        "url_final": url_final,
+        "detalle": "La versión sin cifrar (http://) de la web no redirige a https:// — sirve contenido real sin cifrar.",
+    }
 
 # Márgenes para decidir el semáforo. Fáciles de ajustar más adelante
 # si vemos que asustamos de más o de menos a los clientes.
@@ -76,15 +115,20 @@ def comprobar_ssl(dominio: str, timeout: float = 5.0) -> dict:
     fecha_caducidad = _parsear_fecha_certificado(certificado["notAfter"])
     dias_restantes = (fecha_caducidad - datetime.now(timezone.utc)).days
     emisor = dict(x[0] for x in certificado.get("issuer", []))
+    redireccion = _verificar_redireccion_http_https(dominio)
 
     datos = {
         "protocolo_tls": protocolo,
         "emisor": emisor.get("organizationName", "desconocido"),
         "caduca_el": fecha_caducidad.date().isoformat(),
         "dias_restantes": dias_restantes,
+        "http_redirige_a_https": redireccion["ok"],
     }
 
-    # A partir de aquí, decidimos el semáforo.
+    # A partir de aquí, decidimos el semáforo. Los problemas del propio
+    # certificado (caducado, a punto de caducar, TLS viejo) mandan
+    # siempre sobre el aviso de redirección — si el certificado ya está
+    # mal, ese es el problema principal a comunicar.
     if dias_restantes < 0:
         return _resultado(
             estado="rojo",
@@ -106,6 +150,14 @@ def comprobar_ssl(dominio: str, timeout: float = 5.0) -> dict:
             estado="ambar",
             prioridad="media",
             detalle=f"La web usa {protocolo}, una versión de TLS ya considerada insegura.",
+            datos=datos,
+        )
+
+    if not redireccion["ok"]:
+        return _resultado(
+            estado="ambar",
+            prioridad="media",
+            detalle=f"Certificado válido, pero {redireccion['detalle'][0].lower()}{redireccion['detalle'][1:]}",
             datos=datos,
         )
 

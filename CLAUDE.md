@@ -67,15 +67,18 @@ PIPO ANALIZA/
         ├── puntuacion.py              → nota 0-100, calculada por FÓRMULA FIJA, nunca por la IA
         ├── checks/
         │   ├── pagina.py                → descarga compartida de la home (evita pedir la misma página 3 veces)
-        │   ├── ssl_check.py              → verde
-        │   ├── headers_check.py           → verde
+        │   ├── ssl_check.py              → verde (certificado + redirección http→https real)
+        │   ├── headers_check.py           → verde (4 cabeceras "core" + aviso de cookies/Referrer-Policy/Permissions-Policy/fuga de versión)
         │   ├── dns_check.py                → verde (SPF/DKIM/DMARC)
-        │   ├── seo_check.py                 → verde
-        │   ├── privacidad_check.py           → verde (aviso legal/cookies/trackers)
-        │   ├── mixed_content_check.py         → verde
-        │   ├── tecnologia_check.py             → verde (CMS desactualizado)
-        │   ├── rendimiento_check.py            → verde, opt-in (PageSpeed, móvil+ordenador, 4 categorías cada uno)
-        │   └── archivos_expuestos.py            → ÁMBAR, opt-in solo con consentimiento
+        │   ├── dominio_check.py             → verde (CAA + DNSSEC)
+        │   ├── whois_check.py                → verde (caducidad del dominio; "no disponible" nunca cuenta como fallo)
+        │   ├── seo_check.py                   → verde
+        │   ├── privacidad_check.py             → verde (aviso legal/cookies/trackers)
+        │   ├── mixed_content_check.py           → verde (recursos http:// + Subresource Integrity en scripts externos)
+        │   ├── tecnologia_check.py               → verde (CMS desactualizado)
+        │   ├── accesibilidad_check.py             → verde (lang, formularios sin etiqueta)
+        │   ├── rendimiento_check.py                → verde, opt-in (PageSpeed, móvil+ordenador, 4 categorías cada uno)
+        │   └── archivos_expuestos.py                → ÁMBAR, opt-in solo con consentimiento
         ├── ia/
         │   ├── cliente.py               → envoltorio del proveedor de IA (hoy Claude/Anthropic — ver nota abajo)
         │   ├── interpretar.py            → botón 1: hallazgos en lenguaje llano
@@ -96,7 +99,7 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 | Endpoint | Qué hace | Notas |
 |---|---|---|
 | `GET /health` | Salud del servidor | — |
-| `GET /check/{ssl,headers,dns,seo,privacidad,mixed-content,archivos-expuestos,rendimiento}?dominio=` | Cada check por separado | Utilidades de depuración, sin rate limit |
+| `GET /check/{ssl,headers,dns,dominio,whois,seo,privacidad,mixed-content,tecnologia,accesibilidad,archivos-expuestos,rendimiento}?dominio=` | Cada check por separado | Utilidades de depuración, sin rate limit |
 | `GET /api/scan?dominio=&consiento=&incluir_rendimiento=` | Orquesta todos los checks en paralelo, guarda en DB | **Rate limited: 5/min por IP.** `consiento=true` activa `archivos_expuestos`; `incluir_rendimiento=true` añade PageSpeed (+10-15s) |
 | `GET /api/scan/{id}` | Recupera un escaneo guardado | — |
 | `GET /api/scan/{id}/rendimiento` | Audita velocidad (PageSpeed) del dominio de ese escaneo | Rate limited 5/min. **Cacheado** en `rendimiento_json`; sustituye al uso directo de `/check/rendimiento?dominio=` desde `informe.html` |
@@ -160,6 +163,33 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
   - **Por qué se ve bien sin repintar cada color a mano**: la capa azul usa `mix-blend-mode: color`, que cambia el tono pero respeta la luminosidad, así el texto sigue legible.
   - **Bug ya corregido, no reintroducirlo**: la primera versión congelaba con `body.modo-invierno *{animation-play-state:paused}`. Ese `*` paralizaba también la nieve y a Pipo, y el efecto se veía como un simple filtro azul plano. Ahora solo se pausan los elementos decorativos concretos.
   - Rendimiento (preocupación explícita de Alberto): todo se anima con `transform`/`opacity` (compositor de la GPU) y los ~33 elementos de nieve/viento se crean al pulsar y **se borran del DOM al terminar** — en reposo el coste es cero.
+
+### ✅ Ampliación del escáner: de 7 a 10 comprobaciones (11 ago 2026)
+Alberto pidió revisar si Pipo estaba haciendo "todo el análisis posible" dentro de la regla 100% pasiva, y valorar una checklist de 20 puntos de un TikTok sobre qué le falta a cualquier web antes de lanzarla. De ahí salieron dos bloques de trabajo:
+
+**A) 3 checks nuevos (nuevas filas en el semáforo):**
+- `dominio_check.py` (check `dominio`): CAA (qué entidades pueden emitir certificados para el dominio) + DNSSEC. Para DNSSEC, **no vale con mirar la flag AD** de la respuesta del resolver (se probó y Cloudflare no la marca de forma fiable para clientes públicos) — la técnica que funciona de verdad es pedir la respuesta con la flag EDNS "DO" y comprobar si el servidor devuelve un registro RRSIG junto a la respuesta normal (su sola presencia confirma que la zona está firmada). Verificado con `isc.org` (tiene DNSSEC) y `cloudflare.com` (no lo tenía activo en su propio dominio, curiosamente).
+- `whois_check.py` (check `whois`): fecha de caducidad del dominio. Consulta en dos pasos (primero `whois.iana.org` para saber qué servidor es responsable del TLD, luego ese servidor para el dominio en sí) porque no hay un único formato ni servidor WHOIS. **Ojo con esto si se retoca**: IANA no siempre usa el campo `refer:` para decir cuál es el servidor autoritativo — `.org` (y otros) usan `whois:` en su lugar; hay que aceptar los dos nombres de campo. Si no se reconoce el dominio o el formato de fecha, el resultado es **verde** con "no disponible", nunca rojo — no poder consultar WHOIS es una limitación nuestra, no un problema del sitio analizado.
+- `accesibilidad_check.py` (check `accesibilidad`): atributo `lang` en `<html>` y campos de formulario sin ninguna etiqueta asociada (ni `<label>`, ni `aria-label`, ni envuelto en un label). No mide contraste de color ni nada que exija renderizar la página de verdad — sigue siendo 100% pasivo, solo HTML. Motivación explícita: desde junio de 2025 hay obligación legal en España/UE (Ley 11/2023, transposición de la European Accessibility Act) para bastantes negocios, así que esto no es solo "nice to have".
+
+**B) Ampliaciones a checks que ya existían (mismo check, más señales, sin añadir filas nuevas):**
+- `headers_check.py`: además de las 4 cabeceras "core" (que siguen siendo las únicas que mandan en el semáforo), ahora también avisa si hay cookies sin `Secure`/`HttpOnly`/`SameSite`, si faltan `Referrer-Policy`/`Permissions-Policy`, y si el servidor filtra su versión exacta en `Server`/`X-Powered-By`. Estos avisos van en el `detalle` y en `datos`, pero **no** bajan el semáforo por sí solos — se consideró que penalizar doble por encima de las 4 cabeceras core sería demasiado severo.
+- `ssl_check.py`: comprueba también que `http://dominio` (sin cifrar) redirige de verdad a `https://`. Si el puerto 80 ni responde, se cuenta como correcto (no hay puerta sin cifrar que redirigir). Los problemas del certificado en sí (caducado, a punto de caducar, TLS viejo) siempre mandan sobre este aviso.
+- `mixed_content_check.py`: además de recursos `http://` en una página `https://` (como antes), ahora detecta scripts/hojas de estilo cargadas desde **otro dominio** (típicamente un CDN) sin el atributo `integrity` (Subresource Integrity/SRI). Si el CDN se ve comprometido algún día, ese código se ejecutaría igual en la web del cliente. Nunca sube a rojo por sí solo, y el mixed content de verdad (más grave) manda si aparecen los dos a la vez.
+
+**Conectado en `scanner.py`** (los 3 checks nuevos se lanzan en paralelo con el resto, igual que todos) y con endpoints de depuración `/check/dominio`, `/check/whois`, `/check/accesibilidad`. Probado un escaneo completo real (`github.com`): 10 checks, 1.2s de duración total — el paralelismo sigue absorbiendo bien la carga extra. `NOMBRES_CHECK` en `index.html` actualizado con los 3 checks nuevos, y el "Semáforo de las 7 comprobaciones" de la tarjeta de precios pasó a "10 comprobaciones".
+
+### ✅ Huecos de SEO/marca de la propia web (11 ago 2026)
+Mismo encargo de arriba, pero aplicado a `piposcan.vercel.app` en vez de a las webs que Pipo analiza — irónico no pasar el propio escaneo de Pipo. Verificado todo con curl real contra producción, no de memoria:
+- **Favicon** con el búho de Pipo: `favicon.svg` (vectorial, recorte del símbolo `#pipo` sin lupa ni pies porque a 16-32px son ruido) + `favicon-32.png`/`favicon-192.png`/`apple-touch-icon.png`/`favicon.ico` generados con `cairosvg` (instalado en `backend/.venv`, que ya tenía Pango/Cairo funcionando gracias a WeasyPrint) en todas las páginas.
+- `robots.txt` + `sitemap.xml` — no existían. `robots.txt` excluye `pedidos.html` (el panel privado) por si acaso, aunque ya tiene `noindex`.
+- Meta description en todas las páginas; Open Graph + Twitter Card completos en `index.html`, con imagen de marca propia (`og-image.png`, generada igual que el favicon a partir de un SVG con el owl + texto).
+- Datos estructurados `schema.org` (`Organization`) en `index.html`.
+- CTA fija en móvil (`#cta-fija-movil`): el menú entero (con el único botón "Revisar mi web") se ocultaba por completo en pantallas pequeñas (`nav-links{display:none}` en `@media(max-width:780px)`), sin ningún CTA visible mientras se hacía scroll. Se esconde sola cuando el formulario real (`#demo`) ya está a la vista, para no duplicar el CTA.
+- Promesa de tiempo de respuesta ("confirmamos el pago normalmente en menos de 24 horas") añadida en la FAQ, el email de pedido (`app/notificaciones/mensajes.py`) y la confirmación en pantalla — checklist del TikTok, punto "response time promise".
+- **Falsa alarma corregida sobre la marcha**: se pensó que el 404 personalizado (`404.html`) no se estaba sirviendo en Vercel, porque `curl -o /dev/null -w "%{http_code}"` daba `404`. Eso es tratar el código de estado como si probara "página genérica" — un 404 bien hecho **debe** devolver estado 404 aunque enseñe contenido propio. Al mirar el cuerpo real de la respuesta (`content-disposition: filename="404.html"`, título "Página no encontrada — Pipo"), se confirmó que ya funcionaba bien desde que se desplegó. No se tocó nada, no hacía falta.
+- **No hecho a propósito, decisión explícita de Alberto**: Google Analytics. Se preguntó primero porque instalarlo de verdad exige un banner de consentimiento (una cookie de analytics no puede cargar antes de aceptar, por LSSI/RGPD) y una propiedad de Analytics que Alberto no ha creado — Alberto prefirió dejarlo fuera por ahora y solo confirmar que `cookies.html`/`privacidad.html` siguen describiendo la realidad actual (solo Google Fonts, nada de analítica).
+- **Matización legal importante, corregida tras aviso de Alberto**: el primer intento de actualizar `aviso-legal.html`/`privacidad.html` decía que Pipo "ya procesa pagos y tiene clientes reales" — Alberto corrigió que sigue en fase de pruebas sobre sus propios dominios (trabajos ya desplegados por él), sin haber contactado todavía a ninguna empresa. Las páginas legales quedaron con esa redacción más precisa: publicado en internet, pero en pruebas, sin clientes reales todavía.
 
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:

@@ -11,8 +11,10 @@ para empezar a ver el "informe" tomar forma.
 import asyncio
 import time
 
+from app.checks.accesibilidad_check import comprobar_accesibilidad
 from app.checks.archivos_expuestos import comprobar_archivos_expuestos
 from app.checks.dns_check import comprobar_dns
+from app.checks.dominio_check import comprobar_dominio
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
 from app.checks.pagina import obtener_pagina
@@ -21,6 +23,7 @@ from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
+from app.checks.whois_check import comprobar_whois
 
 
 async def ejecutar_escaneo(
@@ -49,6 +52,8 @@ async def ejecutar_escaneo(
         asyncio.to_thread(comprobar_ssl, dominio),
         comprobar_headers(dominio),
         comprobar_dns(dominio),
+        comprobar_dominio(dominio),
+        asyncio.to_thread(comprobar_whois, dominio),
     ]
     if incluir_archivos_expuestos:
         tareas.append(comprobar_archivos_expuestos(dominio))
@@ -56,8 +61,8 @@ async def ejecutar_escaneo(
         tareas.append(comprobar_rendimiento(dominio))
 
     # La página se descarga en paralelo con el resto; los checks que
-    # la necesitan (seo, privacidad, mixed_content) se lanzan después,
-    # en cuanto esa descarga termina.
+    # la necesitan (seo, privacidad, mixed_content, accesibilidad) se
+    # lanzan después, en cuanto esa descarga termina.
     pagina, *resultados_iniciales = await asyncio.gather(obtener_pagina(dominio), *tareas)
 
     resultados_dependientes_de_pagina = await asyncio.gather(
@@ -65,6 +70,7 @@ async def ejecutar_escaneo(
         asyncio.to_thread(comprobar_privacidad, pagina),
         asyncio.to_thread(comprobar_mixed_content, pagina),
         comprobar_tecnologia(pagina),
+        asyncio.to_thread(comprobar_accesibilidad, pagina),
     )
 
     checks = [*resultados_iniciales, *resultados_dependientes_de_pagina]
