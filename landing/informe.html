@@ -556,9 +556,19 @@
       <form class="form-pedido" id="form-pedido">
         <input type="email" id="input-email-pedido" placeholder="tu@email.com" required>
         <input type="tel" id="input-telefono-pedido" placeholder="teléfono (opcional)">
-        <button class="btn btn-primary" type="submit">Pedir</button>
+        <button class="btn btn-primary" type="submit" disabled>Pedir</button>
       </form>
+      <div class="consentimiento-lead" style="margin-top:10px;max-width:480px">
+        <input type="checkbox" id="check-consiento-pedido">
+        <label for="check-consiento-pedido">Acepto que Pipo me escriba con el diagnóstico de este informe y cómo pagarlo. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+      </div>
       <p class="error-desbloqueo" id="error-pedido"></p>`;
+
+    const checkConsientoPedido = document.getElementById("check-consiento-pedido");
+    const botonPedir = document.querySelector("#form-pedido button");
+    checkConsientoPedido.addEventListener("change", () => {
+      botonPedir.disabled = !checkConsientoPedido.checked;
+    });
 
     document.getElementById("form-pedido").addEventListener("submit", async (evento) => {
       evento.preventDefault();
@@ -566,6 +576,14 @@
       const telefono = document.getElementById("input-telefono-pedido").value.trim();
       const boton = evento.target.querySelector("button");
       const errorPedido = document.getElementById("error-pedido");
+
+      // Defensa en profundidad: aunque el botón esté deshabilitado sin
+      // consentimiento, no confiamos solo en eso (podría reactivarse
+      // desde las devtools), mismo criterio que el checkbox de index.html.
+      if (!checkConsientoPedido.checked) {
+        errorPedido.textContent = "Marca la casilla de consentimiento para poder pedir el informe.";
+        return;
+      }
 
       boton.disabled = true;
       errorPedido.textContent = "";

@@ -46,10 +46,10 @@
 
 <main class="wrap">
   <h1>Política de privacidad</h1>
-  <p class="fecha">Última actualización: 10 de agosto de 2026</p>
+  <p class="fecha">Última actualización: 11 de agosto de 2026</p>
 
   <div class="aviso-provisional">
-    Pipo está en fase de desarrollo y pruebas (<code>localhost</code>), sin usuarios reales todavía. Esta política describe cómo funciona el tratamiento de datos en el sistema tal y como está construido hoy, para que sea correcta desde el primer día que alguien lo use de verdad.
+    Pipo ya está publicado y en funcionamiento real en internet. Esta política describe cómo funciona el tratamiento de datos en el sistema tal y como está construido hoy. Alberto Yules opera todavía como persona física, sin estar dado de alta como autónomo o empresa (ver <a href="aviso-legal.html">aviso legal</a>) — el nivel de pago del informe se cobra hoy de forma manual (Bizum), fuera de los sistemas de Pipo.
   </div>
 
   <h2>1. Responsable del tratamiento</h2>
@@ -62,27 +62,31 @@
     <tr><td>Dirección IP de quien escanea</td><td>Petición HTTP</td><td>Limitar el número de escaneos por minuto y evitar abuso del servicio</td></tr>
     <tr><td>Resultado del escaneo (hallazgos, nota)</td><td>Generado por Pipo</td><td>Mostrar el informe y guardarlo para poder recuperarlo después</td></tr>
     <tr><td>Email (solo si se deja voluntariamente)</td><td>Lo introduce la persona usuaria, para ver el resto del informe gratuito</td><td>Enviar/mostrar el informe completo y, si se acepta expresamente, contactar sobre Pipo y sus servicios</td></tr>
+    <tr><td>Teléfono (opcional)</td><td>Lo introduce la persona usuaria, al pedir el nivel de pago</td><td>Identificar el Bizum entrante y confirmar el pago</td></tr>
+    <tr><td>Datos del pedido (email, dominio, referencia, precio)</td><td>Generado al pedir el nivel de pago</td><td>Gestionar el pedido, avisar del pago pendiente y confirmarlo cuando se recibe</td></tr>
   </table>
   <p>
-    Pipo <strong>no</strong> pide ni almacena contraseñas, datos bancarios, ni ningún dato del servidor del dominio analizado más allá de lo que ese servidor ya publica a cualquier visitante.
+    Pipo <strong>no</strong> pide ni almacena contraseñas, ni ningún dato del servidor del dominio analizado más allá de lo que ese servidor ya publica a cualquier visitante. El pago en sí (Bizum) ocurre directamente entre quien paga y la cuenta bancaria de Alberto Yules, fuera de los sistemas de Pipo — Pipo no procesa ni almacena ningún dato bancario o de tarjeta.
   </p>
 
   <h2>3. Con quién se comparte</h2>
-  <p>Para generar el informe, algunos datos viajan a proveedores externos que actúan como encargados del tratamiento:</p>
+  <p>Para generar el informe y gestionar los pedidos, algunos datos viajan a proveedores externos que actúan como encargados del tratamiento:</p>
   <ul>
-    <li><strong>Google (API Gemini)</strong>: recibe los hallazgos técnicos del escaneo para redactar la explicación en lenguaje llano y las soluciones sugeridas.</li>
+    <li><strong>Anthropic (API Claude)</strong>: recibe los hallazgos técnicos del escaneo para redactar la explicación en lenguaje llano y las soluciones sugeridas.</li>
     <li><strong>Google PageSpeed Insights</strong>: si se activa el análisis de velocidad, Google audita la web analizada directamente.</li>
+    <li><strong>Google (Gmail)</strong>: se usa para enviar el email de confirmación de pedido (con el diagnóstico y cómo pagar) y el aviso interno a Alberto — el contenido pasa por los servidores de Gmail como cualquier email normal.</li>
+    <li><strong>Railway</strong>: aloja el servidor y la base de datos de Pipo.</li>
   </ul>
-  <p>En ningún caso se envían datos personales de quien usa Pipo a estos proveedores — solo el dominio a analizar y los resultados técnicos del escaneo.</p>
+  <p>A estos proveedores solo se les envían los datos que necesitan para su función concreta (el dominio y los resultados técnicos a Anthropic/Google PageSpeed; el email, teléfono y contenido del mensaje a Gmail) — nunca todos los datos juntos a todos los proveedores.</p>
 
   <h2>4. Cuánto tiempo se conservan los datos</h2>
   <p>
-    Los escaneos se guardan en la base de datos de Pipo (<code>pipo.db</code>) para poder recuperar el informe más adelante sin repetir el análisis. Mientras el proyecto esté en fase de pruebas, esta base de datos vive únicamente en el ordenador del desarrollador.
+    Los escaneos, leads y pedidos se guardan en la base de datos de Pipo (SQLite) para poder recuperar el informe más adelante sin repetir el análisis y para gestionar los pedidos pendientes de pago. La base de datos vive en el servidor de Railway donde corre Pipo, sobre un volumen persistente — no en el ordenador de ninguna persona en particular.
   </p>
 
   <h2>5. Base legal</h2>
   <p>
-    El tratamiento se basa en la ejecución de la solicitud que la propia persona usuaria hace al introducir un dominio (art. 6.1.b RGPD) y, para la limitación de peticiones por IP, en el interés legítimo de proteger el servicio frente a abuso (art. 6.1.f RGPD). El email, cuando se deja voluntariamente para ver el informe completo, se trata con el consentimiento expreso de la persona usuaria (art. 6.1.a RGPD), marcado aparte en el propio formulario.
+    El tratamiento se basa en la ejecución de la solicitud que la propia persona usuaria hace al introducir un dominio (art. 6.1.b RGPD) y, para la limitación de peticiones por IP, en el interés legítimo de proteger el servicio frente a abuso (art. 6.1.f RGPD). El email para ver el informe completo, y el email/teléfono al pedir el nivel de pago, se tratan con el consentimiento expreso de la persona usuaria (art. 6.1.a RGPD), marcado aparte en cada formulario; el pedido en sí, una vez confirmado, se trata también para la ejecución de esa solicitud (art. 6.1.b RGPD).
   </p>
 
   <h2>6. Tus derechos</h2>
