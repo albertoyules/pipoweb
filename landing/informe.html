@@ -32,29 +32,27 @@
   .btn-ghost:not(:disabled):hover{background:var(--cream-deep)}
 
   nav{position:sticky;top:0;z-index:50;background:rgba(245,239,230,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
-  .nav-in{display:flex;align-items:center;gap:10px;height:64px;max-width:820px;margin:0 auto;padding:0 24px}
-  .logo{display:flex;align-items:center;gap:10px;font-family:'Fraunces';font-weight:600;font-size:20px;color:var(--brown-dark)}
-  .logo svg{width:30px;height:30px}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;gap:10px;height:64px;max-width:820px;margin:0 auto;padding:0 24px}
+  .logo{display:flex;align-items:center;gap:8px;font-family:'Fraunces';font-weight:600;font-size:18px;color:var(--brown-dark)}
+  .titulo-nav{font-family:'Fraunces';font-weight:600;font-size:14px;color:var(--brown-dark);text-transform:uppercase;letter-spacing:.06em}
 
   main{padding:44px 0 120px}
 
-  /* cabecera de página: para que nav no quede pegada directamente al
-     primer bloque, en cualquier estado (cargando, bloqueado, error...) */
-  .titulo-pagina{display:flex;align-items:center;gap:8px;margin-bottom:22px}
-  .titulo-pagina svg{width:24px;height:24px}
-  .titulo-pagina span{font-family:'Fraunces';font-weight:600;font-size:15px;color:var(--brown-dark);text-transform:uppercase;letter-spacing:.06em}
-
-  /* bloqueo del informe: se pide el email antes de gastar la llamada a
-     la IA, no solo antes de enseñar el resultado (ver CLAUDE.md) */
-  .escena-bloqueo{background:#fff;border:1px solid var(--line);border-radius:20px;padding:44px 32px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
-  .escena-bloqueo svg{width:64px;height:64px}
-  .escena-bloqueo h2{font-size:21px;color:var(--ink)}
-  .escena-bloqueo .sub{font-size:14.5px;color:var(--brown-dark);max-width:380px}
-  .form-desbloqueo-informe{display:flex;gap:8px;width:100%;max-width:340px;margin-top:8px}
-  .form-desbloqueo-informe input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:'Nunito';font-size:15px;color:var(--ink)}
-  .consentimiento-lead{display:flex;align-items:flex-start;gap:8px;max-width:340px;text-align:left;margin-top:2px}
+  /* tarjeta de desbloqueo: aparece flotando sobre el detalle
+     difuminado (hallazgos + acciones), no antes de generarlo — el
+     informe se carga siempre, y solo el detalle queda borroso hasta
+     dejar el email (ver CLAUDE.md) */
+  .zona-detalle{position:relative}
+  .detalle-difuminable.difuminado{filter:blur(6px);user-select:none;pointer-events:none;transition:filter .2s ease}
+  .capa-desbloqueo-informe{position:absolute;inset:0;display:none;justify-content:center;pointer-events:none}
+  .tarjeta-desbloqueo-informe{position:sticky;top:96px;margin-top:8px;pointer-events:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:30px 26px;max-width:380px;width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+  .tarjeta-desbloqueo-informe h2{font-size:19px;color:var(--ink)}
+  .tarjeta-desbloqueo-informe .sub{font-size:13.5px;color:var(--brown-dark)}
+  .form-desbloqueo-informe{display:flex;gap:8px;width:100%;max-width:320px;margin-top:6px}
+  .form-desbloqueo-informe input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-family:'Nunito';font-size:14.5px;color:var(--ink)}
+  .consentimiento-lead{display:flex;align-items:flex-start;gap:8px;max-width:320px;text-align:left;margin-top:2px}
   .consentimiento-lead input{margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:var(--terracotta);cursor:pointer}
-  .consentimiento-lead label{font-size:12.5px;color:var(--brown-dark);opacity:.85;cursor:pointer;line-height:1.4}
+  .consentimiento-lead label{font-size:12px;color:var(--brown-dark);opacity:.85;cursor:pointer;line-height:1.4}
   .consentimiento-lead a{color:var(--terracotta);font-weight:600}
   .error-desbloqueo{font-size:13px;color:var(--brick);font-weight:600;min-height:16px}
 
@@ -172,33 +170,12 @@
 
 <nav>
   <div class="nav-in">
-    <a class="logo" href="index.html"><svg><use href="#pipo"/></svg>Pipo</a>
+    <a class="logo" href="index.html">← Pipo</a>
+    <span class="titulo-nav">Informe</span>
   </div>
 </nav>
 
 <main class="wrap">
-  <div class="titulo-pagina">
-    <svg><use href="#pipo"/></svg>
-    <span>Informe</span>
-  </div>
-
-  <div id="estado-bloqueo" style="display:none">
-    <div class="escena-bloqueo">
-      <svg><use href="#pipo"/></svg>
-      <h2>Antes de ver tu informe</h2>
-      <p class="sub">Pipo ya tiene el semáforo de tu web. Deja tu email y te enseña al instante los hallazgos explicados en cristiano, con prioridades y por qué importan.</p>
-      <form class="form-desbloqueo-informe" id="form-desbloqueo-informe">
-        <input type="email" id="input-email-lead" placeholder="tu@email.com" required>
-        <button class="btn btn-primary" type="submit">Ver informe</button>
-      </form>
-      <div class="consentimiento-lead">
-        <input type="checkbox" id="check-consiento-lead">
-        <label for="check-consiento-lead">Acepto que Pipo me contacte sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
-      </div>
-      <span class="error-desbloqueo" id="error-desbloqueo"></span>
-    </div>
-  </div>
-
   <div id="estado-carga" style="display:none">
     <div class="escena-carga">
       <div class="escena-figuras">
@@ -228,22 +205,28 @@
       <div class="informe-nota" id="txt-nota"></div>
     </div>
 
-    <div class="hallazgos" id="lista-hallazgos"></div>
+    <div class="zona-detalle" id="zona-detalle">
+      <div class="detalle-difuminable" id="detalle-difuminable">
+        <div class="hallazgos" id="lista-hallazgos"></div>
 
-    <div class="acciones">
-      <div class="accion">
-        <h2>¿Y la velocidad?</h2>
-        <p class="desc">Google audita tu web de verdad, con el mismo motor de Chrome — por eso tarda 20-30 segundos, no es un fallo.</p>
-        <button class="btn btn-ghost" id="btn-velocidad">Comprobar velocidad de carga</button>
-        <div id="zona-velocidad"></div>
+        <div class="acciones">
+          <div class="accion">
+            <h2>¿Y la velocidad?</h2>
+            <p class="desc">Google audita tu web de verdad, con el mismo motor de Chrome — por eso tarda 20-30 segundos, no es un fallo.</p>
+            <button class="btn btn-ghost" id="btn-velocidad">Comprobar velocidad de carga</button>
+            <div id="zona-velocidad"></div>
+          </div>
+
+          <div class="accion">
+            <h2>¿Cómo lo arreglo?</h2>
+            <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, y calcula la nota que tendría tu web si los aplicas todos.</p>
+            <button class="btn btn-primary" id="btn-soluciones">Pedir soluciones y nota estimada</button>
+            <div id="zona-soluciones"></div>
+          </div>
+        </div>
       </div>
 
-      <div class="accion">
-        <h2>¿Cómo lo arreglo?</h2>
-        <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, y calcula la nota que tendría tu web si los aplicas todos.</p>
-        <button class="btn btn-primary" id="btn-soluciones">Pedir soluciones y nota estimada</button>
-        <div id="zona-soluciones"></div>
-      </div>
+      <div class="capa-desbloqueo-informe" id="capa-desbloqueo-informe"></div>
     </div>
   </div>
 </main>
@@ -335,7 +318,6 @@
   function mostrarError(mensaje) {
     detenerRotacionDeFrases();
     document.getElementById("estado-carga").style.display = "none";
-    document.getElementById("estado-bloqueo").style.display = "none";
     const zona = document.getElementById("estado-error");
     zona.style.display = "block";
     zona.innerHTML = `
@@ -346,6 +328,11 @@
   }
 
   async function cargarInforme() {
+    if (!idEscaneo) {
+      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.");
+      return;
+    }
+
     document.getElementById("estado-carga").style.display = "block";
     iniciarRotacionDeFrases();
 
@@ -388,6 +375,79 @@
     }).join("");
 
     document.getElementById("contenido").style.display = "block";
+
+    // El informe se genera siempre (ya ha costado la llamada a la IA);
+    // lo que queda oculto hasta dejar el email es solo el detalle
+    // (hallazgos + acciones), difuminado detrás de una tarjeta flotante.
+    // La cabecera (dominio, nota, resumen de la IA) se ve siempre —
+    // es el gancho que demuestra que el informe ya existe de verdad.
+    const yaDesbloqueado = localStorage.getItem(`pipo_desbloqueado_${idEscaneo}`) === "true";
+    if (!yaDesbloqueado) {
+      mostrarCapaDesbloqueoInforme();
+    }
+  }
+
+  function mostrarCapaDesbloqueoInforme() {
+    document.getElementById("detalle-difuminable").classList.add("difuminado");
+
+    const capa = document.getElementById("capa-desbloqueo-informe");
+    capa.style.display = "flex";
+    capa.innerHTML = `
+      <div class="tarjeta-desbloqueo-informe">
+        <svg width="40" height="40"><use href="#pipo"/></svg>
+        <h2>Desbloquea el resto</h2>
+        <p class="sub">Deja tu email y ves los hallazgos explicados uno a uno, sus soluciones y la comprobación de velocidad.</p>
+        <form class="form-desbloqueo-informe" id="form-desbloqueo-informe">
+          <input type="email" id="input-email-lead" placeholder="tu@email.com" required>
+          <button class="btn btn-primary" type="submit">Ver</button>
+        </form>
+        <div class="consentimiento-lead">
+          <input type="checkbox" id="check-consiento-lead">
+          <label for="check-consiento-lead">Acepto que Pipo me contacte sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+        </div>
+        <span class="error-desbloqueo" id="error-desbloqueo"></span>
+      </div>`;
+
+    document.getElementById("form-desbloqueo-informe").addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+
+      const checkConsientoLead = document.getElementById("check-consiento-lead");
+      const errorDesbloqueo = document.getElementById("error-desbloqueo");
+      const email = document.getElementById("input-email-lead").value.trim();
+
+      if (!checkConsientoLead.checked) {
+        errorDesbloqueo.textContent = "Marca la casilla para continuar.";
+        return;
+      }
+
+      const formulario = document.getElementById("form-desbloqueo-informe");
+      const boton = formulario.querySelector("button");
+      boton.disabled = true;
+      errorDesbloqueo.textContent = "";
+
+      try {
+        const respuesta = await fetch(
+          `${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`,
+          { method: "POST" }
+        );
+
+        if (respuesta.status === 429) {
+          errorDesbloqueo.textContent = "Demasiados intentos seguidos. Espera un minuto.";
+          return;
+        }
+        if (!respuesta.ok) {
+          errorDesbloqueo.textContent = "Ese email no parece válido.";
+          return;
+        }
+
+        localStorage.setItem(`pipo_desbloqueado_${idEscaneo}`, "true");
+        document.getElementById("detalle-difuminable").classList.remove("difuminado");
+        document.getElementById("capa-desbloqueo-informe").style.display = "none";
+      } catch (error) {
+        errorDesbloqueo.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
+        boton.disabled = false;
+      }
+    });
   }
 
   document.getElementById("btn-velocidad").addEventListener("click", async () => {
@@ -476,69 +536,7 @@
     }
   });
 
-  // Punto de entrada: decide si hace falta pedir el email o si ya se
-  // dejó antes para este mismo escaneo (recuerda con localStorage, así
-  // no se vuelve a pedir cada vez que se recarga la página). El email
-  // se pide ANTES de llamar a /api/informe a propósito: esa llamada
-  // gasta cuota de IA, así que no tiene sentido pagarla por alguien que
-  // ni siquiera va a dejar el contacto.
-  function verificarAccesoInforme() {
-    if (!idEscaneo) {
-      mostrarError("Falta el identificador del escaneo. Vuelve a la página principal y analiza tu web de nuevo.");
-      return;
-    }
-
-    const yaDesbloqueado = localStorage.getItem(`pipo_desbloqueado_${idEscaneo}`) === "true";
-    if (yaDesbloqueado) {
-      cargarInforme();
-      return;
-    }
-
-    document.getElementById("estado-bloqueo").style.display = "block";
-  }
-
-  document.getElementById("form-desbloqueo-informe").addEventListener("submit", async (evento) => {
-    evento.preventDefault();
-
-    const checkConsientoLead = document.getElementById("check-consiento-lead");
-    const errorDesbloqueo = document.getElementById("error-desbloqueo");
-    const email = document.getElementById("input-email-lead").value.trim();
-
-    if (!checkConsientoLead.checked) {
-      errorDesbloqueo.textContent = "Marca la casilla para continuar.";
-      return;
-    }
-
-    const formulario = document.getElementById("form-desbloqueo-informe");
-    const boton = formulario.querySelector("button");
-    boton.disabled = true;
-    errorDesbloqueo.textContent = "";
-
-    try {
-      const respuesta = await fetch(
-        `${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`,
-        { method: "POST" }
-      );
-
-      if (respuesta.status === 429) {
-        errorDesbloqueo.textContent = "Demasiados intentos seguidos. Espera un minuto.";
-        return;
-      }
-      if (!respuesta.ok) {
-        errorDesbloqueo.textContent = "Ese email no parece válido.";
-        return;
-      }
-
-      localStorage.setItem(`pipo_desbloqueado_${idEscaneo}`, "true");
-      document.getElementById("estado-bloqueo").style.display = "none";
-      cargarInforme();
-    } catch (error) {
-      errorDesbloqueo.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
-      boton.disabled = false;
-    }
-  });
-
-  verificarAccesoInforme();
+  cargarInforme();
 </script>
 
 </body>
