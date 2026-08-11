@@ -15,6 +15,8 @@ load_dotenv()
 GOOGLE_PAGESPEED_API_KEY = os.getenv("GOOGLE_PAGESPEED_API_KEY")
 
 # Clave para la capa de IA (interpretación de hallazgos y soluciones).
-# Hoy usa Google Gemini; si en el futuro se cambia a otro proveedor,
-# este es el único sitio que habría que tocar.
+# Ahora usa Claude (Anthropic) — antes era Google Gemini, pero su plan
+# gratuito solo daba 20 peticiones/día. GOOGLE_GEMINI_API_KEY se deja
+# aquí sin usar por si algún día hiciera falta volver atrás.
 GOOGLE_GEMINI_API_KEY = os.getenv("GOOGLE_GEMINI_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
