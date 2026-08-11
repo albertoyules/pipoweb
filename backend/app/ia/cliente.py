@@ -15,10 +15,23 @@ pago con Anthropic (ver CLAUDE.md, decisión #5).
 import json
 
 import anthropic
+import httpx
 
 from app.config import ANTHROPIC_API_KEY
 
 MODELO = "claude-haiku-4-5-20251001"
+
+# trust_env=False: algunas plataformas (Railway incluida) inyectan
+# variables de entorno HTTP_PROXY/HTTPS_PROXY para su propio tráfico
+# interno. httpx las respeta por defecto, lo que puede romper la
+# conexión saliente hacia la API de Anthropic con un "Connection error"
+# que no tiene nada que ver con la clave. Se crea el cliente una sola
+# vez (no en cada petición) para reutilizar la conexión.
+_CLIENTE = anthropic.Anthropic(
+    api_key=ANTHROPIC_API_KEY or "sin-configurar",
+    http_client=httpx.Client(trust_env=False, timeout=30.0),
+    max_retries=2,
+)
 
 
 class ErrorIA(Exception):
@@ -35,10 +48,8 @@ def preguntar_ia(instrucciones_sistema: str, pregunta: str) -> dict:
     if not ANTHROPIC_API_KEY:
         raise ErrorIA("Pipo no tiene configurada la clave de IA todavía.")
 
-    cliente = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
     try:
-        respuesta = cliente.messages.create(
+        respuesta = _CLIENTE.messages.create(
             model=MODELO,
             max_tokens=2048,
             # Temperatura baja: queremos interpretación fiel a los
@@ -52,7 +63,13 @@ def preguntar_ia(instrucciones_sistema: str, pregunta: str) -> dict:
             messages=[{"role": "user", "content": pregunta}],
         )
     except Exception as error:  # noqa: BLE001 - cualquier fallo de red/API se trata igual
-        raise ErrorIA(f"No se ha podido contactar con la IA: {error}") from error
+        # Se incluye el tipo de excepción, no solo el mensaje: httpx a
+        # veces da mensajes genéricos ("Connection error") que sin el
+        # tipo y la causa real son imposibles de diagnosticar en remoto.
+        causa = f" (causa: {error.__cause__})" if error.__cause__ else ""
+        raise ErrorIA(
+            f"No se ha podido contactar con la IA: [{type(error).__name__}] {error}{causa}"
+        ) from error
 
     texto = respuesta.content[0].text.strip()
     # Por si acaso el modelo se envuelve en un bloque de código a pesar
