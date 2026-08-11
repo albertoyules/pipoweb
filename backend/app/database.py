@@ -229,3 +229,32 @@ def guardar_pedido(
             "INSERT INTO pedidos (referencia, email, dominio, id_escaneo, precio, telefono) VALUES (?, ?, ?, ?, ?, ?)",
             (referencia, email, dominio, id_escaneo, precio, telefono),
         )
+
+
+def listar_pedidos() -> list[dict]:
+    """Todos los pedidos, más recientes primero — para el panel de Alberto."""
+    with obtener_conexion() as conexion:
+        filas = conexion.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
+    return [dict(fila) for fila in filas]
+
+
+def marcar_pedido_pagado(id_pedido: int) -> bool:
+    """Marca un pedido como pagado. Devuelve False si ese id no existía."""
+    with obtener_conexion() as conexion:
+        cursor = conexion.execute("UPDATE pedidos SET pagado = 1 WHERE id = ?", (id_pedido,))
+        return cursor.rowcount > 0
+
+
+def existe_pedido_pagado(id_escaneo: int) -> bool:
+    """
+    Si hay algún pedido pagado para este escaneo — es la comprobación
+    real que protege /soluciones y /pdf (ver main.py). Basta con uno:
+    no hace falta que el email del pedido coincida con quien pregunta,
+    el candado es por escaneo, no por persona (mismo criterio que el
+    resto de Pipo, que nunca ha pedido cuentas de usuario).
+    """
+    with obtener_conexion() as conexion:
+        fila = conexion.execute(
+            "SELECT 1 FROM pedidos WHERE id_escaneo = ? AND pagado = 1 LIMIT 1", (id_escaneo,)
+        ).fetchone()
+    return fila is not None

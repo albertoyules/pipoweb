@@ -29,8 +29,9 @@ from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
-from app.config import GMAIL_EMAIL, TELEFONO_BIZUM
+from app.config import CLAVE_ADMIN, GMAIL_EMAIL, TELEFONO_BIZUM
 from app.database import (
+    existe_pedido_pagado,
     guardar_escaneo,
     guardar_informe,
     guardar_lead,
@@ -38,6 +39,8 @@ from app.database import (
     guardar_rendimiento,
     guardar_soluciones,
     inicializar_db,
+    listar_pedidos,
+    marcar_pedido_pagado,
     obtener_escaneo,
 )
 from app.ia.cliente import ErrorIA
@@ -62,6 +65,20 @@ limiter = Limiter(key_func=get_remote_address)
 # poca ganancia real). Solo pretende filtrar errores de escritura
 # evidentes antes de guardar el lead.
 REGEX_EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _verificar_clave_admin(clave: str | None) -> None:
+    """
+    Protege el panel de pedidos (landing/pedidos.html?clave=...). No es
+    un sistema de usuarios de verdad — es un enlace secreto que solo
+    tiene Alberto, suficiente para un panel de uso personal. Se usa
+    secrets.compare_digest en vez de "==" para que comparar la clave no
+    filtre por temporización cuánto se parece un intento a la correcta.
+    Si CLAVE_ADMIN no está configurada, se deniega siempre (nunca un
+    panel abierto por descuido de configuración).
+    """
+    if not CLAVE_ADMIN or not clave or not secrets.compare_digest(clave, CLAVE_ADMIN):
+        raise HTTPException(status_code=403, detail="Clave incorrecta.")
 
 
 @asynccontextmanager
@@ -372,6 +389,33 @@ async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: i
     }
 
 
+@app.get("/api/pedidos")
+@limiter.limit("20/minute")
+async def ver_pedidos(request: Request, clave: str):
+    """
+    Lista todos los pedidos, para el panel privado de Alberto
+    (landing/pedidos.html). Límite más alto que el resto (20/min en vez
+    de 5/min) porque es él recargando su propio panel, no tráfico
+    público — y cada llamada aquí no cuesta cuota de IA ni de PageSpeed.
+    """
+    _verificar_clave_admin(clave)
+    return listar_pedidos()
+
+
+@app.post("/api/pedidos/{id_pedido}/pagado")
+@limiter.limit("20/minute")
+async def confirmar_pago_pedido(request: Request, id_pedido: int, clave: str):
+    """
+    Marca un pedido como pagado a mano, tras comprobar el Bizum. A
+    partir de aquí, /soluciones y /pdf quedan desbloqueados de verdad
+    para el escaneo de ese pedido (ver esos dos endpoints más abajo).
+    """
+    _verificar_clave_admin(clave)
+    if not marcar_pedido_pagado(id_pedido):
+        raise HTTPException(status_code=404, detail="Ese pedido no existe.")
+    return {"ok": True}
+
+
 @app.get("/api/scan/{id_escaneo}/rendimiento")
 @limiter.limit("5/minute")
 async def scan_rendimiento(request: Request, id_escaneo: int):
@@ -469,10 +513,16 @@ async def informe_soluciones(request: Request, id_escaneo: int):
     si alguien pulsa el botón "soluciones" dos veces para el mismo
     escaneo, la segunda vez se sirve desde la base de datos, sin gastar
     cuota de Gemini otra vez.
+
+    Requiere un pedido pagado para este escaneo (ver /api/pedidos y
+    CLAUDE.md, P2) — 402 Payment Required si no lo hay.
     """
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+
+    if not existe_pedido_pagado(id_escaneo):
+        raise HTTPException(status_code=402, detail="Este escaneo no tiene ningún pedido pagado todavía.")
 
     if escaneo["soluciones"] is not None:
         return escaneo["soluciones"]
@@ -496,10 +546,16 @@ async def informe_pdf(request: Request, id_escaneo: int):
     igual que /api/informe) y las soluciones si ya se pidieron antes;
     no hace ninguna llamada a la IA que no fuera a hacer falta de todos
     modos, solo compone el PDF con lo que hay guardado.
+
+    Requiere un pedido pagado para este escaneo, mismo criterio que
+    /soluciones — 402 Payment Required si no lo hay.
     """
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+
+    if not existe_pedido_pagado(id_escaneo):
+        raise HTTPException(status_code=402, detail="Este escaneo no tiene ningún pedido pagado todavía.")
 
     if escaneo["informe"] is None:
         try:

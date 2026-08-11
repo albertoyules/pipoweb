@@ -45,3 +45,9 @@ TELEFONO_BIZUM = _leer_clave("TELEFONO_BIZUM")
 # app/notificaciones/enviar.py para el porqué de esta elección.
 GMAIL_EMAIL = _leer_clave("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = _leer_clave("GMAIL_APP_PASSWORD")
+
+# Clave del panel privado de pedidos (landing/pedidos.html?clave=...) —
+# quien la tenga puede ver los pedidos y marcarlos como pagados. Sin
+# usuarios ni contraseñas de verdad a propósito: es un panel de uso
+# personal para Alberto, no un producto multiusuario.
+CLAVE_ADMIN = _leer_clave("CLAVE_ADMIN")

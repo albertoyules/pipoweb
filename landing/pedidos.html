@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Pipo — Pedidos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F5EFE6;--cream-deep:#EBE1D2;--brown-dark:#6F4E37;--terracotta:#C97B5A;
+    --sage:#8A9A5B;--amber:#D9A441;--brick:#B34733;--ink:#3A2E24;--line:rgba(111,78,55,.16);
+    --shadow:0 18px 50px -22px rgba(111,78,55,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--ink);line-height:1.5;padding:32px 20px 80px}
+  h1{font-family:'Fraunces';font-weight:600;font-size:26px;margin-bottom:6px}
+  .sub{color:var(--brown-dark);font-size:14px;margin-bottom:28px}
+  .wrap{max-width:920px;margin:0 auto}
+  .estado-carga,.estado-error{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;font-weight:700}
+  .estado-error{color:var(--brick)}
+
+  .pedido{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 22px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .pedido-cabecera{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .pedido .dominio{font-weight:800;font-size:16px}
+  .badge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em}
+  .badge.pendiente{background:rgba(217,164,65,.18);color:#a9791d}
+  .badge.pagado{background:rgba(138,154,91,.18);color:var(--sage)}
+  .pedido .precio{margin-left:auto;font-family:'Fraunces';font-size:20px;font-weight:600}
+  .pedido dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13.5px;color:var(--brown-dark);margin-top:12px}
+  .pedido dt{font-weight:700}
+  .pedido dd{word-break:break-word}
+  .acciones-pedido{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .btn{font-family:'Nunito';font-weight:700;font-size:13.5px;padding:9px 16px;border-radius:999px;cursor:pointer;border:none;text-decoration:none;display:inline-flex;align-items:center}
+  .btn-primary{background:var(--terracotta);color:#fff}
+  .btn-ghost{background:var(--cream-deep);color:var(--brown-dark)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  .zona-soluciones{margin-top:14px;background:var(--cream-deep);border-radius:12px;padding:14px 16px;font-size:13.5px;white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>Pedidos</h1>
+  <p class="sub">Panel privado — marca un pedido como pagado en cuanto confirmes el Bizum. Enlace de solo uso personal, no lo compartas.</p>
+  <div id="contenido"></div>
+</div>
+
+<script>
+  const API_BASE = "https://pipo-analiza-production.up.railway.app";
+  const clave = new URLSearchParams(window.location.search).get("clave") || "";
+  const contenido = document.getElementById("contenido");
+
+  function formatearFecha(fechaSql) {
+    // fechaSql viene en UTC de SQLite ("YYYY-MM-DD HH:MM:SS")
+    return new Date(fechaSql.replace(" ", "T") + "Z").toLocaleString("es-ES");
+  }
+
+  function pintarPedido(pedido) {
+    const pagado = pedido.pagado === 1;
+    const enlaceInforme = `informe.html?id=${pedido.id_escaneo}&dominio=${encodeURIComponent(pedido.dominio)}`;
+    const enlacePdf = `${API_BASE}/api/informe/${pedido.id_escaneo}/pdf`;
+
+    const div = document.createElement("div");
+    div.className = "pedido";
+    div.innerHTML = `
+      <div class="pedido-cabecera">
+        <span class="dominio">${pedido.dominio}</span>
+        <span class="badge ${pagado ? "pagado" : "pendiente"}">${pagado ? "Pagado" : "Pendiente"}</span>
+        <span class="precio">${pedido.precio}€</span>
+      </div>
+      <dl>
+        <dt>Email</dt><dd>${pedido.email}</dd>
+        <dt>Teléfono</dt><dd>${pedido.telefono || "—"}</dd>
+        <dt>Referencia</dt><dd>${pedido.referencia}</dd>
+        <dt>Pedido</dt><dd>${formatearFecha(pedido.fecha)}</dd>
+        <dt>Ver escaneo</dt><dd><a href="${enlaceInforme}" target="_blank">${enlaceInforme}</a></dd>
+      </dl>
+      <div class="acciones-pedido">
+        ${pagado ? "" : `<button class="btn btn-primary" data-marcar="${pedido.id}">Marcar pagado</button>`}
+        ${pagado ? `<a class="btn btn-ghost" href="${enlacePdf}" target="_blank">Descargar PDF</a>` : ""}
+        ${pagado ? `<button class="btn btn-ghost" data-soluciones="${pedido.id_escaneo}">Ver soluciones</button>` : ""}
+      </div>
+      <div class="zona-soluciones" id="soluciones-${pedido.id_escaneo}" style="display:none"></div>
+    `;
+    return div;
+  }
+
+  async function cargarPedidos() {
+    contenido.innerHTML = `<div class="estado-carga">Cargando pedidos...</div>`;
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/pedidos?clave=${encodeURIComponent(clave)}`);
+      if (respuesta.status === 403) {
+        contenido.innerHTML = `<div class="estado-error">Clave incorrecta. Revisa el enlace.</div>`;
+        return;
+      }
+      if (!respuesta.ok) {
+        contenido.innerHTML = `<div class="estado-error">No se han podido cargar los pedidos.</div>`;
+        return;
+      }
+      const pedidos = await respuesta.json();
+      if (pedidos.length === 0) {
+        contenido.innerHTML = `<div class="estado-carga">Todavía no hay ningún pedido.</div>`;
+        return;
+      }
+      contenido.innerHTML = "";
+      pedidos.forEach((pedido) => contenido.appendChild(pintarPedido(pedido)));
+    } catch (error) {
+      contenido.innerHTML = `<div class="estado-error">No se ha podido conectar con el servidor.</div>`;
+    }
+  }
+
+  contenido.addEventListener("click", async (evento) => {
+    const botonMarcar = evento.target.closest("[data-marcar]");
+    if (botonMarcar) {
+      botonMarcar.disabled = true;
+      try {
+        const respuesta = await fetch(
+          `${API_BASE}/api/pedidos/${botonMarcar.dataset.marcar}/pagado?clave=${encodeURIComponent(clave)}`,
+          { method: "POST" }
+        );
+        if (respuesta.ok) {
+          cargarPedidos();
+        } else {
+          botonMarcar.disabled = false;
+        }
+      } catch (error) {
+        botonMarcar.disabled = false;
+      }
+      return;
+    }
+
+    const botonSoluciones = evento.target.closest("[data-soluciones]");
+    if (botonSoluciones) {
+      const idEscaneo = botonSoluciones.dataset.soluciones;
+      const zona = document.getElementById(`soluciones-${idEscaneo}`);
+      if (zona.style.display === "block") {
+        zona.style.display = "none";
+        return;
+      }
+      zona.style.display = "block";
+      zona.textContent = "Cargando...";
+      try {
+        const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}/soluciones`, { method: "POST" });
+        const datos = await respuesta.json();
+        zona.textContent = JSON.stringify(datos, null, 2);
+      } catch (error) {
+        zona.textContent = "No se han podido cargar las soluciones.";
+      }
+    }
+  });
+
+  if (!clave) {
+    contenido.innerHTML = `<div class="estado-error">Falta la clave en el enlace (?clave=...).</div>`;
+  } else {
+    cargarPedidos();
+  }
+</script>
+
+</body>
+</html>
