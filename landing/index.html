@@ -43,11 +43,14 @@
   .nav-links{display:flex;gap:30px;align-items:center}
   .nav-links a{font-weight:600;font-size:15px;color:var(--brown-dark);opacity:.8;transition:opacity .2s}
   .nav-links a:hover{opacity:1}
-  .btn{display:inline-flex;align-items:center;gap:8px;font-family:'Nunito';font-weight:700;font-size:15px;padding:12px 22px;border-radius:999px;cursor:pointer;border:none;transition:transform .15s ease, box-shadow .2s ease}
+  .btn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:8px;font-family:'Nunito';font-weight:700;font-size:15px;padding:12px 22px;border-radius:999px;cursor:pointer;border:none;transition:transform .2s cubic-bezier(.2,.9,.3,1.3), box-shadow .25s ease}
+  /* Barrido de luz al pasar el ratón: una franja clara que cruza el botón */
+  .btn::after{content:"";position:absolute;top:0;left:-75%;width:45%;height:100%;background:linear-gradient(115deg,transparent,rgba(255,255,255,.55),transparent);transform:skewX(-18deg);transition:left .55s ease}
+  .btn:hover::after{left:130%}
   .btn-primary{background:var(--terracotta);color:#fff;box-shadow:0 10px 24px -10px var(--terracotta)}
-  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 16px 30px -12px var(--terracotta)}
+  .btn-primary:hover{box-shadow:0 18px 34px -12px var(--terracotta)}
   .btn-ghost{background:transparent;color:var(--brown-dark);border:1.5px solid var(--line)}
-  .btn-ghost:hover{background:var(--cream-deep)}
+  .btn-ghost:hover{background:var(--cream-deep);border-color:var(--terracotta)}
   @media(max-width:780px){.nav-links{display:none}}
 
   /* HERO */
@@ -58,6 +61,26 @@
   .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--sage)}
   .hero h1{font-size:clamp(38px,6vw,62px);font-weight:600;color:var(--ink)}
   .hero h1 .accent{color:var(--terracotta);font-style:italic}
+
+  /* MÁQUINA DE ESCRIBIR: el titular se construye letra a letra por JS;
+     el cursor parpadeante es un ::after que siempre queda pegado al
+     último carácter escrito, se apague donde se apague la línea. */
+  .titulo-escritura.escribiendo::after{content:"";display:inline-block;width:3px;height:.85em;margin-left:3px;background:var(--terracotta);position:relative;top:.12em;animation:cursor-parpadeo .85s steps(2) infinite}
+  .titulo-escritura.terminado::after{content:"";display:inline-block;width:3px;height:.85em;margin-left:3px;background:var(--terracotta);position:relative;top:.12em;opacity:0;transition:opacity .7s ease .35s}
+  @keyframes cursor-parpadeo{50%{opacity:0}}
+  @media(prefers-reduced-motion:reduce){.titulo-escritura.escribiendo::after,.titulo-escritura.terminado::after{display:none}}
+
+  /* El resto del hero espera a que termine de "escribirse" el titular
+     y entonces sube en cascada, un elemento detrás de otro. */
+  .hero-resto>*{opacity:0;transform:translateY(20px);transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1)}
+  .hero-resto.visible>*{opacity:1;transform:translateY(0)}
+  .hero-resto.visible>*:nth-child(1){transition-delay:.05s}
+  .hero-resto.visible>*:nth-child(2){transition-delay:.16s}
+  .hero-resto.visible>*:nth-child(3){transition-delay:.27s}
+  .hero-resto.visible>*:nth-child(4){transition-delay:.38s}
+  .hero-resto.visible>*:nth-child(5){transition-delay:.46s}
+  @media(prefers-reduced-motion:reduce){.hero-resto>*{opacity:1;transform:none;transition:none}}
+
   .hero p.sub{font-size:19px;color:var(--brown-dark);margin:22px 0 30px;max-width:520px}
   .hero-cta{display:flex;gap:14px;flex-wrap:wrap}
   .scanbox{margin-top:34px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:10px;display:flex;gap:8px;box-shadow:var(--shadow);max-width:480px}
@@ -188,9 +211,17 @@
 
   /* FEATURE CARDS */
   .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px}
-  .card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;transition:transform .2s ease, box-shadow .2s ease}
-  .card:hover{transform:translateY(-5px);box-shadow:var(--shadow)}
-  .card .ico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+  /* Tarjetas con inclinación 3D + foco de luz que sigue al ratón (JS
+     escribe --mx/--my/--rx/--ry en cada movimiento). */
+  .card{position:relative;overflow:hidden;background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;
+    transform:perspective(700px) rotateX(var(--rx,0)) rotateY(var(--ry,0)) translateY(0);
+    transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease,border-color .35s ease}
+  .card::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s ease;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%),rgba(255,255,255,.65),transparent 62%)}
+  .card:hover{box-shadow:var(--shadow);border-color:rgba(201,123,90,.35)}
+  .card:hover::before{opacity:1}
+  .card .ico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;transition:transform .35s cubic-bezier(.3,1.4,.4,1)}
+  .card:hover .ico{transform:scale(1.12) rotate(-6deg)}
   .card h3{font-size:20px;font-weight:600;margin-bottom:8px;color:var(--brown-dark)}
   .card p{font-size:15px;color:#6a5c4e}
   @media(max-width:880px){.cards{grid-template-columns:1fr}}
@@ -218,8 +249,11 @@
 
   /* PRICING */
   .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:44px;align-items:stretch}
-  .plan{background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;display:flex;flex-direction:column}
+  .plan{background:#fff;border:1px solid var(--line);border-radius:22px;padding:32px;display:flex;flex-direction:column;
+    transition:transform .3s cubic-bezier(.2,.8,.2,1),box-shadow .3s ease,border-color .3s ease}
+  .plan:hover{transform:translateY(-8px);box-shadow:var(--shadow);border-color:var(--terracotta)}
   .plan.feat{border:2px solid var(--terracotta);position:relative}
+  .plan.feat:hover{box-shadow:0 26px 60px -18px rgba(201,123,90,.55)}
   .plan .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--terracotta);color:#fff;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px}
   .plan h3{font-size:20px;color:var(--brown-dark);margin-bottom:6px}
   .plan .price{font-family:'Fraunces';font-size:38px;font-weight:600;color:var(--ink);margin:8px 0}
@@ -233,10 +267,13 @@
   /* FAQ */
   .faq{max-width:760px;margin:44px auto 0}
   .q{background:#fff;border:1px solid var(--line);border-radius:16px;margin-bottom:14px;overflow:hidden}
-  .q summary{cursor:pointer;padding:20px 24px;font-weight:700;font-size:17px;color:var(--brown-dark);list-style:none;display:flex;justify-content:space-between;align-items:center}
+  .q{transition:box-shadow .3s ease}
+  .q summary{cursor:pointer;padding:20px 24px;font-weight:700;font-size:17px;color:var(--brown-dark);list-style:none;display:flex;justify-content:space-between;align-items:center;transition:background .25s ease}
+  .q summary:hover{background:var(--cream-deep)}
   .q summary::-webkit-details-marker{display:none}
-  .q summary::after{content:"+";font-size:24px;color:var(--terracotta);font-weight:400}
-  .q[open] summary::after{content:"–"}
+  .q summary::after{content:"+";font-size:24px;color:var(--terracotta);font-weight:400;display:inline-block;transition:transform .3s cubic-bezier(.3,1.3,.4,1)}
+  .q[open] summary::after{transform:rotate(45deg)}
+  .q[open]{box-shadow:var(--shadow)}
   .q .a{padding:0 24px 20px;color:#6a5c4e;font-size:15px}
 
   /* CTA FINAL */
@@ -258,13 +295,24 @@
   /* BARRA DE PROGRESO DE SCROLL */
   #barra-progreso{position:fixed;top:0;left:0;height:3px;width:0%;background:linear-gradient(90deg,var(--terracotta),var(--amber));z-index:60;transition:width .1s linear}
 
-  /* APARICIÓN AL HACER SCROLL: oculto+desplazado hasta que entra en
-     pantalla, entonces se revela con una curva suave. El estado inicial
-     va inline en cada elemento (opacity:0) para que no haya "flash" del
-     contenido completo antes de que el JS arranque. */
-  .reveal{opacity:0;transform:translateY(28px);transition:opacity .8s cubic-bezier(.16,1,.3,1),transform .8s cubic-bezier(.16,1,.3,1)}
-  .reveal.visible{opacity:1;transform:translateY(0)}
-  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+  /* APARICIÓN AL HACER SCROLL: seis variantes distintas (no todo el
+     mismo fundido+subida) para que cada sección entre de una forma
+     propia — desde un lado, con blur, escalando o con un giro leve.
+     El estado inicial es invisible hasta que el JS (IntersectionObserver)
+     añade .visible al entrar en pantalla. */
+  .reveal,.reveal-left,.reveal-right,.reveal-scale,.reveal-blur,.reveal-rotate{
+    opacity:0;transition:opacity .85s cubic-bezier(.16,1,.3,1),transform .85s cubic-bezier(.16,1,.3,1),filter .85s ease}
+  .reveal{transform:translateY(30px)}
+  .reveal-left{transform:translateX(-56px)}
+  .reveal-right{transform:translateX(56px)}
+  .reveal-scale{transform:scale(.8) translateY(18px)}
+  .reveal-blur{transform:translateY(14px);filter:blur(14px)}
+  .reveal-rotate{transform:translateY(24px) rotate(-6deg);transform-origin:top center}
+  .reveal.visible,.reveal-left.visible,.reveal-right.visible,.reveal-scale.visible,.reveal-blur.visible,.reveal-rotate.visible{
+    opacity:1;transform:none;filter:none}
+  @media(prefers-reduced-motion:reduce){
+    .reveal,.reveal-left,.reveal-right,.reveal-scale,.reveal-blur,.reveal-rotate{opacity:1;transform:none;filter:none;transition:none}
+  }
 
   /* PARALLAX SUTIL DE LAS HOJAS DEL HERO */
   .leaf{will-change:transform}
@@ -370,21 +418,29 @@
   <div class="wrap hero-grid">
     <div>
       <span class="eyebrow"><span class="dot"></span>Auditoría web sin tocar tus sistemas</span>
-      <h1>¿Dudas de tu web?<br><span class="accent">Pipo</span> te la revisa<br>y te informa.</h1>
-      <p class="sub">Pipo mira tu web igual que la ve Google: seguridad, cookies, RGPD, SEO y velocidad. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.</p>
-      <div class="hero-cta">
-        <a href="#demo" class="btn btn-primary">Revisar mi web gratis →</a>
-        <a href="#como" class="btn btn-ghost">Ver cómo funciona</a>
+      <h1 class="titulo-escritura" id="titulo-hero" aria-label="¿Dudas de tu web? Pipo te la revisa y te informa.">
+        <span aria-hidden="true">
+          <span id="th-linea1"></span><br>
+          <span id="th-linea2"><span class="accent" id="th-accent"></span><span id="th-linea2b"></span></span><br>
+          <span id="th-linea3"></span>
+        </span>
+      </h1>
+      <div class="hero-resto" id="hero-resto">
+        <p class="sub">Pipo mira tu web igual que la ve Google: seguridad, cookies, RGPD, SEO y velocidad. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.</p>
+        <div class="hero-cta">
+          <a href="#demo" class="btn btn-primary">Revisar mi web gratis →</a>
+          <a href="#como" class="btn btn-ghost">Ver cómo funciona</a>
+        </div>
+        <form class="scanbox" id="demo">
+          <input type="text" id="input-dominio" placeholder="tunegocio.es" aria-label="Tu dominio" required>
+          <button class="btn btn-primary" type="submit" id="btn-analizar" disabled>Analizar</button>
+        </form>
+        <div class="consentimiento">
+          <input type="checkbox" id="check-consentimiento">
+          <label for="check-consentimiento">Declaro ser el titular de este dominio o tener autorización para analizarlo. Ver <a href="aviso-legal.html" target="_blank">aviso legal</a> y <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+        </div>
+        <div id="zona-resultado" aria-live="polite"></div>
       </div>
-      <form class="scanbox" id="demo">
-        <input type="text" id="input-dominio" placeholder="tunegocio.es" aria-label="Tu dominio" required>
-        <button class="btn btn-primary" type="submit" id="btn-analizar" disabled>Analizar</button>
-      </form>
-      <div class="consentimiento">
-        <input type="checkbox" id="check-consentimiento">
-        <label for="check-consentimiento">Declaro ser el titular de este dominio o tener autorización para analizarlo. Ver <a href="aviso-legal.html" target="_blank">aviso legal</a> y <a href="privacidad.html" target="_blank">privacidad</a>.</label>
-      </div>
-      <div id="zona-resultado" aria-live="polite"></div>
     </div>
     <div class="pipo-stage">
       <div class="pipo-halo"></div>
@@ -399,7 +455,7 @@
 </header>
 
 <!-- STAT BAND -->
-<div class="band reveal">
+<div class="band reveal-scale">
   <div class="wrap">
     <span class="big" data-contador data-hasta="43" data-sufijo="%">0%</span>
     <p>de las pequeñas webs tienen fallos visibles de seguridad, cookies o RGPD que cualquiera puede ver desde fuera. Pipo los encuentra antes de que lo haga un cliente… o una inspección.</p>
@@ -409,36 +465,36 @@
 <!-- QUE REVISA -->
 <section class="sec" id="que-revisa">
   <div class="wrap">
-    <div class="sec-label reveal">Qué revisa Pipo</div>
-    <h2 class="reveal" style="transition-delay:.05s">Una revisión completa, sin entrar en tus sistemas</h2>
-    <p class="lead reveal" style="transition-delay:.1s">Todo lo que Pipo comprueba es información pública: lo mismo que ve cualquier visitante o buscador. Cero intrusión, cero riesgo.</p>
+    <div class="sec-label reveal-left">Qué revisa Pipo</div>
+    <h2 class="reveal-left" style="transition-delay:.05s">Una revisión completa, sin entrar en tus sistemas</h2>
+    <p class="lead reveal-left" style="transition-delay:.1s">Todo lo que Pipo comprueba es información pública: lo mismo que ve cualquier visitante o buscador. Cero intrusión, cero riesgo.</p>
     <div class="cards">
-      <div class="card reveal" style="transition-delay:0s">
+      <div class="card reveal-left" style="transition-delay:0s">
         <div class="ico" style="background:rgba(179,71,51,.12)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B34733" stroke-width="2"><path d="M12 2 4 6v6c0 5 8 10 8 10s8-5 8-10V6z"/></svg></div>
         <h3>Seguridad básica</h3>
         <p>Certificado SSL, protocolo de cifrado, cabeceras de seguridad y archivos que no deberían estar a la vista.</p>
       </div>
-      <div class="card reveal" style="transition-delay:.08s">
+      <div class="card reveal-scale" style="transition-delay:.08s">
         <div class="ico" style="background:rgba(201,123,90,.14)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C97B5A" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div>
         <h3>Cookies y RGPD</h3>
         <p>Aviso legal, política de privacidad, banner de cookies y trackers que cargan antes de que el cliente acepte.</p>
       </div>
-      <div class="card reveal" style="transition-delay:.16s">
+      <div class="card reveal-right" style="transition-delay:.16s">
         <div class="ico" style="background:rgba(217,164,65,.16)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#D9A441" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
         <h3>Correo y suplantación</h3>
         <p>Registros SPF, DKIM y DMARC que evitan que alguien mande emails haciéndose pasar por tu negocio.</p>
       </div>
-      <div class="card reveal" style="transition-delay:0s">
+      <div class="card reveal-left" style="transition-delay:0s">
         <div class="ico" style="background:rgba(138,154,91,.16)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8A9A5B" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
         <h3>SEO técnico</h3>
         <p>Títulos, descripciones, cómo se ve tu web al compartirla en WhatsApp y si Google puede indexarla bien.</p>
       </div>
-      <div class="card reveal" style="transition-delay:.08s">
+      <div class="card reveal-scale" style="transition-delay:.08s">
         <div class="ico" style="background:rgba(111,78,55,.12)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#6F4E37" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></div>
         <h3>Velocidad y móvil</h3>
         <p>Tiempo de carga, peso de la página y si se ve bien en el móvil, donde entran la mayoría de tus clientes.</p>
       </div>
-      <div class="card reveal" style="transition-delay:.16s">
+      <div class="card reveal-right" style="transition-delay:.16s">
         <div class="ico" style="background:rgba(201,123,90,.14)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C97B5A" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 8v4l3 2"/></svg></div>
         <h3>Brechas conocidas</h3>
         <p>Comprobamos si tu dominio aparece en filtraciones de datos públicas para que puedas reaccionar a tiempo.</p>
@@ -450,16 +506,16 @@
 <!-- COMO FUNCIONA -->
 <section class="sec" id="como">
   <div class="wrap">
-    <div class="sec-label reveal">Cómo funciona</div>
-    <h2 class="reveal" style="transition-delay:.05s">De un dominio a un informe que entiendes</h2>
+    <div class="sec-label reveal-right">Cómo funciona</div>
+    <h2 class="reveal-right" style="transition-delay:.05s">De un dominio a un informe que entiendes</h2>
     <div class="how">
-      <ul class="how-steps reveal">
+      <ul class="how-steps reveal-left">
         <li><span class="n">1</span><div><h4>Escribes tu dominio</h4><p>Confirmas que la web es tuya o que tienes permiso, y Pipo se pone a mirar.</p></div></li>
         <li><span class="n">2</span><div><h4>Pipo revisa desde fuera</h4><p>En segundos hace decenas de comprobaciones públicas, sin entrar en tu servidor ni tocar nada.</p></div></li>
         <li><span class="n">3</span><div><h4>Traduce lo técnico</h4><p>Cada hallazgo se explica en lenguaje normal, con su nivel de prioridad y cómo solucionarlo.</p></div></li>
         <li><span class="n">4</span><div><h4>Te entrega el informe</h4><p>Un PDF claro con semáforo verde, ámbar y rojo que puedes guardar, compartir o accionar.</p></div></li>
       </ul>
-      <div class="report reveal" style="transition-delay:.12s">
+      <div class="report reveal-right" style="transition-delay:.12s">
         <div class="report-head">
           <svg width="30" height="30"><use href="#pipo"/></svg>
           <span class="u">tunegocio.es</span>
@@ -479,10 +535,10 @@
 <!-- PRECIOS -->
 <section class="sec" id="precios">
   <div class="wrap">
-    <div class="sec-label reveal">Precios</div>
-    <h2 class="reveal" style="transition-delay:.05s">Empieza gratis, paga solo si te sirve</h2>
+    <div class="sec-label reveal-scale">Precios</div>
+    <h2 class="reveal-scale" style="transition-delay:.05s">Empieza gratis, paga solo si te sirve</h2>
     <div class="plans">
-      <div class="plan reveal" style="transition-delay:0s">
+      <div class="plan reveal-left" style="transition-delay:0s">
         <h3>Vistazo</h3>
         <div class="price">Gratis</div>
         <ul>
@@ -493,7 +549,7 @@
         </ul>
         <a href="#demo" class="btn btn-ghost">Probar ahora</a>
       </div>
-      <div class="plan feat reveal" style="transition-delay:.08s">
+      <div class="plan feat reveal-scale" style="transition-delay:.1s">
         <span class="badge">El más pedido</span>
         <h3>Informe completo</h3>
         <div class="price">59€ <span>/ único</span></div>
@@ -505,7 +561,7 @@
         </ul>
         <a href="#demo" class="btn btn-primary">Pedir informe</a>
       </div>
-      <div class="plan reveal" style="transition-delay:.16s">
+      <div class="plan reveal-right" style="transition-delay:0s">
         <h3>Vigilancia</h3>
         <div class="price">19€ <span>/ mes</span></div>
         <ul>
@@ -523,14 +579,14 @@
 <!-- FAQ -->
 <section class="sec" id="faq">
   <div class="wrap">
-    <div class="sec-label reveal" style="text-align:center">Preguntas frecuentes</div>
-    <h2 class="reveal" style="text-align:center;margin:0 auto 8px;transition-delay:.05s">Todo lo que quieres saber</h2>
+    <div class="sec-label reveal-blur" style="text-align:center">Preguntas frecuentes</div>
+    <h2 class="reveal-blur" style="text-align:center;margin:0 auto 8px;transition-delay:.05s">Todo lo que quieres saber</h2>
     <div class="faq">
-      <details class="q reveal" open style="transition-delay:0s"><summary>¿Pipo entra en mi web o la hackea?</summary><div class="a">No. Pipo solo mira información pública, la misma que ve cualquier visitante o Google. No accede a tu servidor, no prueba contraseñas y no toca ningún dato. Es una revisión desde fuera.</div></details>
-      <details class="q reveal" style="transition-delay:.06s"><summary>¿Necesito conocimientos técnicos?</summary><div class="a">Ninguno. El informe está escrito para el dueño de un negocio, no para un informático. Cada punto te dice qué pasa, por qué importa y qué hacer.</div></details>
-      <details class="q reveal" style="transition-delay:.12s"><summary>¿Puedo revisar la web de otro negocio?</summary><div class="a">Solo debes analizar webs de las que seas responsable o tengas permiso. Al usar Pipo confirmas que es así; queda registrado.</div></details>
-      <details class="q reveal" style="transition-delay:.18s"><summary>¿Qué pasa después del informe?</summary><div class="a">Puedes arreglar los puntos por tu cuenta con las indicaciones, o pedirnos que te echemos una mano. Sin compromiso.</div></details>
-      <details class="q reveal" style="transition-delay:.24s"><summary>¿Esto me sirve para el RGPD?</summary><div class="a">Pipo detecta fallos visibles de cookies y privacidad y te orienta, pero no sustituye a un asesor legal ni a un Delegado de Protección de Datos. Es un buen primer diagnóstico.</div></details>
+      <details class="q reveal-blur" open style="transition-delay:0s"><summary>¿Pipo entra en mi web o la hackea?</summary><div class="a">No. Pipo solo mira información pública, la misma que ve cualquier visitante o Google. No accede a tu servidor, no prueba contraseñas y no toca ningún dato. Es una revisión desde fuera.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.06s"><summary>¿Necesito conocimientos técnicos?</summary><div class="a">Ninguno. El informe está escrito para el dueño de un negocio, no para un informático. Cada punto te dice qué pasa, por qué importa y qué hacer.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.12s"><summary>¿Puedo revisar la web de otro negocio?</summary><div class="a">Solo debes analizar webs de las que seas responsable o tengas permiso. Al usar Pipo confirmas que es así; queda registrado.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.18s"><summary>¿Qué pasa después del informe?</summary><div class="a">Puedes arreglar los puntos por tu cuenta con las indicaciones, o pedirnos que te echemos una mano. Sin compromiso.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.24s"><summary>¿Esto me sirve para el RGPD?</summary><div class="a">Pipo detecta fallos visibles de cookies y privacidad y te orienta, pero no sustituye a un asesor legal ni a un Delegado de Protección de Datos. Es un buen primer diagnóstico.</div></details>
     </div>
   </div>
 </section>
@@ -542,7 +598,7 @@
 
 <!-- CTA FINAL -->
 <section class="wrap">
-  <div class="final reveal">
+  <div class="final reveal-rotate">
     <svg width="70" height="70" style="margin-bottom:8px"><use href="#pipo"/></svg>
     <h2>Dale a Pipo el nombre de tu web</h2>
     <p>En un minuto sabrás qué está fallando. Gratis y sin registro.</p>
@@ -569,6 +625,10 @@
   // Si algún día vuelves a probar contra tu backend en local, cambia
   // esto de vuelta a "http://127.0.0.1:8000" (una sola línea).
   const API_BASE = "https://pipo-analiza-production.up.railway.app";
+
+  // Se usa en varios efectos (máquina de escribir, contadores, nieve...),
+  // así que se calcula una sola vez arriba del todo.
+  const prefiereMenosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // Nombres amigables para cada check — el backend los identifica por
   // un id técnico (ssl, dns...), aquí los traducimos para quien no es
@@ -703,13 +763,55 @@
     }
   });
 
+  // MÁQUINA DE ESCRIBIR DEL TITULAR: escribe letra a letra "¿Dudas de tu
+  // web? Pipo te la revisa y te informa." en las tres líneas del h1
+  // (el nombre "Pipo" en su propio span para que salga en color acento),
+  // y cuando termina revela el resto del hero (subtítulo, botones, caja
+  // de escaneo...) en cascada. El h1 lleva aria-label con el texto
+  // completo para que un lector de pantalla no tenga que esperar a que
+  // se "escriba" letra a letra.
+  function escribirTexto(el, texto, msPorLetra) {
+    return new Promise((resolver) => {
+      if (prefiereMenosMovimiento) {
+        el.textContent = texto;
+        resolver();
+        return;
+      }
+      let i = 0;
+      (function siguienteLetra() {
+        el.textContent += texto[i];
+        i++;
+        if (i < texto.length) {
+          setTimeout(siguienteLetra, msPorLetra + Math.random() * (msPorLetra * 0.6));
+        } else {
+          resolver();
+        }
+      })();
+    });
+  }
+
+  async function escribirTitular() {
+    const titulo = document.getElementById("titulo-hero");
+    const heroResto = document.getElementById("hero-resto");
+    titulo.classList.add("escribiendo");
+
+    await escribirTexto(document.getElementById("th-linea1"), "¿Dudas de tu web?", 38);
+    await escribirTexto(document.getElementById("th-accent"), "Pipo", 55);
+    await escribirTexto(document.getElementById("th-linea2b"), " te la revisa", 38);
+    await escribirTexto(document.getElementById("th-linea3"), "y te informa.", 38);
+
+    titulo.classList.remove("escribiendo");
+    titulo.classList.add("terminado");
+    heroResto.classList.add("visible");
+  }
+  escribirTitular();
+
   // "Haz que Pipo tenga frío": el hielo se propaga en círculo desde el copo,
   // Pipo tirita, cae nieve con viento y la web se queda congelada unos
   // segundos. Puramente decorativo, sin llamadas al backend.
   const btnNieve = document.getElementById("btn-nieve");
   const contenedorNieve = document.getElementById("contenedor-nieve");
   const pipoHero = document.getElementById("pipo-hero");
-  const prefiereMenosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let congelando = false;
 
   function crearNieveCayendo() {
@@ -817,7 +919,8 @@
       observadorReveal.unobserve(entrada.target);
     });
   }, { threshold: .15, rootMargin: "0px 0px -60px 0px" });
-  document.querySelectorAll(".reveal").forEach((el) => observadorReveal.observe(el));
+  document.querySelectorAll(".reveal, .reveal-left, .reveal-right, .reveal-scale, .reveal-blur, .reveal-rotate")
+    .forEach((el) => observadorReveal.observe(el));
 
   // BARRA DE PROGRESO + PARALLAX DE LAS HOJAS: un único listener de
   // scroll, agrupado con requestAnimationFrame para no recalcular estilos
@@ -845,6 +948,44 @@
     requestAnimationFrame(actualizarScroll);
   }, { passive: true });
   actualizarScroll();
+
+  // TARJETAS INTERACTIVAS: al mover el ratón encima, la tarjeta se
+  // inclina en 3D hacia el cursor y un foco de luz lo sigue (ambos leídos
+  // por el CSS desde las variables --rx/--ry/--mx/--my). Se resetea al
+  // salir. Nada de esto corre si el usuario prefiere menos movimiento.
+  if (!prefiereMenosMovimiento) {
+    document.querySelectorAll(".card").forEach((tarjeta) => {
+      tarjeta.addEventListener("mousemove", (evento) => {
+        const rect = tarjeta.getBoundingClientRect();
+        const px = (evento.clientX - rect.left) / rect.width;
+        const py = (evento.clientY - rect.top) / rect.height;
+        const inclinacionMax = 7;
+        tarjeta.style.setProperty("--ry", `${(px - 0.5) * inclinacionMax * 2}deg`);
+        tarjeta.style.setProperty("--rx", `${(0.5 - py) * inclinacionMax * 2}deg`);
+        tarjeta.style.setProperty("--mx", `${px * 100}%`);
+        tarjeta.style.setProperty("--my", `${py * 100}%`);
+      });
+      tarjeta.addEventListener("mouseleave", () => {
+        tarjeta.style.setProperty("--ry", "0deg");
+        tarjeta.style.setProperty("--rx", "0deg");
+      });
+    });
+
+    // BOTONES MAGNÉTICOS: los botones "primary" se dejan atraer un poco
+    // por el cursor mientras lo tienen encima, y vuelven a su sitio con
+    // un rebote suave al salir.
+    document.querySelectorAll(".btn-primary").forEach((boton) => {
+      boton.addEventListener("mousemove", (evento) => {
+        const rect = boton.getBoundingClientRect();
+        const x = (evento.clientX - rect.left - rect.width / 2) * 0.28;
+        const y = (evento.clientY - rect.top - rect.height / 2) * 0.35;
+        boton.style.transform = `translate(${x}px, ${y}px)`;
+      });
+      boton.addEventListener("mouseleave", () => {
+        boton.style.transform = "";
+      });
+    });
+  }
 </script>
 
 </body>
