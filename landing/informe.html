@@ -233,6 +233,15 @@
          —está flotando sobre el documento, no posado—, que además
          chocarían justo con el cristal. -->
     <symbol id="pipo-espaldas" viewBox="0 0 240 300">
+      <!-- La lupa se pinta ANTES que el cuerpo (capa inferior en SVG =
+           primero en el documento), así el búho tapa el mango y solo
+           el cristal asoma por debajo, como si la llevara escondida
+           detrás y apoyada en la pantalla. -->
+      <g class="mag mag-frontal">
+        <line x1="150" y1="222" x2="192" y2="170" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="120" cy="248" r="36" fill="rgba(232,214,191,.5)"/>
+        <circle cx="120" cy="248" r="36" fill="none" stroke="#C97B5A" stroke-width="7"/>
+      </g>
       <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
       <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
       <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
@@ -241,11 +250,6 @@
       <path d="M120 104 L120 176" stroke="#96745A" stroke-width="4" fill="none" stroke-linecap="round" opacity=".35"/>
       <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
       <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
-      <g class="mag mag-frontal">
-        <line x1="150" y1="222" x2="192" y2="170" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="120" cy="248" r="36" fill="rgba(232,214,191,.5)"/>
-        <circle cx="120" cy="248" r="36" fill="none" stroke="#C97B5A" stroke-width="7"/>
-      </g>
     </symbol>
   </defs>
 </svg>
