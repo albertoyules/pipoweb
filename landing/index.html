@@ -181,21 +181,88 @@
   .ceja-izq.animo-verde{transform:rotate(-7deg) translateY(-3px)}
   .ceja-der.animo-verde{transform:rotate(7deg) translateY(-3px)}
 
-  /* #pipo-hero ya tiene "animation:float" (transform legacy con
-     translateY+rotate incluidos) — usar aquí las propiedades
-     independientes "translate"/"rotate" en vez de "transform" evita
-     que esta animación pise a "float"; el navegador compone ambas. */
-  .pipo.reaccionando{animation:float 5s ease-in-out infinite,pipo-inclinarse .9s ease-out forwards}
-  @keyframes pipo-inclinarse{0%{rotate:0deg;translate:0 0}55%{rotate:-9deg;translate:-6px -3px}100%{rotate:-6deg;translate:-4px -2px}}
+  /* EL VUELO: al salir la nota, Pipo se despega del árbol, se acerca
+     volando a la tarjeta del resultado (que está a su izquierda), se
+     queda ~2s mirándola de reojo y vuelve a posarse. Sustituye por
+     completo a "float" mientras dura (una sola animación en la
+     propiedad "animation": nada que componer, nada que se pise), y al
+     acabar JS le quita la clase y "float" vuelve solo. */
+  /* Adónde vuela: en ordenador la tarjeta del resultado está a su
+     IZQUIERDA (dos columnas), en móvil está JUSTO ENCIMA (una sola
+     columna) — por eso el destino son variables y no números fijos
+     dentro de los keyframes. */
+  .pipo{--vx:-170px;--vy:24px}
+  .pipo.volando{animation:pipo-volar 4.2s ease-in-out forwards}
+  @keyframes pipo-volar{
+    0%{transform:translate(0,0) rotate(0deg) scale(1)}
+    9%{transform:translate(calc(var(--vx)*.06),-42px) rotate(-8deg) scale(1.02)}   /* despega */
+    21%{transform:translate(var(--vx),var(--vy)) rotate(-6deg) scale(1.08)}        /* llega a la tarjeta */
+    /* 21%→69% ≈ 2s parado delante de la tarjeta, solo flotando */
+    33%{transform:translate(calc(var(--vx)*1.04),calc(var(--vy) - 12px)) rotate(-4deg) scale(1.08)}
+    45%{transform:translate(var(--vx),calc(var(--vy) + 4px)) rotate(-6deg) scale(1.08)}
+    57%{transform:translate(calc(var(--vx)*1.04),calc(var(--vy) - 10px)) rotate(-4deg) scale(1.08)}
+    69%{transform:translate(var(--vx),var(--vy)) rotate(-6deg) scale(1.08)}
+    82%{transform:translate(calc(var(--vx)*.35),-38px) rotate(9deg) scale(1.03)}   /* vuelve */
+    94%{transform:translate(0,-7px) rotate(2deg) scale(1)}
+    100%{transform:translate(0,0) rotate(0deg) scale(1)}                           /* se posa */
+  }
 
-  .mensaje-animo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;padding:10px 14px;border-radius:12px;margin-bottom:14px}
-  .mensaje-animo.rojo{background:rgba(179,71,51,.1);color:var(--brick)}
-  .mensaje-animo.ambar{background:rgba(217,164,65,.16);color:#a9791d}
-  .mensaje-animo.verde{background:rgba(138,154,91,.16);color:var(--sage)}
+  /* Aleteo: las alas NO se animan por keyframes (ver el comentario de
+     arriba — dentro de <symbol> eso no se pinta fiable), sino con dos
+     posiciones estáticas que JS alterna cada ~170ms; la transición
+     hace el resto. */
+  .ala{transition:transform .17s ease-in-out}
+  .ala-izq.aleteo{transform:rotate(34deg)}
+  .ala-der.aleteo{transform:rotate(-34deg)}
+
+  /* "De reojo": mientras está parado delante de la tarjeta, gira la
+     cara y desvía los ojos hacia ella. Apaga las animaciones de
+     siempre (mirar/parpadear/girar) porque una animación en curso
+     gana siempre a un valor estático. */
+  .pipo-face.de-reojo{animation:none;rotate:-7deg}
+  .pipo-eye.de-reojo{animation:none;translate:-7px 3px}
+
+  /* BOCADILLO estilo viñeta: sale de la cabeza de Pipo cuando ya se ha
+     posado. El pico (la colita del bocadillo) son dos triángulos
+     recortados con clip-path, uno oscuro y otro blanco 3px por encima:
+     así el borde del bocadillo continúa alrededor del pico. */
+  /* Se ancla por ABAJO, no por arriba: Pipo también está anclado al
+     fondo del escenario (align-items:flex-end + margin-bottom), así
+     que el pico del bocadillo le queda siempre a la misma distancia
+     de la cabeza aunque el escenario crezca al aparecer la tarjeta. */
+  .bocadillo{position:absolute;z-index:4;bottom:265px;right:52%;width:max-content;max-width:min(230px,42vw);
+    background:#fff;border:2px solid var(--brown-dark);border-radius:18px;padding:11px 15px;
+    font-family:'Nunito';font-weight:800;font-size:14px;line-height:1.35;color:var(--brown-dark);
+    box-shadow:4px 5px 0 rgba(58,46,36,.12);text-align:left;
+    opacity:0;transform:scale(.3);transform-origin:bottom right;pointer-events:none}
+  .bocadillo::before,.bocadillo::after{content:"";position:absolute;right:16px;width:26px;height:20px;
+    clip-path:polygon(0 0,100% 0,88% 100%)}
+  .bocadillo::before{bottom:-20px;background:var(--brown-dark)}
+  .bocadillo::after{bottom:-17px;background:#fff}
+  .bocadillo[data-animo="rojo"]{color:var(--brick)}
+  .bocadillo[data-animo="ambar"]{color:#a9791d}
+  .bocadillo[data-animo="verde"]{color:var(--sage)}
+  .bocadillo.visible{animation:bocadillo-pop .5s cubic-bezier(.3,1.6,.5,1) forwards}
+  @keyframes bocadillo-pop{
+    0%{opacity:0;transform:scale(.3) translateY(12px)}
+    60%{opacity:1;transform:scale(1.06) translateY(-3px)}
+    100%{opacity:1;transform:scale(1) translateY(0)}
+  }
+  @media(max-width:880px){
+    /* En una sola columna la tarjeta queda encima de Pipo: vuela hacia
+       arriba, no hacia el lado. */
+    .pipo{--vx:-6px;--vy:-78px}
+    /* Bocadillo centrado sobre la cabeza; "translate" (propiedad
+       independiente) en vez de "transform" para no pisar la animación
+       de aparición. */
+    .bocadillo{right:auto;left:50%;translate:-50% 0;transform-origin:bottom center;text-align:center;max-width:min(230px,62vw)}
+    .bocadillo::before,.bocadillo::after{right:50%;margin-right:-13px;clip-path:polygon(0 0,100% 0,50% 100%)}
+  }
 
   @media(prefers-reduced-motion:reduce){
-    .pipo.reaccionando{animation:none}
-    .ceja{transition:none}
+    .pipo.volando{animation:none}
+    .ceja,.ala{transition:none}
+    .bocadillo.visible{animation:none;opacity:1;transform:none}
   }
 
   /* SNOWFLAKE TRIGGER */
@@ -464,9 +531,10 @@
         <!-- beak -->
         <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
       </g>
-      <!-- wings -->
-      <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
-      <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+      <!-- wings: cada una gira alrededor de donde se une al cuerpo,
+           para poder aletear cuando Pipo vuela (ver .ala en el CSS) -->
+      <path class="ala ala-izq" d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37" style="transform-origin:54px 148px"/>
+      <path class="ala ala-der" d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37" style="transform-origin:186px 148px"/>
       <!-- feet -->
       <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
       <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
@@ -539,6 +607,7 @@
     </div>
     <div class="pipo-stage">
       <div class="pipo-halo"></div>
+      <div class="bocadillo" id="bocadillo-pipo" aria-live="polite" hidden></div>
       <svg class="tree" aria-hidden="true"><use href="#tree"/></svg>
       <svg class="pipo" id="pipo-hero"><use href="#pipo"/></svg>
       <button type="button" id="btn-nieve" class="snowflake-trigger">
@@ -775,13 +844,13 @@
       </div>`;
   }
 
-  // Mensaje de Pipo según el semáforo global del escaneo — acompaña a
-  // la reacción visual (ver reaccionarPipo) para que quede claro por
-  // qué está poniendo esa cara, no solo decorativo.
+  // Lo que dice Pipo en el bocadillo según el semáforo global del
+  // escaneo — acompaña a la reacción visual (ver reaccionarPipo) para
+  // que quede claro por qué está poniendo esa cara, no solo decorativo.
   const MENSAJES_ANIMO = {
-    rojo: "Pipo está preocupado por tu web.",
-    ambar: "Pipo cree que se puede mejorar.",
-    verde: "Pipo ve muy bien tu web.",
+    rojo: "¡Uy! Estoy preocupado por tu web.",
+    ambar: "No está mal, pero se puede mejorar.",
+    verde: "¡Muy bien! Tu web está estupenda.",
   };
 
   function pintarResultado(zona, dominio, datos) {
@@ -805,7 +874,6 @@
     }).join("");
 
     zona.innerHTML = `
-      <div class="mensaje-animo ${estadoGlobal}">${MENSAJES_ANIMO[estadoGlobal]}</div>
       <div class="report">
         <div class="report-head">
           <svg width="30" height="30"><use href="#pipo"/></svg>
@@ -822,28 +890,84 @@
     reaccionarPipo(estadoGlobal);
   }
 
-  // Pipo se inclina hacia la tarjeta de resultado (a su izquierda) en
-  // cuanto se revela la nota, con una expresión que cambia según el
-  // semáforo — cejas fruncidas en rojo, una ceja levantada (escéptico)
-  // en ámbar, cejas relajadas en verde. La inclinación es temporal (se
-  // retira sola); la expresión de ánimo se queda puesta hasta el
-  // siguiente escaneo. Ver el comentario largo en el CSS sobre por qué
-  // esto se reparte en dos mecanismos (cejas vs. inclinación).
+  // Cuando sale la nota, Pipo hace toda una escena: se despega del
+  // árbol, se acerca volando a la tarjeta del resultado (que está a su
+  // izquierda), se queda ~2 segundos mirándola de reojo, vuelve a
+  // posarse en el árbol y entonces le sale un bocadillo de viñeta
+  // diciendo qué le ha parecido. La expresión de las cejas cambia
+  // según el semáforo y se queda puesta hasta el siguiente escaneo.
+  // Ver el comentario largo del CSS sobre por qué esto se reparte en
+  // dos mecanismos (valores estáticos dentro del <symbol> vs.
+  // keyframes en el <svg> de fuera).
+  const VUELO = { total: 4200, llegada: 950, salida: 2950, aleteo: 3900 };
+  let temporizadoresPipo = [];
+  let intervaloAleteo = null;
+
   function reaccionarPipo(estadoGlobal) {
     const simboloPipo = document.getElementById("pipo");
     const pipoHero = document.getElementById("pipo-hero");
+    const bocadillo = document.getElementById("bocadillo-pipo");
     if (!simboloPipo || !pipoHero) return;
 
+    const cejas = ["ceja-izq", "ceja-der"].map((c) => simboloPipo.querySelector(`.${c}`)).filter(Boolean);
+    const alas = ["ala-izq", "ala-der"].map((c) => simboloPipo.querySelector(`.${c}`)).filter(Boolean);
+    const cara = simboloPipo.querySelector(".pipo-face");
+    const ojos = [...simboloPipo.querySelectorAll(".pipo-eye")];
+
+    // Si se escanea otra vez a media escena, se limpia la anterior
+    // antes de empezar: si no, los temporizadores viejos quitarían el
+    // "de reojo" o el vuelo nuevos a destiempo.
+    temporizadoresPipo.forEach(clearTimeout);
+    temporizadoresPipo = [];
+    clearInterval(intervaloAleteo);
+    alas.forEach((el) => el.classList.remove("aleteo"));
+    [cara, ...ojos].forEach((el) => el && el.classList.remove("de-reojo"));
+    pipoHero.classList.remove("volando");
+    bocadillo.classList.remove("visible");
+
+    // Expresión según el semáforo (cejas fruncidas en rojo, una ceja
+    // levantada en ámbar, relajadas en verde).
     const clasesAnimo = ["animo-verde", "animo-ambar", "animo-rojo"];
-    const cejas = [
-      simboloPipo.querySelector(".ceja-izq"),
-      simboloPipo.querySelector(".ceja-der"),
-    ].filter(Boolean);
     cejas.forEach((el) => el.classList.remove(...clasesAnimo));
     cejas.forEach((el) => el.classList.add(`animo-${estadoGlobal}`));
 
-    pipoHero.classList.add("reaccionando");
-    setTimeout(() => pipoHero.classList.remove("reaccionando"), 900);
+    bocadillo.hidden = false;
+    bocadillo.dataset.animo = estadoGlobal;
+    bocadillo.textContent = MENSAJES_ANIMO[estadoGlobal];
+
+    // Sin movimiento: nada de vuelo, el bocadillo aparece y ya está.
+    if (prefiereMenosMovimiento) {
+      bocadillo.classList.add("visible");
+      return;
+    }
+
+    // Reinicia la animación si ya se había volado antes (sin esto, el
+    // navegador ve la misma clase y no la vuelve a lanzar).
+    void pipoHero.offsetWidth;
+    pipoHero.classList.add("volando");
+
+    // Aleteo mientras dura el vuelo: dos posturas estáticas alternas.
+    let alaArriba = false;
+    intervaloAleteo = setInterval(() => {
+      alaArriba = !alaArriba;
+      alas.forEach((el) => el.classList.toggle("aleteo", alaArriba));
+    }, 170);
+
+    const enTiempo = (ms, accion) => temporizadoresPipo.push(setTimeout(accion, ms));
+
+    // Ya delante de la tarjeta: la mira de reojo durante ~2s.
+    enTiempo(VUELO.llegada, () => [cara, ...ojos].forEach((el) => el && el.classList.add("de-reojo")));
+    enTiempo(VUELO.salida, () => [cara, ...ojos].forEach((el) => el && el.classList.remove("de-reojo")));
+    enTiempo(VUELO.aleteo, () => {
+      clearInterval(intervaloAleteo);
+      alas.forEach((el) => el.classList.remove("aleteo"));
+    });
+    // Posado ya en el árbol: quita el vuelo (vuelve el flotar de
+    // siempre) y suelta el bocadillo.
+    enTiempo(VUELO.total, () => {
+      pipoHero.classList.remove("volando");
+      bocadillo.classList.add("visible");
+    });
   }
 
   // El botón "Analizar" solo se activa cuando el checkbox de
@@ -1013,7 +1137,9 @@
 
   // Pipo saluda de un salto si le haces clic (y no está congelado).
   pipoHero.addEventListener("click", () => {
-    if (congelando || pipoHero.classList.contains("saludando")) return;
+    // Ni mientras se congela, ni si ya está saltando, ni en pleno
+    // vuelo hacia la tarjeta (el salto le pisaría la animación).
+    if (congelando || pipoHero.classList.contains("saludando") || pipoHero.classList.contains("volando")) return;
     pipoHero.classList.add("saludando");
   });
   pipoHero.addEventListener("animationend", () => {
