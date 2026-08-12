@@ -69,40 +69,26 @@
      de arriba. */
   #estado-carga{margin-top:28px}
   .escena-carga{background:#fff;border:1px solid var(--line);border-radius:20px;padding:52px 32px;box-shadow:var(--shadow);display:flex;flex-direction:column;align-items:center;gap:26px}
-  /* Pipo va JUSTO ENCIMA de la pantalla que analiza (columna, no fila):
-     así la lupa que lleva por delante cae sobre el documento, y se lee
-     de un vistazo qué está mirando. El margen negativo es el que hace
-     que la lupa se solape con el borde de arriba de la pantalla. */
-  .escena-figuras{display:flex;flex-direction:column;align-items:center;justify-content:center}
+  /* Pipo va JUSTO ENCIMA de la pantalla que analiza (columna, no fila),
+     para que se lea de un vistazo qué está mirando. */
+  .escena-figuras{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
   .escena-pipo{width:130px;height:auto;position:relative;z-index:1;animation:flotar 3.2s ease-in-out infinite}
-  /* solo el de espaldas se solapa con la pantalla: es el único que
-     lleva la lupa asomando por debajo del cuerpo. */
-  .escena-pipo-espaldas{margin-bottom:-36px}
   @keyframes flotar{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(-2deg)}}
   .mag{animation:sniff 2.6s ease-in-out infinite;transform-origin:center}
   @keyframes sniff{0%,100%{transform:rotate(0) translate(0,0)}50%{transform:rotate(-10deg) translate(-8px,5px)}}
 
   /* Pipo de espaldas "investigando" la pantalla que tiene debajo: se
-     agacha para acercar la lupa al documento y vuelve a subir, sin
-     parar. Todo en un único keyframe (si fueran dos animaciones
-     separadas, ambas pelearían por la misma propiedad "transform" y
-     una anularía a la otra). Va después de .escena-pipo en la hoja
-     para ganarle el empate de especificidad. */
+     agacha hacia ella y vuelve a subir, sin parar. Todo en un único
+     keyframe (si fueran dos animaciones separadas, ambas pelearían
+     por la misma propiedad "transform" y una anularía a la otra). Va
+     después de .escena-pipo en la hoja para ganarle el empate de
+     especificidad. */
   .escena-pipo-espaldas{animation:pipo-investigando 3.6s ease-in-out infinite}
   @keyframes pipo-investigando{
     0%,100%{transform:translate(0,0) rotate(0deg)}
     30%{transform:translate(-4px,9px) rotate(-2deg)}
     60%{transform:translate(5px,3px) rotate(2deg)}
     80%{transform:translate(0,7px) rotate(-1deg)}
-  }
-  /* La lupa cuelga por delante del cuerpo, sujeta con el ala derecha:
-     por eso gira alrededor del punto de agarre (no de su propio
-     centro) y barre el documento de lado a lado. */
-  .mag-frontal{transform-origin:192px 170px;animation:lupa-barrer 3.6s ease-in-out infinite}
-  @keyframes lupa-barrer{
-    0%,100%{transform:rotate(0deg)}
-    35%{transform:rotate(7deg)}
-    70%{transform:rotate(-6deg)}
   }
 
   .pantalla-mini{position:relative;width:150px;height:104px;background:var(--cream-deep);border-radius:12px;padding:14px 12px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}
@@ -115,7 +101,7 @@
   .escena-texto{font-weight:800;font-size:16px;color:var(--brown-dark);text-align:center;min-height:22px}
   .escena-nota{font-size:13px;color:#8a7a68;text-align:center}
 
-  @media(prefers-reduced-motion:reduce){.escena-pipo,.mag,.mag-frontal,.pantalla-mini .haz{animation:none}}
+  @media(prefers-reduced-motion:reduce){.escena-pipo,.mag,.pantalla-mini .haz{animation:none}}
 
   /* cabecera del informe */
   .informe-cabecera{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow);margin-bottom:28px}
@@ -218,30 +204,11 @@
       </g>
     </symbol>
     <!-- Pipo visto de espaldas, para la escena de carga: mismo cuerpo,
-         orejas, alas, pies y lupa que el símbolo de siempre, pero sin
-         el grupo de la cara (nada de cejas/ojos/pico) — la ausencia de
-         cara es justo lo que lo lee como "de espaldas". Unas líneas
-         sutiles de plumaje rompen el óvalo para que no se vea plano.
-
-         La lupa NO cuelga a un lado como en el símbolo de frente: aquí
-         va centrada y por delante del cuerpo, con el mango subiendo
-         hacia el ala derecha (quien la sujeta) y el cristal asomando
-         POR DEBAJO del cuerpo, ya sobre la pantalla que analiza. Por
-         eso el viewBox es más alto que el del símbolo de frente (300
-         en vez de 260): el cristal necesita sitio fuera del cuerpo, y
-         si se saliera del viewBox se recortaría. Tampoco lleva pies
-         —está flotando sobre el documento, no posado—, que además
-         chocarían justo con el cristal. -->
-    <symbol id="pipo-espaldas" viewBox="0 0 240 300">
-      <!-- La lupa se pinta ANTES que el cuerpo (capa inferior en SVG =
-           primero en el documento), así el búho tapa el mango y solo
-           el cristal asoma por debajo, como si la llevara escondida
-           detrás y apoyada en la pantalla. -->
-      <g class="mag mag-frontal">
-        <line x1="150" y1="222" x2="192" y2="170" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
-        <circle cx="120" cy="248" r="36" fill="rgba(232,214,191,.5)"/>
-        <circle cx="120" cy="248" r="36" fill="none" stroke="#C97B5A" stroke-width="7"/>
-      </g>
+         orejas, alas y pies que el símbolo de siempre, pero sin lupa
+         ni el grupo de la cara (nada de cejas/ojos/pico) — la ausencia
+         de cara es justo lo que lo lee como "de espaldas". Unas líneas
+         sutiles de plumaje rompen el óvalo para que no se vea plano. -->
+    <symbol id="pipo-espaldas" viewBox="0 0 240 260">
       <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
       <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
       <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
@@ -250,6 +217,8 @@
       <path d="M120 104 L120 176" stroke="#96745A" stroke-width="4" fill="none" stroke-linecap="round" opacity=".35"/>
       <path d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
       <path d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+      <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+      <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
     </symbol>
   </defs>
 </svg>
