@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<title>Pipo — Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#F5EFE6;--cream-deep:#EBE1D2;--brown-dark:#6F4E37;--terracotta:#C97B5A;
+    --sage:#8A9A5B;--amber:#D9A441;--brick:#B34733;--ink:#3A2E24;--line:rgba(111,78,55,.16);
+    --shadow:0 18px 50px -22px rgba(111,78,55,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--ink);line-height:1.5;padding:32px 20px 80px}
+  h1{font-family:'Fraunces';font-weight:600;font-size:26px;margin-bottom:6px}
+  h2.tab-titulo{font-family:'Fraunces';font-weight:600;font-size:19px;margin-bottom:4px}
+  .sub{color:var(--brown-dark);font-size:14px;margin-bottom:22px}
+  .wrap{max-width:980px;margin:0 auto}
+  .estado-carga,.estado-error{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px;font-weight:700}
+  .estado-error{color:var(--brick)}
+
+  /* aviso de que hay datos de mentira mientras se maqueta */
+  .aviso-demo{
+    background:rgba(217,164,65,.14);border:1px solid rgba(217,164,65,.4);color:#8a6a1f;
+    border-radius:12px;padding:12px 16px;font-size:13.5px;font-weight:700;margin-bottom:20px
+  }
+
+  /* pestañas */
+  .pestanas{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:0}
+  .pestana{
+    font-family:'Nunito';font-weight:700;font-size:14px;color:var(--brown-dark);
+    background:none;border:none;cursor:pointer;padding:10px 6px;border-bottom:3px solid transparent;
+    margin-bottom:-1px
+  }
+  .pestana.activa{color:var(--terracotta);border-bottom-color:var(--terracotta)}
+  .pestana .contador{
+    display:inline-block;margin-left:6px;background:var(--cream-deep);color:var(--brown-dark);
+    font-size:11.5px;font-weight:800;padding:1px 7px;border-radius:999px
+  }
+
+  .resumen-numeros{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:24px}
+  .numero{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .numero .n{font-family:'Fraunces';font-size:24px;font-weight:600}
+  .numero .l{font-size:12px;color:var(--brown-dark);text-transform:uppercase;letter-spacing:.03em;font-weight:700}
+
+  .filtro-toggle{display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13.5px;color:var(--brown-dark)}
+  .filtro-toggle input{width:16px;height:16px;accent-color:var(--terracotta);cursor:pointer}
+
+  /* tarjeta de solicitud */
+  .pedido{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 22px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .pedido-cabecera{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .pedido .dominio{font-weight:800;font-size:16px}
+  .badge{font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+  .badge.pendiente{background:rgba(217,164,65,.18);color:#a9791d}
+  .badge.pagado{background:rgba(138,154,91,.18);color:var(--sage)}
+  .badge.cerrado{background:var(--cream-deep);color:var(--brown-dark)}
+  .badge.si{background:rgba(138,154,91,.18);color:var(--sage)}
+  .badge.no{background:var(--cream-deep);color:#8a7a68}
+  .pedido .precio{margin-left:auto;font-family:'Fraunces';font-size:20px;font-weight:600;text-align:right}
+  .pedido .precio .cobrado{display:block;font-family:'Nunito';font-size:11.5px;font-weight:700;color:var(--sage)}
+  .pedido dl{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13.5px;color:var(--brown-dark);margin-top:12px}
+  .pedido dt{font-weight:700}
+  .pedido dd{word-break:break-word}
+  .acciones-pedido{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+  .btn{font-family:'Nunito';font-weight:700;font-size:13.5px;padding:9px 16px;border-radius:999px;cursor:pointer;border:none;text-decoration:none;display:inline-flex;align-items:center}
+  .btn-primary{background:var(--terracotta);color:#fff}
+  .btn-ghost{background:var(--cream-deep);color:var(--brown-dark)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  select.selector-estado{
+    font-family:'Nunito';font-weight:700;font-size:13px;padding:8px 12px;border-radius:999px;
+    border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer
+  }
+
+  .zona-notas{margin-top:14px}
+  .zona-notas textarea{
+    width:100%;min-height:56px;font-family:'Nunito';font-size:13.5px;border:1px solid var(--line);
+    border-radius:10px;padding:10px 12px;resize:vertical;color:var(--ink)
+  }
+  .zona-notas .guardar-notas{margin-top:6px}
+
+  .zona-soluciones{margin-top:14px;background:var(--cream-deep);border-radius:12px;padding:14px 16px;font-size:13.5px;white-space:pre-wrap}
+
+  /* tablas simples (leads / actividad) */
+  .tabla-scroll{overflow-x:auto;background:#fff;border:1px solid var(--line);border-radius:14px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--brown-dark);background:var(--cream-deep)}
+  tr:last-child td{border-bottom:none}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>Panel de Pipo</h1>
+  <p class="sub">Solicitudes, leads y actividad de la web, todo en un sitio. Enlace de solo uso personal — no lo compartas.</p>
+  <div id="aviso-demo" class="aviso-demo" style="display:none">
+    🦉 Hay datos de ejemplo mezclados aquí (dominios y personas de mentira) para poder ver cómo queda el panel antes de tener casos reales. Búscalos por la palabra <strong>DEMO</strong> en las notas o el email, y bórralos antes de enseñarle esto a nadie.
+  </div>
+
+  <div class="resumen-numeros" id="resumen-numeros"></div>
+
+  <div class="pestanas" id="pestanas">
+    <button class="pestana activa" data-tab="solicitudes">Solicitudes <span class="contador" id="contador-solicitudes"></span></button>
+    <button class="pestana" data-tab="leads">Leads <span class="contador" id="contador-leads"></span></button>
+    <button class="pestana" data-tab="actividad">Actividad reciente <span class="contador" id="contador-actividad"></span></button>
+  </div>
+
+  <div id="panel-solicitudes">
+    <div class="filtro-toggle">
+      <input type="checkbox" id="filtro-pendientes">
+      <label for="filtro-pendientes">Mostrar solo lo que necesita mi atención (ocultar cerradas)</label>
+    </div>
+    <div id="contenido-solicitudes"></div>
+  </div>
+
+  <div id="panel-leads" style="display:none">
+    <div id="contenido-leads"></div>
+  </div>
+
+  <div id="panel-actividad" style="display:none">
+    <div id="contenido-actividad"></div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = "https://pipo-analiza-production.up.railway.app";
+  const clave = new URLSearchParams(window.location.search).get("clave") || "";
+
+  function formatearFecha(fechaSql) {
+    if (!fechaSql) return "—";
+    // fechaSql viene en UTC de SQLite ("YYYY-MM-DD HH:MM:SS")
+    return new Date(fechaSql.replace(" ", "T") + "Z").toLocaleString("es-ES");
+  }
+
+  function esDemo(texto) {
+    return (texto || "").toUpperCase().includes("DEMO");
+  }
+
+  // --------------------------------------------------------------
+  // SOLICITUDES — el pipeline de arreglos, el corazón del panel
+  // --------------------------------------------------------------
+  const ETIQUETA_ESTADO = {
+    nuevo: "Nuevo", contactado: "Contactado", presupuesto_enviado: "Presupuesto enviado",
+    pagado: "Pagado", arreglado: "Arreglado", cerrado: "Cerrado",
+    // valores antiguos, de antes de ampliar el pipeline (13 ago 2026) —
+    // se muestran igual en vez de romper si queda alguna fila vieja.
+    nueva: "Nuevo", presupuestada: "Presupuesto enviado", hecha: "Cerrado",
+  };
+  const CLASE_ESTADO = {
+    pagado: "pagado", arreglado: "pagado", cerrado: "cerrado", hecha: "cerrado",
+  };
+  const ESTADOS_PIPELINE = ["nuevo", "contactado", "presupuesto_enviado", "pagado", "arreglado", "cerrado"];
+
+  let solicitudesCache = [];
+
+  function pintarSolicitud(solicitud) {
+    const token = solicitud.token_escaneo || "";
+    const enlaceInforme = `informe.html?id=${solicitud.id_escaneo}&t=${encodeURIComponent(token)}&dominio=${encodeURIComponent(solicitud.dominio)}`;
+    const enlacePdf = `${API_BASE}/api/informe/${solicitud.id_escaneo}/pdf?t=${encodeURIComponent(token)}`;
+    const claseBadge = CLASE_ESTADO[solicitud.estado] || "pendiente";
+    const opciones = ESTADOS_PIPELINE.map((e) =>
+      `<option value="${e}" ${e === solicitud.estado ? "selected" : ""}>${ETIQUETA_ESTADO[e]}</option>`
+    ).join("");
+
+    const div = document.createElement("div");
+    div.className = "pedido";
+    if (esDemo(solicitud.email) || esDemo(solicitud.notas)) div.dataset.demo = "1";
+    div.innerHTML = `
+      <div class="pedido-cabecera">
+        <span class="dominio"></span>
+        <span class="badge ${claseBadge}">${ETIQUETA_ESTADO[solicitud.estado] || solicitud.estado}</span>
+        <span class="precio">~${solicitud.precio_estimado}€
+          ${solicitud.importe_cobrado ? `<span class="cobrado">${solicitud.importe_cobrado}€ cobrados</span>` : ""}
+        </span>
+      </div>
+      <dl>
+        <dt>Email</dt><dd class="dd-email"></dd>
+        <dt>Teléfono</dt><dd class="dd-telefono"></dd>
+        <dt>Referencia</dt><dd class="dd-referencia"></dd>
+        <dt>Recibida</dt><dd>${formatearFecha(solicitud.fecha)}</dd>
+        <dt>Mensaje</dt><dd class="dd-mensaje"></dd>
+        ${solicitud.fecha_cobro ? `<dt>Cobrado el</dt><dd>${formatearFecha(solicitud.fecha_cobro)}</dd>` : ""}
+        <dt>Ver informe</dt><dd><a href="${enlaceInforme}" target="_blank">${enlaceInforme}</a></dd>
+      </dl>
+      <div class="acciones-pedido">
+        <select class="selector-estado" data-id="${solicitud.id}">${opciones}</select>
+        <a class="btn btn-ghost" href="${enlacePdf}" target="_blank">Descargar PDF</a>
+        <button class="btn btn-ghost" data-soluciones="${solicitud.id_escaneo}">Ver soluciones (interno)</button>
+        <button class="btn btn-ghost" data-cobro="${solicitud.id}">Registrar cobro</button>
+      </div>
+      <div class="zona-notas">
+        <textarea placeholder="Notas del caso: qué le dijiste, qué pidió..." data-notas="${solicitud.id}">${solicitud.notas || ""}</textarea>
+        <button class="btn btn-ghost guardar-notas" data-guardar-notas="${solicitud.id}">Guardar notas</button>
+      </div>
+      <div class="zona-soluciones" id="soluciones-${solicitud.id_escaneo}" style="display:none"></div>
+    `;
+    // Texto libre siempre como texto plano, nunca HTML: son datos que
+    // ha escrito un cliente o el propio Alberto, no contenido de confianza.
+    div.querySelector(".dominio").textContent = solicitud.dominio;
+    div.querySelector(".dd-email").textContent = solicitud.email;
+    div.querySelector(".dd-telefono").textContent = solicitud.telefono || "—";
+    div.querySelector(".dd-referencia").textContent = solicitud.referencia;
+    div.querySelector(".dd-mensaje").textContent = solicitud.mensaje || "—";
+    return div;
+  }
+
+  function pintarListaSolicitudes() {
+    const soloPendientes = document.getElementById("filtro-pendientes").checked;
+    const contenedor = document.getElementById("contenido-solicitudes");
+    const visibles = soloPendientes
+      ? solicitudesCache.filter((s) => s.estado !== "cerrado" && s.estado !== "hecha")
+      : solicitudesCache;
+
+    if (visibles.length === 0) {
+      contenedor.innerHTML = `<div class="estado-carga">${soloPendientes ? "Nada pendiente ahora mismo." : "Todavía no hay ninguna solicitud."}</div>`;
+      return;
+    }
+    contenedor.innerHTML = "";
+    visibles.forEach((s) => contenedor.appendChild(pintarSolicitud(s)));
+  }
+
+  async function cargarSolicitudes() {
+    document.getElementById("contenido-solicitudes").innerHTML = `<div class="estado-carga">Cargando...</div>`;
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/solicitudes?clave=${encodeURIComponent(clave)}`);
+      if (respuesta.status === 403) {
+        mostrarClaveIncorrecta();
+        return;
+      }
+      solicitudesCache = await respuesta.json();
+      document.getElementById("contador-solicitudes").textContent = solicitudesCache.length;
+      pintarListaSolicitudes();
+      pintarResumen();
+    } catch (error) {
+      document.getElementById("contenido-solicitudes").innerHTML = `<div class="estado-error">No se ha podido conectar con el servidor.</div>`;
+    }
+  }
+
+  document.getElementById("filtro-pendientes").addEventListener("change", pintarListaSolicitudes);
+
+  document.getElementById("contenido-solicitudes").addEventListener("change", async (evento) => {
+    const selector = evento.target.closest(".selector-estado");
+    if (!selector) return;
+    selector.disabled = true;
+    try {
+      await fetch(
+        `${API_BASE}/api/solicitudes/${selector.dataset.id}/estado?clave=${encodeURIComponent(clave)}&estado=${selector.value}`,
+        { method: "POST" }
+      );
+      await cargarSolicitudes();
+    } finally {
+      selector.disabled = false;
+    }
+  });
+
+  document.getElementById("contenido-solicitudes").addEventListener("click", async (evento) => {
+    const botonSoluciones = evento.target.closest("[data-soluciones]");
+    if (botonSoluciones) {
+      const idEscaneo = botonSoluciones.dataset.soluciones;
+      const zona = document.getElementById(`soluciones-${idEscaneo}`);
+      if (zona.style.display === "block") { zona.style.display = "none"; return; }
+      zona.style.display = "block";
+      zona.textContent = "Cargando...";
+      try {
+        // Las soluciones son herramienta interna: el backend las sirve
+        // solo con la clave de admin, y no hay ningún botón público
+        // que lleve aquí (ver CLAUDE.md, P2).
+        const respuesta = await fetch(
+          `${API_BASE}/api/informe/${idEscaneo}/soluciones?clave=${encodeURIComponent(clave)}`,
+          { method: "POST" }
+        );
+        const datos = await respuesta.json();
+        zona.textContent = JSON.stringify(datos, null, 2);
+      } catch (error) {
+        zona.textContent = "No se han podido cargar las soluciones.";
+      }
+      return;
+    }
+
+    const botonCobro = evento.target.closest("[data-cobro]");
+    if (botonCobro) {
+      const importe = prompt("¿Cuánto se ha cobrado (€)?");
+      if (importe === null || importe.trim() === "") return;
+      const numero = parseInt(importe, 10);
+      if (Number.isNaN(numero)) { alert("Escribe solo el número, sin el símbolo €."); return; }
+      botonCobro.disabled = true;
+      try {
+        await fetch(
+          `${API_BASE}/api/solicitudes/${botonCobro.dataset.cobro}/cobro?clave=${encodeURIComponent(clave)}&importe=${numero}`,
+          { method: "POST" }
+        );
+        await cargarSolicitudes();
+      } finally {
+        botonCobro.disabled = false;
+      }
+      return;
+    }
+
+    const botonNotas = evento.target.closest("[data-guardar-notas]");
+    if (botonNotas) {
+      const id = botonNotas.dataset.guardarNotas;
+      const textarea = document.querySelector(`textarea[data-notas="${id}"]`);
+      botonNotas.disabled = true;
+      botonNotas.textContent = "Guardando...";
+      try {
+        await fetch(
+          `${API_BASE}/api/solicitudes/${id}/notas?clave=${encodeURIComponent(clave)}&notas=${encodeURIComponent(textarea.value)}`,
+          { method: "POST" }
+        );
+        botonNotas.textContent = "Guardado ✓";
+        setTimeout(() => { botonNotas.textContent = "Guardar notas"; botonNotas.disabled = false; }, 1200);
+      } catch (error) {
+        botonNotas.textContent = "Guardar notas";
+        botonNotas.disabled = false;
+      }
+    }
+  });
+
+  // --------------------------------------------------------------
+  // LEADS — emails captados por el formulario de avisos
+  // --------------------------------------------------------------
+  async function cargarLeads() {
+    const contenedor = document.getElementById("contenido-leads");
+    contenedor.innerHTML = `<div class="estado-carga">Cargando...</div>`;
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/leads?clave=${encodeURIComponent(clave)}`);
+      if (respuesta.status === 403) { mostrarClaveIncorrecta(); return; }
+      const leads = await respuesta.json();
+      document.getElementById("contador-leads").textContent = leads.length;
+      if (leads.length === 0) {
+        contenedor.innerHTML = `<div class="estado-carga">Todavía no hay ningún lead.</div>`;
+        return;
+      }
+      const filas = leads.map((l) => `
+        <tr ${esDemo(l.email) ? 'data-demo="1"' : ""}>
+          <td class="c-dominio"></td>
+          <td class="c-email"></td>
+          <td>${formatearFecha(l.fecha)}</td>
+          <td><span class="badge ${l.consiente_marketing ? "si" : "no"}">${l.consiente_marketing ? "Sí" : "No"}</span></td>
+        </tr>`).join("");
+      contenedor.innerHTML = `
+        <div class="tabla-scroll"><table>
+          <thead><tr><th>Dominio</th><th>Email</th><th>Fecha</th><th>Consiente marketing</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table></div>`;
+      // dominio/email como texto, nunca HTML
+      contenedor.querySelectorAll("tbody tr").forEach((fila, i) => {
+        fila.querySelector(".c-dominio").textContent = leads[i].dominio;
+        fila.querySelector(".c-email").textContent = leads[i].email;
+      });
+    } catch (error) {
+      contenedor.innerHTML = `<div class="estado-error">No se ha podido conectar con el servidor.</div>`;
+    }
+  }
+
+  // --------------------------------------------------------------
+  // ACTIVIDAD — últimos escaneos, quién ha entrado a la web
+  // --------------------------------------------------------------
+  const LETRA_ESTADO = { verde: "pagado", ambar: "pendiente", rojo: "" };
+
+  async function cargarActividad() {
+    const contenedor = document.getElementById("contenido-actividad");
+    contenedor.innerHTML = `<div class="estado-carga">Cargando...</div>`;
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/actividad?clave=${encodeURIComponent(clave)}`);
+      if (respuesta.status === 403) { mostrarClaveIncorrecta(); return; }
+      const actividad = await respuesta.json();
+      document.getElementById("contador-actividad").textContent = actividad.length;
+      if (actividad.length === 0) {
+        contenedor.innerHTML = `<div class="estado-carga">Todavía no hay ningún escaneo.</div>`;
+        return;
+      }
+      const filas = actividad.map((a) => `
+        <tr>
+          <td class="c-dominio"></td>
+          <td>${a.nota ?? "—"}</td>
+          <td><span class="badge ${a.estado_global === "rojo" ? "" : LETRA_ESTADO[a.estado_global]}" style="${a.estado_global === "rojo" ? "background:rgba(179,71,51,.14);color:var(--brick)" : ""}">${a.estado_global}</span></td>
+          <td>${formatearFecha(a.fecha)}</td>
+          <td class="c-email"></td>
+        </tr>`).join("");
+      contenedor.innerHTML = `
+        <div class="tabla-scroll"><table>
+          <thead><tr><th>Dominio</th><th>Nota</th><th>Semáforo</th><th>Fecha</th><th>Email captado</th></tr></thead>
+          <tbody>${filas}</tbody>
+        </table></div>`;
+      contenedor.querySelectorAll("tbody tr").forEach((fila, i) => {
+        fila.querySelector(".c-dominio").textContent = actividad[i].dominio;
+        fila.querySelector(".c-email").textContent = actividad[i].email || "—";
+      });
+    } catch (error) {
+      contenedor.innerHTML = `<div class="estado-error">No se ha podido conectar con el servidor.</div>`;
+    }
+  }
+
+  // --------------------------------------------------------------
+  // Resumen numérico arriba del todo
+  // --------------------------------------------------------------
+  function pintarResumen() {
+    const activas = solicitudesCache.filter((s) => s.estado !== "cerrado" && s.estado !== "hecha");
+    // importe_cobrado llega como texto desde SQLite (columna TEXT, ver
+    // database.py): sin el Number(), "0" + "120" concatena en vez de
+    // sumar y da basura como "01200€".
+    const cobrado = solicitudesCache.reduce((suma, s) => suma + (Number(s.importe_cobrado) || 0), 0);
+    document.getElementById("resumen-numeros").innerHTML = `
+      <div class="numero"><div class="n">${solicitudesCache.length}</div><div class="l">Solicitudes totales</div></div>
+      <div class="numero"><div class="n">${activas.length}</div><div class="l">Casos abiertos</div></div>
+      <div class="numero"><div class="n">${cobrado}€</div><div class="l">Cobrado hasta ahora</div></div>
+    `;
+  }
+
+  // --------------------------------------------------------------
+  // Pestañas
+  // --------------------------------------------------------------
+  document.getElementById("pestanas").addEventListener("click", (evento) => {
+    const boton = evento.target.closest(".pestana");
+    if (!boton) return;
+    document.querySelectorAll(".pestana").forEach((p) => p.classList.remove("activa"));
+    boton.classList.add("activa");
+    ["solicitudes", "leads", "actividad"].forEach((tab) => {
+      document.getElementById(`panel-${tab}`).style.display = tab === boton.dataset.tab ? "block" : "none";
+    });
+  });
+
+  function mostrarClaveIncorrecta() {
+    document.querySelector(".wrap").innerHTML = `<h1>Panel de Pipo</h1><div class="estado-error">Clave incorrecta. Revisa el enlace.</div>`;
+  }
+
+  function comprobarDatosDemo() {
+    if (document.querySelector("[data-demo]")) {
+      document.getElementById("aviso-demo").style.display = "block";
+    }
+  }
+
+  if (!clave) {
+    document.querySelector(".wrap").innerHTML = `<h1>Panel de Pipo</h1><div class="estado-error">Falta la clave en el enlace (?clave=...).</div>`;
+  } else {
+    cargarSolicitudes().then(comprobarDatosDemo);
+    cargarLeads().then(comprobarDatosDemo);
+    cargarActividad();
+  }
+</script>
+
+</body>
+</html>

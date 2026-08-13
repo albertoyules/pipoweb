@@ -299,15 +299,15 @@
         </div>
 
         <div class="accion" id="accion-vigilancia">
-          <h2>Avísame si algo empeora</h2>
-          <p class="desc">Estamos preparando la revisión automática mensual. Déjanos tu email y te avisamos cuando esté lista — o antes, si vemos que algo de tu web se rompe.</p>
+          <h2>No pierdas de vista tu web</h2>
+          <p class="desc">Guarda tu email: te avisamos si algo cambia (como que caduque el certificado) y, de vez en cuando, te mandamos algún consejo para mejorarla.</p>
           <form class="form-desbloqueo-informe" id="form-aviso">
             <input type="email" id="input-email-aviso" placeholder="tu@email.com" required>
-            <button class="btn btn-ghost" type="submit">Avisadme</button>
+            <button class="btn btn-ghost" type="submit">Guardar mi email</button>
           </form>
           <div class="consentimiento-lead">
             <input type="checkbox" id="check-consiento-aviso">
-            <label for="check-consiento-aviso">Acepto que Pipo me escriba sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+            <label for="check-consiento-aviso">Quiero recibir por email avisos sobre mi web y, de vez en cuando, consejos y ofertas de Pipo. Puedo darme de baja cuando quiera. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
           </div>
           <span class="error-desbloqueo" id="error-aviso"></span>
         </div>
@@ -697,10 +697,13 @@
     });
   });
 
-  // Lista de avisos ("cuando esté la revisión mensual, avísame"). Es la
-  // captación de emails que antes se hacía difuminando el informe: ahora
-  // el informe se ve entero y el email se pide a cambio de algo futuro,
-  // no a cambio de destapar lo que ya se ha calculado.
+  // Captura de email para poder recordarle a un negocio que vuelva
+  // (13 ago 2026, ver CLAUDE.md): el informe ya no se tapa con nada —
+  // se ve entero y gratis siempre — así que este formulario es ahora el
+  // único punto donde se pide el email, y su casilla ES el
+  // consentimiento de marketing en sí (RGPD art. 6.1.a): al marcarla se
+  // manda marketing=true, que es lo que habilita mandar consejos u
+  // ofertas más adelante, no solo el aviso puntual.
   document.getElementById("form-aviso").addEventListener("submit", async (evento) => {
     evento.preventDefault();
     const consiento = document.getElementById("check-consiento-aviso");
@@ -717,7 +720,7 @@
     error.textContent = "";
     try {
       const respuesta = await fetch(
-        conToken(`${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`),
+        conToken(`${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}&marketing=true`),
         { method: "POST" }
       );
       if (respuesta.status === 429) {
@@ -731,7 +734,7 @@
         return;
       }
       document.getElementById("accion-vigilancia").innerHTML =
-        "<h2>Hecho</h2><p class='desc'>Te avisaremos en cuanto la revisión automática esté lista.</p>";
+        "<h2>Hecho</h2><p class='desc'>Guardado. Te escribiremos si algo cambia en tu web.</p>";
     } catch (e) {
       error.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
       boton.disabled = false;

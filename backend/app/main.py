@@ -40,11 +40,15 @@ from app.database import (
     guardar_escaneo,
     guardar_informe,
     guardar_lead,
+    guardar_notas_solicitud,
     guardar_rendimiento,
     guardar_solicitud,
     guardar_soluciones,
     inicializar_db,
+    listar_actividad_reciente,
+    listar_leads,
     listar_solicitudes,
+    marcar_cobro_solicitud,
     marcar_estado_solicitud,
     obtener_escaneo,
 )
@@ -424,10 +428,21 @@ async def estadisticas(request: Request):
 
 @app.post("/api/leads")
 @limiter.limit("5/minute")
-async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int, t: str = ""):
+async def crear_lead(
+    request: Request, email: str, dominio: str, id_escaneo: int, t: str = "", marketing: bool = False
+):
     """
     Guarda un lead: alguien que ha dejado su email en el informe para
-    que Pipo pueda escribirle.
+    que Pipo pueda escribirle. Desde el 13 ago 2026 este es el único
+    punto de captura de email del informe gratis (el informe en sí ya
+    no se tapa, ver CLAUDE.md) — su función es explícitamente reunir
+    contactos para poder recordarle a un negocio que vuelva, no
+    desbloquear nada.
+
+    `marketing` es el checkbox "quiero recibir consejos y ofertas..."
+    del formulario — se guarda tal cual, es la base legal (RGPD art.
+    6.1.a) para poder mandar campañas más adelante. Sin él a True, ese
+    email solo debería usarse para lo que se pidió en el momento.
 
     `id_escaneo` tiene que ser el de un escaneo real, y `t` su token —
     así no se puede usar este endpoint para acumular emails sueltos sin
@@ -446,7 +461,7 @@ async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int
     if not REGEX_EMAIL.match(email_limpio):
         raise HTTPException(status_code=400, detail="Ese email no parece válido.")
 
-    guardar_lead(email=email_limpio, dominio=dominio, id_escaneo=id_escaneo)
+    guardar_lead(email=email_limpio, dominio=dominio, id_escaneo=id_escaneo, consiente_marketing=marketing)
     return {"ok": True}
 
 
@@ -542,7 +557,7 @@ async def crear_solicitud(
 async def ver_solicitudes(request: Request, clave: str):
     """
     Lista todas las solicitudes de arreglo, para el panel privado de
-    Alberto (landing/pedidos.html). Límite más alto que el resto (20/min
+    Alberto (landing/panel.html). Límite más alto que el resto (20/min
     en vez de 5/min) porque es él recargando su propio panel, no tráfico
     público — y cada llamada aquí no cuesta cuota de IA ni de PageSpeed.
     """
@@ -554,9 +569,10 @@ async def ver_solicitudes(request: Request, clave: str):
 @limiter.limit("20/minute")
 async def cambiar_estado_solicitud(request: Request, id_solicitud: int, clave: str, estado: str):
     """
-    Mueve una solicitud por el flujo manual de Alberto:
-    nueva → presupuestada → hecha. No hay automatismo detrás; es una
-    nota para él mismo, para no perder el hilo de a quién ha contestado.
+    Mueve una solicitud por el pipeline del panel:
+    nuevo → contactado → presupuesto_enviado → pagado → arreglado →
+    cerrado. No hay automatismo detrás; es una nota para Alberto mismo,
+    para no perder el hilo de a quién ha contestado y en qué punto está.
     """
     _verificar_clave_admin(clave)
     if estado not in ESTADOS_SOLICITUD:
@@ -564,6 +580,60 @@ async def cambiar_estado_solicitud(request: Request, id_solicitud: int, clave: s
     if not marcar_estado_solicitud(id_solicitud, estado):
         raise HTTPException(status_code=404, detail="Esa solicitud no existe.")
     return {"ok": True, "estado": estado}
+
+
+@app.post("/api/solicitudes/{id_solicitud}/notas")
+@limiter.limit("20/minute")
+async def actualizar_notas_solicitud(request: Request, id_solicitud: int, clave: str, notas: str = ""):
+    """
+    Guarda las notas libres de una solicitud (qué le dijo Alberto, qué
+    pidió el cliente) — el cuaderno del caso dentro del panel.
+    """
+    _verificar_clave_admin(clave)
+    if not guardar_notas_solicitud(id_solicitud, notas):
+        raise HTTPException(status_code=404, detail="Esa solicitud no existe.")
+    return {"ok": True}
+
+
+@app.post("/api/solicitudes/{id_solicitud}/cobro")
+@limiter.limit("20/minute")
+async def registrar_cobro_solicitud(request: Request, id_solicitud: int, clave: str, importe: int):
+    """
+    Registra cuánto se ha cobrado por una solicitud, con la fecha de
+    hoy. Es manual a propósito — Pipo no cobra nada automáticamente,
+    esto es solo el apunte de que el dinero ya ha llegado.
+    """
+    _verificar_clave_admin(clave)
+    if not marcar_cobro_solicitud(id_solicitud, importe):
+        raise HTTPException(status_code=404, detail="Esa solicitud no existe.")
+    return {"ok": True, "importe_cobrado": importe}
+
+
+@app.get("/api/leads")
+@limiter.limit("20/minute")
+async def ver_leads(request: Request, clave: str):
+    """
+    Todos los emails captados por el formulario de avisos de
+    informe.html — gente que ha dejado su email sin (todavía) pedir un
+    arreglo. Es la mitad "recordatorio" del panel: a quién se le puede
+    escribir más adelante con consejos u ofertas (solo a quien marcó
+    consiente_marketing).
+    """
+    _verificar_clave_admin(clave)
+    return listar_leads()
+
+
+@app.get("/api/actividad")
+@limiter.limit("20/minute")
+async def ver_actividad(request: Request, clave: str):
+    """
+    Los escaneos más recientes, con el email captado para cada uno si
+    lo hay — "quién ha entrado a la web", tal cual lo pidió Alberto para
+    el panel. No todo el que escanea deja un lead, y aun así interesa
+    ver que alguien analizó su dominio y qué nota sacó.
+    """
+    _verificar_clave_admin(clave)
+    return listar_actividad_reciente()
 
 
 @app.get("/api/scan/{id_escaneo}/rendimiento")

@@ -14,10 +14,16 @@ import secrets
 import sqlite3
 from pathlib import Path
 
-# Estados por los que pasa una solicitud de arreglo. Es el flujo manual
-# de Alberto, no un sistema de pedidos: sirve para que no se le pierda
-# nadie por el camino.
-ESTADOS_SOLICITUD = ("nueva", "presupuestada", "hecha")
+# Estados por los que pasa una solicitud de arreglo — el pipeline del
+# panel CRM (ver CLAUDE.md, panel.html). Es el flujo manual de Alberto,
+# no un sistema de pedidos automático: sirve para que no se le pierda
+# nadie por el camino, y para saber de un vistazo quién necesita que
+# actúe hoy.
+#
+# Ampliado el 13 ago 2026 de 3 a 6 pasos (antes: nueva/presupuestada/
+# hecha). Los valores antiguos pueden seguir existiendo en filas creadas
+# antes del cambio; el panel los muestra tal cual en vez de fallar.
+ESTADOS_SOLICITUD = ("nuevo", "contactado", "presupuesto_enviado", "pagado", "arreglado", "cerrado")
 
 # Dónde vive el archivo de la base de datos.
 #
@@ -112,6 +118,14 @@ def inicializar_db() -> None:
             )
             """
         )
+        # Consentimiento de marketing (13 ago 2026): la casilla del
+        # formulario "avísame" pasó a ser explícitamente sobre recibir
+        # consejos y ofertas, no solo sobre ese aviso puntual — es la
+        # base legal (RGPD art. 6.1.a, consentimiento expreso y
+        # específico) que permite mandar campañas más adelante. Sin esta
+        # columna, un lead solo se podría usar para lo que pidió en su
+        # momento, nunca para recordarle que vuelva.
+        _asegurar_columna(conexion, "leads", "consiente_marketing")
 
         # Solicitudes de "arregladlo vosotros" — el producto de pago
         # desde el 13 ago 2026 (antes era un pedido de 19€ por el informe
@@ -136,11 +150,24 @@ def inicializar_db() -> None:
                 id_escaneo INTEGER NOT NULL,
                 precio_estimado INTEGER NOT NULL,
                 mensaje TEXT,
-                estado TEXT NOT NULL DEFAULT 'nueva',
+                estado TEXT NOT NULL DEFAULT 'nuevo',
                 fecha TEXT NOT NULL DEFAULT (datetime('now'))
             )
             """
         )
+        # Campos del panel CRM (13 ago 2026): notas libres de Alberto
+        # sobre el caso, y cuánto/cuándo se cobró. Sin esto, "quién ha
+        # pagado y cuánto" solo vivía en su cabeza — es justo lo que el
+        # panel existe para evitar.
+        _asegurar_columna(conexion, "solicitudes", "notas")
+        _asegurar_columna(conexion, "solicitudes", "importe_cobrado")
+        _asegurar_columna(conexion, "solicitudes", "fecha_cobro")
+
+        # Migra las pocas filas que se crearon el mismo 13 ago 2026 con
+        # el pipeline viejo de 3 pasos, antes de ampliarlo a 6. Sin esto
+        # se quedarían con un estado que ya no aparece en ningún menú.
+        for viejo, nuevo in (("nueva", "nuevo"), ("presupuestada", "presupuesto_enviado"), ("hecha", "cerrado")):
+            conexion.execute("UPDATE solicitudes SET estado = ? WHERE estado = ?", (nuevo, viejo))
 
 
 def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) -> None:
@@ -309,18 +336,73 @@ def guardar_rendimiento(id_escaneo: int, rendimiento: dict) -> None:
         )
 
 
-def guardar_lead(email: str, dominio: str, id_escaneo: int) -> None:
+def guardar_lead(email: str, dominio: str, id_escaneo: int, consiente_marketing: bool = False) -> None:
     """
-    Guarda un lead: alguien que ha dejado su email para desbloquear el
-    resto del informe de un escaneo. Se permite dejarlo más de una vez
-    para el mismo escaneo (por ejemplo, si recarga la página) sin que
-    eso sea un error — simplemente queda otra fila con la fecha.
+    Guarda un lead: alguien que ha dejado su email a través del
+    formulario de avisos de informe.html. Se permite dejarlo más de una
+    vez para el mismo escaneo (por ejemplo, si recarga la página) sin
+    que eso sea un error — simplemente queda otra fila con la fecha.
+
+    `consiente_marketing` viene del checkbox específico de ese
+    formulario ("quiero recibir consejos y ofertas..."); sin él a True,
+    este email solo debería usarse para lo que se pidió en su momento,
+    nunca para campañas (ver decisión de RGPD en inicializar_db).
     """
     with obtener_conexion() as conexion:
         conexion.execute(
-            "INSERT INTO leads (email, dominio, id_escaneo) VALUES (?, ?, ?)",
-            (email, dominio, id_escaneo),
+            "INSERT INTO leads (email, dominio, id_escaneo, consiente_marketing) VALUES (?, ?, ?, ?)",
+            (email, dominio, id_escaneo, "1" if consiente_marketing else "0"),
         )
+
+
+def listar_leads() -> list[dict]:
+    """Todos los leads (emails captados por el formulario de avisos), más recientes primero."""
+    with obtener_conexion() as conexion:
+        filas = conexion.execute("SELECT * FROM leads ORDER BY id DESC").fetchall()
+    return [
+        {**dict(fila), "consiente_marketing": fila["consiente_marketing"] == "1"}
+        for fila in filas
+    ]
+
+
+def listar_actividad_reciente(limite: int = 60) -> list[dict]:
+    """
+    Los últimos escaneos, con el email captado para ese escaneo si lo
+    hay (puede que ninguno, un dominio se puede analizar sin dejar
+    nada). Es la vista de "quién ha entrado a la web" del panel: no
+    todo el que escanea deja un lead, y aun así interesa ver que
+    analizó su dominio y qué nota sacó.
+
+    `limite` existe porque en producción esto puede acumular escaneos
+    de prueba sin parar — el panel no necesita verlos todos, con los
+    últimos basta para saber qué está pasando ahora mismo.
+    """
+    with obtener_conexion() as conexion:
+        filas = conexion.execute(
+            """
+            SELECT e.id, e.dominio, e.fecha, e.estado_global, e.resultado_json,
+                   (SELECT email FROM leads WHERE id_escaneo = e.id ORDER BY id DESC LIMIT 1) AS email
+            FROM escaneos e
+            ORDER BY e.id DESC
+            LIMIT ?
+            """,
+            (limite,),
+        ).fetchall()
+
+    actividad = []
+    for fila in filas:
+        resultado = json.loads(fila["resultado_json"])
+        actividad.append(
+            {
+                "id": fila["id"],
+                "dominio": fila["dominio"],
+                "fecha": fila["fecha"],
+                "estado_global": fila["estado_global"],
+                "nota": resultado.get("resumen", {}).get("puntuacion"),
+                "email": fila["email"],
+            }
+        )
+    return actividad
 
 
 def guardar_solicitud(
@@ -337,9 +419,15 @@ def guardar_solicitud(
         conexion.execute(
             """
             INSERT INTO solicitudes
-                (referencia, email, telefono, dominio, id_escaneo, precio_estimado, mensaje)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (referencia, email, telefono, dominio, id_escaneo, precio_estimado, mensaje, estado)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'nuevo')
             """,
+            # 'nuevo' se pasa explícito, no confiando en el DEFAULT de la
+            # columna: la tabla ya existía en producción con DEFAULT
+            # 'nueva' (el pipeline de 3 pasos, anterior al de 6 del 13
+            # ago 2026) — CREATE TABLE IF NOT EXISTS no toca el DEFAULT
+            # de una tabla que ya existe, así que confiar en él habría
+            # seguido creando solicitudes con el estado viejo.
             (referencia, email, telefono, dominio, id_escaneo, precio_estimado, mensaje),
         )
 
@@ -363,5 +451,33 @@ def marcar_estado_solicitud(id_solicitud: int, estado: str) -> bool:
     with obtener_conexion() as conexion:
         cursor = conexion.execute(
             "UPDATE solicitudes SET estado = ? WHERE id = ?", (estado, id_solicitud)
+        )
+        return cursor.rowcount > 0
+
+
+def guardar_notas_solicitud(id_solicitud: int, notas: str) -> bool:
+    """
+    Sustituye las notas libres de una solicitud (qué le dijo Alberto,
+    qué pidió el cliente). Sustituye, no acumula: es un cuaderno de
+    caso, no un histórico de mensajes — más simple de mantener.
+    """
+    with obtener_conexion() as conexion:
+        cursor = conexion.execute(
+            "UPDATE solicitudes SET notas = ? WHERE id = ?", (notas, id_solicitud)
+        )
+        return cursor.rowcount > 0
+
+
+def marcar_cobro_solicitud(id_solicitud: int, importe_cobrado: int) -> bool:
+    """
+    Registra cuánto se ha cobrado por una solicitud, con la fecha de
+    hoy. No cambia el estado por su cuenta — es Alberto quien decide si
+    "cobrado" significa ya "pagado" en el pipeline o algo más adelante
+    (por ejemplo, si cobra una señal antes de terminar el trabajo).
+    """
+    with obtener_conexion() as conexion:
+        cursor = conexion.execute(
+            "UPDATE solicitudes SET importe_cobrado = ?, fecha_cobro = datetime('now') WHERE id = ?",
+            (importe_cobrado, id_solicitud),
         )
         return cursor.rowcount > 0
