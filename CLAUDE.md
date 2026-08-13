@@ -251,6 +251,19 @@ El escalón de 19€ tenía tres problemas: el nivel de 19€/mes costaba lo mis
 - La tabla `pedidos` se queda huérfana con los datos de prueba de la demo; la nueva es `solicitudes` (con `estado`: nueva → presupuestada → hecha).
 - El PDF **no lleva las soluciones** (ver decisión #7) pero sí un desglose por áreas y una llamada a "¿prefieres que lo arreglemos nosotros?".
 
+### 🔴 El envío de email por Gmail SMTP NO funciona en Railway — bloqueado a nivel de red
+
+Alberto configuró `GMAIL_EMAIL`/`GMAIL_APP_PASSWORD` en Railway el 13 ago 2026 (con contraseña de aplicación real, generada en `myaccount.google.com/apppasswords`), pero `/api/solicitudes` sigue devolviendo `email_enviado: false` en producción. Diagnosticado con curl real, no de memoria:
+
+- La petición tarda **exactamente ~30 segundos** (dos llamadas a `enviar_email` en serie, cada una con `timeout=15`). Un fallo de credenciales (usuario/contraseña malos) se ve casi al instante tras conectar, no justo al límite del timeout — esa cifra exacta es la firma de que **la conexión de red ni siquiera se establece**.
+- Se probó primero el puerto 465 (SSL directo): mismo patrón, 30s.
+- Se cambió el código a 587 (STARTTLS) — commit `3f46caa` — por si Railway bloqueaba 465 en concreto. **Mismo resultado: 30s, `email_enviado: false`.**
+- Con los dos puertos estándar de SMTP fallando igual, la conclusión es que **Railway bloquea el tráfico SMTP saliente por completo**, no un puerto concreto. Es una restricción habitual en hostings/PaaS (evita que apps comprometidas se usen para mandar spam) y no depende de las credenciales de Alberto, que muy probablemente son correctas.
+
+**La solución real no es tocar el puerto otra vez — es dejar de usar SMTP.** Cambiar a un proveedor de email transaccional que funcione por API HTTPS (puerto 443, nunca bloqueado): candidato natural, **Resend** — API muy simple, capa gratuita de sobra para el volumen de esta fase (3.000 emails/mes), sin necesidad de verificar dominio propio para empezar a probar (da un remitente `onboarding@resend.dev` de pruebas). Requiere que Alberto cree una cuenta y genere una clave de API — **eso no lo puede hacer un agente**, así que queda pendiente de él. Cuando la tenga: sustituir el cuerpo de `enviar_email()` en `app/notificaciones/enviar.py` por una llamada HTTP a la API de Resend (o el proveedor que se elija), quitar `smtplib`/`GMAIL_APP_PASSWORD` del todo, y repetir la prueba con curl real contra Railway antes de dar esto por cerrado — no basta con probarlo en local.
+
+Mientras tanto, el flujo sigue siendo funcional: la solicitud se guarda bien en la base de datos aunque el email falle (el frontend no depende de que `email_enviado` sea `true`), así que **no se pierde ningún cliente**, solo que Alberto tiene que mirar el panel de solicitudes a mano en vez de recibir el aviso por email.
+
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:
   - Endpoint `GET /api/informe/{id}/pdf` (ver tabla de endpoints arriba). Genera el informe interpretado si aún no estaba en caché (igual que `/api/informe`) y añade una sección de soluciones solo si `/soluciones` ya se había pedido antes para ese escaneo — no dispara ninguna llamada a la IA que no fuera a hacer falta de todos modos.
