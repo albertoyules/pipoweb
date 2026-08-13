@@ -28,6 +28,17 @@ def enviar_email(destinatario: str, asunto: str, cuerpo: str) -> None:
     Envío síncrono y bloqueante a propósito (smtplib no tiene versión
     async) — quien llame a esto debe mandarlo a un hilo aparte con
     asyncio.to_thread, igual que ya se hace con la IA y con WeasyPrint.
+
+    Usa el puerto 587 (STARTTLS) en vez del 465 (SSL directo). Se
+    cambió el 13 ago 2026: con 465, cada intento de envío en Railway
+    agotaba el timeout completo (15s) sin llegar a fallar por
+    credenciales — la petición a /api/solicitudes tardaba exactamente
+    30s (dos emails × 15s) y devolvía email_enviado:false. Eso es la
+    firma de un bloqueo de red al puerto, no de un usuario/contraseña
+    mal puestos: un fallo de login se ve casi al instante, no justo al
+    límite del timeout. Muchos hostings bloquean el 465 por defecto
+    para frenar spam saliente; el 587 suele estar abierto porque es el
+    puerto "de sumisión" pensado para que aplicaciones manden correo.
     """
     if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
         raise ErrorEmail("Pipo no tiene configurado el envío de emails todavía.")
@@ -38,7 +49,8 @@ def enviar_email(destinatario: str, asunto: str, cuerpo: str) -> None:
     mensaje["To"] = destinatario
 
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as servidor:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as servidor:
+            servidor.starttls()
             servidor.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
             servidor.send_message(mensaje)
     except Exception as error:  # noqa: BLE001 - cualquier fallo de red/SMTP se trata igual
