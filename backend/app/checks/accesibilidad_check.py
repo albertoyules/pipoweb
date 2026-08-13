@@ -24,6 +24,8 @@ Qué comprobamos:
 
 from bs4 import BeautifulSoup
 
+from app.checks.pagina import parece_dibujada_con_javascript
+
 TIPOS_INPUT_QUE_NECESITAN_ETIQUETA = {
     "text", "email", "tel", "password", "number", "search", "url", "date",
 }
@@ -53,6 +55,21 @@ def comprobar_accesibilidad(pagina: dict) -> dict:
             estado="rojo",
             prioridad="alta",
             detalle=f"No se ha podido acceder a la web para revisar accesibilidad ({pagina['error']}).",
+        )
+
+    if parece_dibujada_con_javascript(pagina["html"]):
+        # Los formularios de una web así se crean en el navegador: aquí
+        # no hay ningún campo que revisar todavía, y contar "0 campos sin
+        # etiqueta" como si estuviera todo bien sería mentir al revés.
+        return _resultado(
+            estado="ambar",
+            prioridad="baja",
+            detalle=(
+                "Esta web se dibuja en el navegador con JavaScript, así que Pipo no puede revisar sus "
+                "formularios desde fuera. Conviene comprobar la accesibilidad con una herramienta que "
+                "ejecute la página."
+            ),
+            datos={"verificable_sin_javascript": False},
         )
 
     soup = BeautifulSoup(pagina["html"], "html.parser")

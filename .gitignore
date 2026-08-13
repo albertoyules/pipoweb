@@ -17,3 +17,6 @@ __pycache__/
 
 # Basura estándar de macOS.
 .DS_Store
+
+# Caché de pytest.
+backend/.pytest_cache/

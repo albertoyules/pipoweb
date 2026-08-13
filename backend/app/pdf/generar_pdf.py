@@ -26,6 +26,11 @@ TEXTO_PRIORIDAD = {
     "media": "Prioridad media",
     "alta": "Prioridad alta",
 }
+COLOR_ESTADO = {
+    "verde": "#8A9A5B",
+    "ambar": "#D9A441",
+    "rojo": "#B34733",
+}
 
 # Silueta de Pipo simplificada (sin animaciones ni clases: aquí solo
 # hace falta la imagen estática), reutilizada de landing/index.html.
@@ -157,6 +162,32 @@ h2.seccion {
   font-size: 10px;
   color: #8a7a68;
 }
+.preparado-para {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  color: #C97B5A;
+  margin-top: 2px;
+}
+table.familias { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+table.familias td { padding: 7px 4px; border-bottom: 1px solid #EBE1D2; font-size: 12px; }
+table.familias td.punto { width: 16px; }
+table.familias td.punto span {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+}
+table.familias td.nombre { font-weight: bold; }
+table.familias td.detalle {
+  font-family: Helvetica, Arial, sans-serif; font-size: 10.5px; color: #8a7a68;
+}
+table.familias td.nota { text-align: right; font-weight: bold; white-space: nowrap; }
+.cierre {
+  break-inside: avoid;
+  margin-top: 24px;
+  background: #F5EFE6;
+  border-left: 4px solid #C97B5A;
+  border-radius: 0 8px 8px 0;
+  padding: 14px 16px;
+  font-size: 11.5px;
+}
 .pie-legal {
   margin-top: 28px;
   padding-top: 12px;
@@ -190,35 +221,55 @@ def _bloque_hallazgos(hallazgos: list[dict]) -> str:
     return "".join(piezas)
 
 
-def _bloque_soluciones(soluciones: list[dict]) -> str:
-    if not soluciones:
+def _bloque_familias(resumen: dict) -> str:
+    """
+    El desglose por familias (seguridad / cumplimiento / clientes) con
+    su nota. Es lo que evita que el PDF sea un número suelto: enseña
+    dónde está el problema, no solo que lo hay.
+    """
+    familias = resumen.get("familias") or []
+    if not familias:
         return ""
-    piezas = ['<h2 class="seccion">Cómo solucionarlo</h2>']
-    for solucion in soluciones:
-        pasos_html = "".join(f"<li>{_seguro(paso)}</li>" for paso in solucion.get("pasos", []))
+    piezas = ['<h2 class="seccion">Resumen por áreas</h2><table class="familias">']
+    for familia in familias:
+        color = COLOR_ESTADO.get(familia["estado"], "#D9A441")
+        rojos = familia["conteo"]["rojo"]
         piezas.append(f"""
-          <div class="solucion">
-            <h3>{_seguro(solucion.get('problema', ''))}</h3>
-            <ol>{pasos_html}</ol>
-            <p class="meta">Quién lo hace normalmente: {_seguro(solucion.get('quien_lo_hace', ''))} ·
-              Dificultad: {_seguro(solucion.get('dificultad', ''))}</p>
-          </div>
+          <tr>
+            <td class="punto"><span style="background:{color}"></span></td>
+            <td class="nombre">{_seguro(familia['nombre'])}</td>
+            <td class="detalle">{familia['conteo']['verde']} bien ·
+              {familia['conteo']['ambar']} a mejorar ·
+              {rojos} {'grave' if rojos == 1 else 'graves'}</td>
+            <td class="nota">{familia['puntuacion']}/100</td>
+          </tr>
         """)
+    piezas.append("</table>")
     return "".join(piezas)
 
 
-def generar_pdf_informe(escaneo: dict) -> bytes:
+def generar_pdf_informe(escaneo: dict, marca: str | None = None) -> bytes:
     """
-    Construye el PDF de marca a partir de un escaneo ya guardado, con
-    su informe interpretado (obligatorio) y sus soluciones (opcional,
-    si ya se pidieron antes). No llama a la IA — solo compone HTML con
-    lo que ya está guardado en la base de datos y lo convierte a PDF.
+    Construye el PDF de marca a partir de un escaneo ya guardado y su
+    informe interpretado. No llama a la IA — solo compone HTML con lo
+    que ya está guardado en la base de datos y lo convierte a PDF.
+
+    Lo que este PDF NO lleva, a propósito, es la sección de soluciones
+    paso a paso. El diagnóstico se regala; el "cómo se arregla" es el
+    servicio que se cobra (ver CLAUDE.md, P2). Si se entregaran los
+    pasos aquí, el cliente se los pasa a su informático de siempre y la
+    venta se pierde en ese reenvío.
+
+    `marca` pone "Preparado para X" en la portada, para que un diseñador
+    o una agencia pueda entregárselo a sus propios clientes.
     """
     from weasyprint import HTML  # import perezoso: WeasyPrint es pesado de cargar
 
     informe = escaneo["informe"]
+    resumen = escaneo["resultado"].get("resumen", {})
     dominio = _seguro(escaneo["dominio"])
     fecha = datetime.now().strftime("%d/%m/%Y")
+    linea_marca = f'<div class="preparado-para">Preparado para {_seguro(marca)}</div>' if marca else ""
 
     html_documento = f"""
     <html>
@@ -230,6 +281,7 @@ def generar_pdf_informe(escaneo: dict) -> bytes:
           <div class="marca">Informe Pipo</div>
           <h1>{dominio}</h1>
           <div class="fecha">Generado el {fecha}</div>
+          {linea_marca}
         </div>
         <div class="nota-global">
           <div class="num">{informe.get('puntuacion_global', '—')}</div>
@@ -239,8 +291,15 @@ def generar_pdf_informe(escaneo: dict) -> bytes:
 
       <div class="resumen">{_seguro(informe.get('resumen_ejecutivo', ''))}</div>
 
+      {_bloque_familias(resumen)}
       {_bloque_hallazgos(informe.get('hallazgos', []))}
-      {_bloque_soluciones((escaneo.get('soluciones') or {}).get('soluciones', []))}
+
+      <div class="cierre">
+        <strong>¿Prefieres que lo arreglemos nosotros?</strong>
+        Este informe te dice qué falla y por qué importa. Si quieres que lo dejemos todo en
+        verde sin que tengas que tocar nada, escríbenos a alberyules11@gmail.com indicando
+        tu dominio y te pasamos presupuesto cerrado en menos de 24 horas.
+      </div>
 
       <div class="pie-legal">
         Este informe lo genera Pipo de forma automática a partir de información pública de

@@ -21,6 +21,8 @@ Qué comprobamos:
 import httpx
 from bs4 import BeautifulSoup
 
+from app.checks.pagina import parece_dibujada_con_javascript
+
 LONGITUD_TITLE_RECOMENDADA = (10, 60)  # caracteres, orientativo
 LONGITUD_DESCRIPTION_RECOMENDADA = (50, 160)
 
@@ -39,55 +41,60 @@ async def comprobar_seo(pagina: dict) -> dict:
         )
 
     soup = BeautifulSoup(pagina["html"], "html.parser")
-    problemas = []
+    # Problemas separados por gravedad: no es lo mismo no tener título
+    # (Google no sabe de qué va tu web) que tenerlo tres caracteres más
+    # largo de lo recomendado. Antes se contaban todos iguales y cuatro
+    # detalles menores bastaban para pintar el check de rojo crítico.
+    graves = []
+    menores = []
 
     # --- Meta title ---
     etiqueta_title = soup.find("title")
     title = etiqueta_title.get_text(strip=True) if etiqueta_title else ""
     if not title:
-        problemas.append("falta la etiqueta <title>")
+        graves.append("falta la etiqueta <title>: es el titular que sale en Google")
     elif not (LONGITUD_TITLE_RECOMENDADA[0] <= len(title) <= LONGITUD_TITLE_RECOMENDADA[1]):
-        problemas.append(f"el <title> mide {len(title)} caracteres (recomendado 10-60)")
+        menores.append(f"el <title> mide {len(title)} caracteres (recomendado 10-60)")
 
     # --- Meta description ---
     etiqueta_description = soup.find("meta", attrs={"name": "description"})
     description = etiqueta_description.get("content", "").strip() if etiqueta_description else ""
     if not description:
-        problemas.append("falta la meta description")
+        graves.append("falta la meta description: es el texto que Google enseña bajo el titular")
     elif not (LONGITUD_DESCRIPTION_RECOMENDADA[0] <= len(description) <= LONGITUD_DESCRIPTION_RECOMENDADA[1]):
-        problemas.append(f"la meta description mide {len(description)} caracteres (recomendado 50-160)")
+        menores.append(f"la meta description mide {len(description)} caracteres (recomendado 50-160)")
 
     # --- Open Graph (cómo se ve al compartir en redes/WhatsApp) ---
     tiene_og_title = soup.find("meta", property="og:title") is not None
     tiene_og_image = soup.find("meta", property="og:image") is not None
     if not tiene_og_title or not tiene_og_image:
-        problemas.append("faltan etiquetas Open Graph (se vería mal al compartir en redes/WhatsApp)")
+        menores.append("faltan etiquetas Open Graph (se vería mal al compartir en redes/WhatsApp)")
 
     # --- H1 ---
     h1s = soup.find_all("h1")
     if len(h1s) == 0:
-        problemas.append("no hay ningún H1 en la página")
+        graves.append("no hay ningún H1: la página no dice cuál es su titular principal")
     elif len(h1s) > 1:
-        problemas.append(f"hay {len(h1s)} etiquetas H1 (debería haber una sola)")
+        menores.append(f"hay {len(h1s)} etiquetas H1 (debería haber una sola)")
 
     # --- Imágenes sin alt ---
     imagenes = soup.find_all("img")
     sin_alt = [img for img in imagenes if not img.get("alt", "").strip()]
     if imagenes and len(sin_alt) > 0:
-        problemas.append(f"{len(sin_alt)} de {len(imagenes)} imágenes no tienen atributo alt")
+        menores.append(f"{len(sin_alt)} de {len(imagenes)} imágenes no tienen atributo alt")
 
     # --- Datos estructurados (schema.org) ---
     tiene_datos_estructurados = soup.find("script", type="application/ld+json") is not None
     if not tiene_datos_estructurados:
-        problemas.append("no se detectan datos estructurados (schema.org)")
+        menores.append("no se detectan datos estructurados (schema.org)")
 
     # --- robots.txt y sitemap.xml ---
     tiene_robots = await _existe(pagina["url"], "/robots.txt")
     tiene_sitemap = await _existe(pagina["url"], "/sitemap.xml")
     if not tiene_robots:
-        problemas.append("no existe robots.txt")
+        menores.append("no existe robots.txt")
     if not tiene_sitemap:
-        problemas.append("no existe sitemap.xml")
+        menores.append("no existe sitemap.xml")
 
     datos = {
         "title": title,
@@ -101,7 +108,23 @@ async def comprobar_seo(pagina: dict) -> dict:
         "tiene_sitemap_xml": tiene_sitemap,
     }
 
-    return _evaluar(problemas, datos)
+    if parece_dibujada_con_javascript(pagina["html"]):
+        # La web se dibuja en el navegador y nosotros no ejecutamos
+        # JavaScript: el título y los textos pueden existir de verdad
+        # aunque no estén en lo que hemos descargado. Decirlo en vez de
+        # acusar (ver pagina.py).
+        return _resultado(
+            estado="ambar",
+            prioridad="baja",
+            detalle=(
+                "Esta web se dibuja en el navegador con JavaScript, así que Pipo no puede leer su "
+                "contenido tal y como lo ve Google. Conviene revisar el SEO con una herramienta que "
+                "ejecute la página (por ejemplo, el propio inspector de Google Search Console)."
+            ),
+            datos={**datos, "verificable_sin_javascript": False},
+        )
+
+    return _evaluar(graves, menores, datos)
 
 
 async def _existe(url_base: str, ruta: str) -> bool:
@@ -114,21 +137,30 @@ async def _existe(url_base: str, ruta: str) -> bool:
         return False
 
 
-def _evaluar(problemas: list[str], datos: dict) -> dict:
+def _evaluar(graves: list[str], menores: list[str], datos: dict) -> dict:
     """
-    Semáforo por cantidad de problemas encontrados: es una lista
-    larga de comprobaciones pequeñas, así que tiene más sentido contar
-    cuántas fallan que tratarlas todas como igual de graves.
+    Semáforo por gravedad, no por cantidad.
+
+    - Rojo solo si faltan dos de las tres piezas básicas con las que
+      Google construye tu resultado de búsqueda (título, descripción,
+      H1). Eso sí es un problema serio de verdad.
+    - Ámbar para todo lo demás: una pieza básica suelta, o cualquier
+      número de detalles de los pequeños.
+    - Verde si no hay nada.
+
+    Antes bastaban cuatro pegas cualesquiera para el rojo, y eso hacía
+    que un <title> largo de más pesara como un certificado caducado.
     """
-    if len(problemas) == 0:
+    if len(graves) >= 2:
         return _resultado(
-            estado="verde",
-            prioridad="baja",
-            detalle="El SEO técnico básico está bien cubierto: title, description, H1 y datos estructurados presentes.",
+            estado="rojo",
+            prioridad="alta",
+            detalle="Google no tiene lo básico para entender tu web: " + "; ".join(graves) + ".",
             datos=datos,
         )
 
-    if len(problemas) <= 3:
+    problemas = graves + menores
+    if problemas:
         return _resultado(
             estado="ambar",
             prioridad="media",
@@ -137,9 +169,9 @@ def _evaluar(problemas: list[str], datos: dict) -> dict:
         )
 
     return _resultado(
-        estado="rojo",
-        prioridad="alta",
-        detalle="El SEO técnico tiene varios problemas: " + "; ".join(problemas) + ".",
+        estado="verde",
+        prioridad="baja",
+        detalle="El SEO técnico básico está bien cubierto: title, description, H1 y datos estructurados presentes.",
         datos=datos,
     )
 

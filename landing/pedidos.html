@@ -7,7 +7,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="robots" content="noindex, nofollow">
-<title>Pipo — Pedidos</title>
+<title>Pipo — Solicitudes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -47,8 +47,8 @@
 <body>
 
 <div class="wrap">
-  <h1>Pedidos</h1>
-  <p class="sub">Panel privado — marca un pedido como pagado en cuanto confirmes el Bizum. Enlace de solo uso personal, no lo compartas.</p>
+  <h1>Solicitudes de arreglo</h1>
+  <p class="sub">Panel privado — quién ha pedido que le arreglemos su web, y por dónde va cada caso. Aquí es donde se sacan las soluciones para hacer el trabajo. Enlace de solo uso personal, no lo compartas.</p>
   <div id="contenido"></div>
 </div>
 
@@ -62,76 +62,84 @@
     return new Date(fechaSql.replace(" ", "T") + "Z").toLocaleString("es-ES");
   }
 
-  function pintarPedido(pedido) {
-    const pagado = pedido.pagado === 1;
-    const enlaceInforme = `informe.html?id=${pedido.id_escaneo}&dominio=${encodeURIComponent(pedido.dominio)}`;
-    const enlacePdf = `${API_BASE}/api/informe/${pedido.id_escaneo}/pdf`;
+  // Los siguientes pasos de una solicitud. El botón enseña siempre el
+  // estado al que se puede pasar, no el actual.
+  const SIGUIENTE_ESTADO = { nueva: "presupuestada", presupuestada: "hecha" };
+  const ETIQUETA_ESTADO = { nueva: "Nueva", presupuestada: "Presupuestada", hecha: "Hecha" };
+  const ACCION_ESTADO = { nueva: "Marcar presupuestada", presupuestada: "Marcar hecha" };
+
+  function pintarSolicitud(solicitud) {
+    const token = solicitud.token_escaneo || "";
+    const enlaceInforme = `informe.html?id=${solicitud.id_escaneo}&t=${encodeURIComponent(token)}&dominio=${encodeURIComponent(solicitud.dominio)}`;
+    const enlacePdf = `${API_BASE}/api/informe/${solicitud.id_escaneo}/pdf?t=${encodeURIComponent(token)}`;
+    const siguiente = SIGUIENTE_ESTADO[solicitud.estado];
 
     const div = document.createElement("div");
     div.className = "pedido";
     div.innerHTML = `
       <div class="pedido-cabecera">
-        <span class="dominio">${pedido.dominio}</span>
-        <span class="badge ${pagado ? "pagado" : "pendiente"}">${pagado ? "Pagado" : "Pendiente"}</span>
-        <span class="precio">${pedido.precio}€</span>
+        <span class="dominio">${solicitud.dominio}</span>
+        <span class="badge ${solicitud.estado === "hecha" ? "pagado" : "pendiente"}">${ETIQUETA_ESTADO[solicitud.estado] || solicitud.estado}</span>
+        <span class="precio">~${solicitud.precio_estimado}€</span>
       </div>
       <dl>
-        <dt>Email</dt><dd>${pedido.email}</dd>
-        <dt>Teléfono</dt><dd>${pedido.telefono || "—"}</dd>
-        <dt>Referencia</dt><dd>${pedido.referencia}</dd>
-        <dt>Pedido</dt><dd>${formatearFecha(pedido.fecha)}</dd>
-        <dt>Ver escaneo</dt><dd><a href="${enlaceInforme}" target="_blank">${enlaceInforme}</a></dd>
+        <dt>Email</dt><dd>${solicitud.email}</dd>
+        <dt>Teléfono</dt><dd>${solicitud.telefono || "—"}</dd>
+        <dt>Referencia</dt><dd>${solicitud.referencia}</dd>
+        <dt>Recibida</dt><dd>${formatearFecha(solicitud.fecha)}</dd>
+        <dt>Mensaje</dt><dd>${solicitud.mensaje || "—"}</dd>
+        <dt>Ver informe</dt><dd><a href="${enlaceInforme}" target="_blank">${enlaceInforme}</a></dd>
       </dl>
       <div class="acciones-pedido">
-        ${pagado ? "" : `<button class="btn btn-primary" data-marcar="${pedido.id}">Marcar pagado</button>`}
-        ${pagado ? `<a class="btn btn-ghost" href="${enlacePdf}" target="_blank">Descargar PDF</a>` : ""}
-        ${pagado ? `<button class="btn btn-ghost" data-soluciones="${pedido.id_escaneo}">Ver soluciones</button>` : ""}
+        ${siguiente ? `<button class="btn btn-primary" data-estado="${siguiente}" data-id="${solicitud.id}">${ACCION_ESTADO[solicitud.estado]}</button>` : ""}
+        <a class="btn btn-ghost" href="${enlacePdf}" target="_blank">Descargar PDF</a>
+        <button class="btn btn-ghost" data-soluciones="${solicitud.id_escaneo}">Ver soluciones (interno)</button>
       </div>
-      <div class="zona-soluciones" id="soluciones-${pedido.id_escaneo}" style="display:none"></div>
+      <div class="zona-soluciones" id="soluciones-${solicitud.id_escaneo}" style="display:none"></div>
     `;
     return div;
   }
 
-  async function cargarPedidos() {
-    contenido.innerHTML = `<div class="estado-carga">Cargando pedidos...</div>`;
+  async function cargarSolicitudes() {
+    contenido.innerHTML = `<div class="estado-carga">Cargando solicitudes...</div>`;
     try {
-      const respuesta = await fetch(`${API_BASE}/api/pedidos?clave=${encodeURIComponent(clave)}`);
+      const respuesta = await fetch(`${API_BASE}/api/solicitudes?clave=${encodeURIComponent(clave)}`);
       if (respuesta.status === 403) {
         contenido.innerHTML = `<div class="estado-error">Clave incorrecta. Revisa el enlace.</div>`;
         return;
       }
       if (!respuesta.ok) {
-        contenido.innerHTML = `<div class="estado-error">No se han podido cargar los pedidos.</div>`;
+        contenido.innerHTML = `<div class="estado-error">No se han podido cargar las solicitudes.</div>`;
         return;
       }
-      const pedidos = await respuesta.json();
-      if (pedidos.length === 0) {
-        contenido.innerHTML = `<div class="estado-carga">Todavía no hay ningún pedido.</div>`;
+      const solicitudes = await respuesta.json();
+      if (solicitudes.length === 0) {
+        contenido.innerHTML = `<div class="estado-carga">Todavía no hay ninguna solicitud.</div>`;
         return;
       }
       contenido.innerHTML = "";
-      pedidos.forEach((pedido) => contenido.appendChild(pintarPedido(pedido)));
+      solicitudes.forEach((solicitud) => contenido.appendChild(pintarSolicitud(solicitud)));
     } catch (error) {
       contenido.innerHTML = `<div class="estado-error">No se ha podido conectar con el servidor.</div>`;
     }
   }
 
   contenido.addEventListener("click", async (evento) => {
-    const botonMarcar = evento.target.closest("[data-marcar]");
-    if (botonMarcar) {
-      botonMarcar.disabled = true;
+    const botonEstado = evento.target.closest("[data-estado]");
+    if (botonEstado) {
+      botonEstado.disabled = true;
       try {
         const respuesta = await fetch(
-          `${API_BASE}/api/pedidos/${botonMarcar.dataset.marcar}/pagado?clave=${encodeURIComponent(clave)}`,
+          `${API_BASE}/api/solicitudes/${botonEstado.dataset.id}/estado?clave=${encodeURIComponent(clave)}&estado=${botonEstado.dataset.estado}`,
           { method: "POST" }
         );
         if (respuesta.ok) {
-          cargarPedidos();
+          cargarSolicitudes();
         } else {
-          botonMarcar.disabled = false;
+          botonEstado.disabled = false;
         }
       } catch (error) {
-        botonMarcar.disabled = false;
+        botonEstado.disabled = false;
       }
       return;
     }
@@ -147,7 +155,13 @@
       zona.style.display = "block";
       zona.textContent = "Cargando...";
       try {
-        const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}/soluciones`, { method: "POST" });
+        // Las soluciones son herramienta interna: el backend las sirve
+        // solo con la clave de admin, y no hay ningún botón en la web
+        // pública que lleve aquí (ver CLAUDE.md, P2).
+        const respuesta = await fetch(
+          `${API_BASE}/api/informe/${idEscaneo}/soluciones?clave=${encodeURIComponent(clave)}`,
+          { method: "POST" }
+        );
         const datos = await respuesta.json();
         zona.textContent = JSON.stringify(datos, null, 2);
       } catch (error) {
@@ -159,7 +173,7 @@
   if (!clave) {
     contenido.innerHTML = `<div class="estado-error">Falta la clave en el enlace (?clave=...).</div>`;
   } else {
-    cargarPedidos();
+    cargarSolicitudes();
   }
 </script>
 

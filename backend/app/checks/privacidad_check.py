@@ -23,6 +23,36 @@ import re
 
 from bs4 import BeautifulSoup
 
+from app.checks.pagina import parece_dibujada_con_javascript
+
+# Gestores de consentimiento de cookies conocidos, identificados por un
+# fragmento de la URL de su script.
+#
+# Por qué hacía falta esto: casi ningún banner de cookies real está
+# escrito en el HTML — lo inyecta uno de estos servicios con JavaScript
+# después de cargar la página. Como Pipo no ejecuta JavaScript, buscar
+# la palabra "aceptar cookies" en el HTML fallaba en la mayoría de webs
+# que SÍ cumplen, y esa es la acusación más grave que hace Pipo. Ver el
+# script del gestor es la prueba fiable de que el banner existe.
+GESTORES_DE_COOKIES = {
+    "cookiebot.com": "Cookiebot",
+    "cookie-script.com": "CookieScript",
+    "cookieyes.com": "CookieYes",
+    "cdn.iubenda.com": "Iubenda",
+    "cookielaw.org": "OneTrust",
+    "onetrust.com": "OneTrust",
+    "termly.io": "Termly",
+    "complianz": "Complianz",
+    "borlabs-cookie": "Borlabs Cookie",
+    "cookieconsent": "Cookie Consent",
+    "klaro": "Klaro",
+    "tarteaucitron": "tarteaucitron",
+    "osano.com": "Osano",
+    "usercentrics": "Usercentrics",
+    "didomi": "Didomi",
+    "axeptio": "Axeptio",
+}
+
 # Trackers habituales, identificados por un fragmento característico
 # de la URL de su script. Lista corta a propósito: mejor pocos falsos
 # positivos que intentar cubrir cada herramienta de analítica que existe.
@@ -66,11 +96,19 @@ def comprobar_privacidad(pagina: dict) -> dict:
         nombre for fragmento, nombre in TRACKERS_CONOCIDOS.items() if fragmento in html_completo
     ]
 
-    # Heurística simple: buscamos algún elemento cuyo texto sugiera un
-    # banner de consentimiento de cookies. No es perfecto (no
-    # ejecutamos JavaScript, así que banners que se inyectan dinámicamente
-    # no se detectan), por eso se trata como indicio, no como certeza.
-    banner_cookies = bool(re.search(r"consentimiento|aceptar.{0,20}cookies|cookie.{0,20}consent", html_completo))
+    # Dos formas de detectar el banner de cookies, de más a menos fiable:
+    # 1) el script de un gestor de consentimiento conocido (prueba casi
+    #    segura de que el banner existe, aunque se dibuje con JavaScript);
+    # 2) palabras sueltas en el HTML (indicio flojo, se mantiene por si
+    #    el banner está escrito a mano).
+    gestor_detectado = next(
+        (nombre for fragmento, nombre in GESTORES_DE_COOKIES.items() if fragmento in html_completo),
+        None,
+    )
+    indicio_texto = bool(
+        re.search(r"consentimiento|aceptar.{0,20}cookies|cookie.{0,20}consent", html_completo)
+    )
+    banner_cookies = bool(gestor_detectado) or indicio_texto
 
     datos = {
         "tiene_aviso_legal": tiene_aviso_legal,
@@ -78,7 +116,24 @@ def comprobar_privacidad(pagina: dict) -> dict:
         "tiene_politica_cookies": tiene_cookies,
         "trackers_detectados": trackers_detectados,
         "indicio_banner_cookies": banner_cookies,
+        "gestor_de_cookies": gestor_detectado,
     }
+
+    # Web dibujada con JavaScript: los enlaces del pie (aviso legal,
+    # privacidad, cookies) puede que ni siquiera estén en el HTML que
+    # hemos descargado. Aquí no se acusa, se avisa — es la diferencia
+    # entre "no tienes política de privacidad" y "no he podido verlo".
+    if parece_dibujada_con_javascript(pagina["html"]):
+        return _resultado(
+            estado="ambar",
+            prioridad="baja",
+            detalle=(
+                "Esta web se dibuja en el navegador con JavaScript y Pipo no puede leer sus enlaces "
+                "legales desde fuera. Comprueba a mano que el aviso legal, la política de privacidad "
+                "y la de cookies están enlazados y accesibles."
+            ),
+            datos={**datos, "verificable_sin_javascript": False},
+        )
 
     return _evaluar(datos)
 

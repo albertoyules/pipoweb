@@ -15,6 +15,7 @@ from app.checks.accesibilidad_check import comprobar_accesibilidad
 from app.checks.archivos_expuestos import comprobar_archivos_expuestos
 from app.checks.dns_check import comprobar_dns
 from app.checks.dominio_check import comprobar_dominio
+from app.checks.experiencia_check import comprobar_experiencia
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
 from app.checks.pagina import obtener_pagina
@@ -24,6 +25,7 @@ from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
 from app.checks.whois_check import comprobar_whois
+from app.puntuacion import resumir_checks
 
 
 async def ejecutar_escaneo(
@@ -71,6 +73,7 @@ async def ejecutar_escaneo(
         asyncio.to_thread(comprobar_mixed_content, pagina),
         comprobar_tecnologia(pagina),
         asyncio.to_thread(comprobar_accesibilidad, pagina),
+        comprobar_experiencia(pagina, dominio),
     )
 
     checks = [*resultados_iniciales, *resultados_dependientes_de_pagina]
@@ -79,28 +82,10 @@ async def ejecutar_escaneo(
     return {
         "dominio": dominio,
         "duracion_segundos": duracion_segundos,
-        "resumen": _resumir(checks),
+        # El resumen (nota, semáforo global y desglose por familias) lo
+        # calcula puntuacion.py, no este módulo: así hay un único sitio
+        # donde se decide cuánto pesa cada cosa, y el mismo cálculo vale
+        # para el informe, el PDF y los emails.
+        "resumen": resumir_checks(checks),
         "checks": checks,
     }
-
-
-def _resumir(checks: list[dict]) -> dict:
-    """
-    Cuenta cuántos checks han salido en cada color y decide un
-    'estado global' simple: el peor color presente manda. Si hay al
-    menos un rojo, el resumen es rojo, aunque el resto sean verdes.
-    Esto es deliberado: en seguridad, el eslabón más débil pesa más
-    que la media.
-    """
-    conteo = {"verde": 0, "ambar": 0, "rojo": 0}
-    for check in checks:
-        conteo[check["estado"]] += 1
-
-    if conteo["rojo"] > 0:
-        estado_global = "rojo"
-    elif conteo["ambar"] > 0:
-        estado_global = "ambar"
-    else:
-        estado_global = "verde"
-
-    return {"estado_global": estado_global, "conteo": conteo}

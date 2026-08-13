@@ -10,8 +10,14 @@ complicar algo que no hace falta todavía.
 
 import json
 import os
+import secrets
 import sqlite3
 from pathlib import Path
+
+# Estados por los que pasa una solicitud de arreglo. Es el flujo manual
+# de Alberto, no un sistema de pedidos: sirve para que no se le pierda
+# nadie por el camino.
+ESTADOS_SOLICITUD = ("nueva", "presupuestada", "hecha")
 
 # Dónde vive el archivo de la base de datos.
 #
@@ -70,6 +76,22 @@ def inicializar_db() -> None:
         for columna in ("informe_json", "soluciones_json", "rendimiento_json"):
             _asegurar_columna(conexion, "escaneos", columna)
 
+        # Token del enlace del informe. Los ids son correlativos, así que
+        # sin esto cualquiera podía recorrer /api/scan/1, /2, /3... y leer
+        # todos los escaneos hechos con Pipo (comprobado en producción el
+        # 13 ago 2026). El token no convierte esto en un sistema de
+        # cuentas: el enlace se sigue pudiendo compartir tal cual, solo
+        # deja de poder adivinarse.
+        _asegurar_columna(conexion, "escaneos", "token")
+
+        # Registro de la declaración de titularidad ("declaro ser el
+        # titular de este dominio o tener autorización"). La FAQ decía
+        # que quedaba registrado y no era verdad: el checkbox no salía
+        # del navegador. Se guarda cuándo y desde qué IP se declaró.
+        _asegurar_columna(conexion, "escaneos", "ip_solicitante")
+
+        _rellenar_tokens_que_falten(conexion)
+
         # Leads captados en el escaneo gratis: al enseñar solo un
         # adelanto del informe (ver /api/leads en main.py), quien quiere
         # ver el resto deja su email. Es lo que convierte el escaneo
@@ -91,31 +113,34 @@ def inicializar_db() -> None:
             """
         )
 
-        # Pedidos del nivel de pago "soluciones + PDF" (19€, cobrado por
-        # Bizum a mano — ver CLAUDE.md, P2). `pagado` empieza en 0 y hoy
-        # no hay ningún mecanismo automático que lo cambie a 1: eso es
-        # trabajo pendiente (un panel para marcar pedidos como pagados a
-        # mano tras comprobar el Bizum). Igual que en `leads`, sin
-        # FOREIGN KEY hacia escaneos a propósito.
+        # Solicitudes de "arregladlo vosotros" — el producto de pago
+        # desde el 13 ago 2026 (antes era un pedido de 19€ por el informe
+        # con soluciones; ver CLAUDE.md, P2, para el porqué del cambio).
+        #
+        # Aquí no se cobra nada por adelantado: es un servicio, así que
+        # el flujo es "llega la solicitud → Alberto responde con
+        # presupuesto → se hace el trabajo". `estado` es esa nota para
+        # él mismo. `precio_estimado` es el orientativo que calcula
+        # puntuacion.py, no un precio cerrado.
+        #
+        # La tabla antigua `pedidos` se queda como está si existía: son
+        # datos de pruebas de la demo y borrarlos no aporta nada.
         conexion.execute(
             """
-            CREATE TABLE IF NOT EXISTS pedidos (
+            CREATE TABLE IF NOT EXISTS solicitudes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 referencia TEXT NOT NULL,
                 email TEXT NOT NULL,
+                telefono TEXT,
                 dominio TEXT NOT NULL,
                 id_escaneo INTEGER NOT NULL,
-                precio INTEGER NOT NULL,
-                pagado INTEGER NOT NULL DEFAULT 0,
+                precio_estimado INTEGER NOT NULL,
+                mensaje TEXT,
+                estado TEXT NOT NULL DEFAULT 'nueva',
                 fecha TEXT NOT NULL DEFAULT (datetime('now'))
             )
             """
         )
-        # Teléfono opcional del cliente (para identificar su Bizum entrante,
-        # ya que Bizum solo enseña el número de quien paga). Añadida después
-        # de crear la tabla, así que usa la misma migración seguridad que
-        # las columnas de caché de arriba.
-        _asegurar_columna(conexion, "pedidos", "telefono")
 
 
 def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) -> None:
@@ -133,24 +158,101 @@ def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) ->
         conexion.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} TEXT")
 
 
-def guardar_escaneo(dominio: str, estado_global: str, resultado: dict) -> int:
+def _rellenar_tokens_que_falten(conexion: sqlite3.Connection) -> None:
+    """
+    Da un token a los escaneos que se guardaron antes de que existieran
+    (los de la demo). Sin esto, esas filas se quedarían con token NULL y
+    habría que decidir entre dejarlas accesibles a cualquiera —el
+    agujero que estamos cerrando— o romper sus enlaces sin avisar.
+    """
+    filas = conexion.execute("SELECT id FROM escaneos WHERE token IS NULL").fetchall()
+    for fila in filas:
+        conexion.execute(
+            "UPDATE escaneos SET token = ? WHERE id = ?",
+            (secrets.token_urlsafe(16), fila["id"]),
+        )
+
+
+def guardar_escaneo(
+    dominio: str, estado_global: str, resultado: dict, ip_solicitante: str | None = None
+) -> tuple[int, str]:
     """
     Guarda un escaneo completo. El informe entero (resultado) se
     guarda como texto JSON en una sola columna en vez de repartirlo en
     muchas columnas: para v1 es más simple, y como todavía no hacemos
     búsquedas dentro del contenido de cada check, no hace falta más.
-    Devuelve el id de la fila creada, por si el frontend quiere
-    enlazar directamente a "ver este informe".
+
+    Devuelve (id, token): el id identifica la fila y el token es lo que
+    hace que su enlace no se pueda adivinar. `ip_solicitante` queda
+    guardado junto a la fecha como registro de quién declaró ser el
+    titular del dominio.
     """
+    token = secrets.token_urlsafe(16)
     with obtener_conexion() as conexion:
         cursor = conexion.execute(
             """
-            INSERT INTO escaneos (dominio, estado_global, resultado_json)
-            VALUES (?, ?, ?)
+            INSERT INTO escaneos (dominio, estado_global, resultado_json, token, ip_solicitante)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (dominio, estado_global, json.dumps(resultado)),
+            (dominio, estado_global, json.dumps(resultado), token, ip_solicitante),
         )
-        return cursor.lastrowid
+        return cursor.lastrowid, token
+
+
+def escaneo_anterior(dominio: str) -> dict | None:
+    """
+    El escaneo previo más reciente de ese dominio, si lo hay. Es lo que
+    permite decir "esto ha mejorado desde la última vez" sin necesitar
+    todavía ninguna tarea programada.
+    """
+    with obtener_conexion() as conexion:
+        fila = conexion.execute(
+            "SELECT resultado_json, fecha FROM escaneos WHERE dominio = ? ORDER BY id DESC LIMIT 1",
+            (dominio,),
+        ).fetchone()
+
+    if fila is None:
+        return None
+    anterior = json.loads(fila["resultado_json"])
+    anterior["fecha"] = fila["fecha"]
+    return anterior
+
+
+def estadisticas_globales() -> dict:
+    """
+    Resumen de todo lo que Pipo ha revisado, contando cada dominio una
+    sola vez (su escaneo más reciente). Analizar diez veces la misma web
+    mientras se programa no debe deformar la media que luego se enseña
+    en la landing.
+    """
+    with obtener_conexion() as conexion:
+        filas = conexion.execute(
+            """
+            SELECT e.estado_global, e.resultado_json
+            FROM escaneos e
+            JOIN (SELECT dominio, MAX(id) AS ultimo FROM escaneos GROUP BY dominio) u
+              ON e.id = u.ultimo
+            """
+        ).fetchall()
+
+    if not filas:
+        return {"webs_analizadas": 0, "nota_media": None, "porcentaje_con_fallo_grave": None}
+
+    notas = []
+    con_fallo_grave = 0
+    for fila in filas:
+        resultado = json.loads(fila["resultado_json"])
+        nota = resultado.get("resumen", {}).get("puntuacion")
+        if nota is not None:
+            notas.append(nota)
+        if fila["estado_global"] == "rojo":
+            con_fallo_grave += 1
+
+    return {
+        "webs_analizadas": len(filas),
+        "nota_media": round(sum(notas) / len(notas)) if notas else None,
+        "porcentaje_con_fallo_grave": round(100 * con_fallo_grave / len(filas)),
+    }
 
 
 def obtener_escaneo(id_escaneo: int) -> dict | None:
@@ -171,6 +273,7 @@ def obtener_escaneo(id_escaneo: int) -> dict | None:
         "id": fila["id"],
         "dominio": fila["dominio"],
         "fecha": fila["fecha"],
+        "token": fila["token"],
         "estado_global": fila["estado_global"],
         "resultado": json.loads(fila["resultado_json"]),
         "informe": json.loads(fila["informe_json"]) if fila["informe_json"] else None,
@@ -220,41 +323,45 @@ def guardar_lead(email: str, dominio: str, id_escaneo: int) -> None:
         )
 
 
-def guardar_pedido(
-    referencia: str, email: str, dominio: str, id_escaneo: int, precio: int, telefono: str | None = None
+def guardar_solicitud(
+    referencia: str,
+    email: str,
+    dominio: str,
+    id_escaneo: int,
+    precio_estimado: int,
+    telefono: str | None = None,
+    mensaje: str | None = None,
 ) -> None:
-    """Guarda un pedido del nivel de pago, pendiente de confirmar por Bizum."""
+    """Guarda una solicitud de arreglo, pendiente de que Alberto la conteste."""
     with obtener_conexion() as conexion:
         conexion.execute(
-            "INSERT INTO pedidos (referencia, email, dominio, id_escaneo, precio, telefono) VALUES (?, ?, ?, ?, ?, ?)",
-            (referencia, email, dominio, id_escaneo, precio, telefono),
+            """
+            INSERT INTO solicitudes
+                (referencia, email, telefono, dominio, id_escaneo, precio_estimado, mensaje)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (referencia, email, telefono, dominio, id_escaneo, precio_estimado, mensaje),
         )
 
 
-def listar_pedidos() -> list[dict]:
-    """Todos los pedidos, más recientes primero — para el panel de Alberto."""
+def listar_solicitudes() -> list[dict]:
+    """Todas las solicitudes, más recientes primero — para el panel de Alberto."""
     with obtener_conexion() as conexion:
-        filas = conexion.execute("SELECT * FROM pedidos ORDER BY id DESC").fetchall()
+        filas = conexion.execute(
+            """
+            SELECT s.*, e.token AS token_escaneo
+            FROM solicitudes s
+            LEFT JOIN escaneos e ON e.id = s.id_escaneo
+            ORDER BY s.id DESC
+            """
+        ).fetchall()
     return [dict(fila) for fila in filas]
 
 
-def marcar_pedido_pagado(id_pedido: int) -> bool:
-    """Marca un pedido como pagado. Devuelve False si ese id no existía."""
+def marcar_estado_solicitud(id_solicitud: int, estado: str) -> bool:
+    """Cambia el estado de una solicitud. Devuelve False si ese id no existía."""
     with obtener_conexion() as conexion:
-        cursor = conexion.execute("UPDATE pedidos SET pagado = 1 WHERE id = ?", (id_pedido,))
+        cursor = conexion.execute(
+            "UPDATE solicitudes SET estado = ? WHERE id = ?", (estado, id_solicitud)
+        )
         return cursor.rowcount > 0
-
-
-def existe_pedido_pagado(id_escaneo: int) -> bool:
-    """
-    Si hay algún pedido pagado para este escaneo — es la comprobación
-    real que protege /soluciones y /pdf (ver main.py). Basta con uno:
-    no hace falta que el email del pedido coincida con quien pregunta,
-    el candado es por escaneo, no por persona (mismo criterio que el
-    resto de Pipo, que nunca ha pedido cuentas de usuario).
-    """
-    with obtener_conexion() as conexion:
-        fila = conexion.execute(
-            "SELECT 1 FROM pedidos WHERE id_escaneo = ? AND pagado = 1 LIMIT 1", (id_escaneo,)
-        ).fetchone()
-    return fila is not None

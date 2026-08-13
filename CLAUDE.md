@@ -61,6 +61,7 @@ PIPO ANALIZA/
     ├── pipo.db                   → SQLite con historial de escaneos (tampoco se sube a git)
     └── app/
         ├── main.py                → todos los endpoints FastAPI
+        ├── seguridad.py            → IP real del visitante (rate limit) + validación del dominio de entrada
         ├── config.py               → lee .env (claves de Anthropic, Gemini y PageSpeed)
         ├── database.py              → guardar/leer escaneos en SQLite
         ├── scanner.py                → orquestador: lanza todos los checks en paralelo
@@ -77,6 +78,7 @@ PIPO ANALIZA/
         │   ├── mixed_content_check.py           → verde (recursos http:// + Subresource Integrity en scripts externos)
         │   ├── tecnologia_check.py               → verde (CMS desactualizado)
         │   ├── accesibilidad_check.py             → verde (lang, formularios sin etiqueta)
+        │   ├── experiencia_check.py                → verde (móvil, teléfono pulsable, favicon, formularios sin cifrar, peso, www)
         │   ├── rendimiento_check.py                → verde, opt-in (PageSpeed, móvil+ordenador, 4 categorías cada uno)
         │   └── archivos_expuestos.py                → ÁMBAR, opt-in solo con consentimiento
         ├── ia/
@@ -86,9 +88,15 @@ PIPO ANALIZA/
         ├── pdf/
         │   └── generar_pdf.py             → informe de marca en PDF (WeasyPrint), reaprovecha informe+soluciones ya cacheados
         └── notificaciones/
-            ├── enviar.py                   → envío genérico de email (Gmail SMTP), no sabe nada de pedidos
-            └── mensajes.py                  → contenido de los emails de pedido (cliente + aviso a Alberto)
+            ├── enviar.py                   → envío genérico de email (Gmail SMTP), no sabe nada de solicitudes
+            └── mensajes.py                  → contenido de los emails de solicitud (cliente + aviso a Alberto)
+    ├── herramientas/
+    │   └── lote.py                → INTERNO: revisa un CSV de dominios y los ordena por quién está peor
+    ├── tests/                     → pytest (51 tests): puntuación, semáforo, checks con HTML fijo, validación de dominios
+    └── requirements-dev.txt        → pytest/playwright, NO se instalan en Railway
 ```
+
+**Los tests** se lanzan con `cd backend && .venv/bin/pytest`. No tocan la red: a los checks se les pasa el HTML ya "descargado". Prueban sobre todo los casos donde Pipo podría **acusar de más**, que es lo que costaría credibilidad delante de un cliente. Ya han pagado su coste: encontraron que la detección de favicon no funcionaba nunca (`soup.find("link", rel=lambda...)` no hace lo que parece con atributos de varios valores en BeautifulSoup).
 
 No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta "namespace packages" implícitos. No hace falta añadirlos.
 
@@ -96,37 +104,65 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 
 ## Endpoints de la API
 
+> **Dos llaves distintas, no las confundas:**
+> - `?t=` — el **token del escaneo**, que viaja en el enlace del informe. Lo tiene el cliente. Sin él, `403`.
+> - `?clave=` — la **clave de administración** (`CLAVE_ADMIN`). Solo la tiene Alberto. Protege el panel, los `/check/*` y las soluciones.
+
 | Endpoint | Qué hace | Notas |
 |---|---|---|
 | `GET /health` | Salud del servidor | — |
-| `GET /check/{ssl,headers,dns,dominio,whois,seo,privacidad,mixed-content,tecnologia,accesibilidad,archivos-expuestos,rendimiento}?dominio=` | Cada check por separado | Utilidades de depuración, sin rate limit |
-| `GET /api/scan?dominio=&consiento=&incluir_rendimiento=` | Orquesta todos los checks en paralelo, guarda en DB | **Rate limited: 5/min por IP.** `consiento=true` activa `archivos_expuestos`; `incluir_rendimiento=true` añade PageSpeed (+10-15s) |
-| `GET /api/scan/{id}` | Recupera un escaneo guardado | — |
-| `GET /api/scan/{id}/rendimiento` | Audita velocidad (PageSpeed) del dominio de ese escaneo | Rate limited 5/min. **Cacheado** en `rendimiento_json`; sustituye al uso directo de `/check/rendimiento?dominio=` desde `informe.html` |
-| `GET /api/informe/{id}` | Hallazgos interpretados por IA + nota (determinista) | Rate limited 5/min. **Cacheado** en `informe_json` — la 2ª petición para el mismo escaneo no vuelve a llamar a Gemini |
-| `POST /api/informe/{id}/soluciones` | Soluciones + nota estimada tras aplicarlas | Es POST a propósito (dispara gasto de IA cada vez, no debe cachear el navegador). Rate limited 5/min. **Cacheado** en `soluciones_json`. **Requiere pedido pagado** (`402` si no) — ver P2 |
-| `GET /api/informe/{id}/pdf` | Informe en PDF con marca Pipo (`app/pdf/generar_pdf.py`) | Rate limited 5/min. Genera el informe si no estaba cacheado (igual que `/api/informe`); incluye soluciones solo si ya se pidieron antes. No usa fuentes de marca (Fraunces/Nunito) a propósito, para no depender de una descarga de red en cada PDF. **Requiere pedido pagado** (`402` si no) — ver P2 |
-| `POST /api/leads?email=&dominio=&id_escaneo=` | Guarda un email que desbloquea el detalle gratis del informe (hallazgos + velocidad) | Rate limited 5/min. Guarda en tabla `leads`, sin FOREIGN KEY hacia `escaneos` a propósito |
-| `POST /api/pedidos?email=&dominio=&id_escaneo=&telefono=` | Pedido del nivel de pago "soluciones + PDF" (19€, Bizum manual) | Rate limited 5/min. `telefono` es opcional. Guarda en tabla `pedidos`, envía el diagnóstico + cómo pagar al cliente por email y avisa a Alberto (`app/notificaciones/`). Devuelve `email_enviado` (si falla, el frontend cae a enseñar el Bizum en la página), `referencia`, `precio`, `telefono_bizum` y `precio_arreglo_estimado`. **No cobra nada de verdad** |
-| `GET /api/pedidos?clave=` | Lista todos los pedidos — panel privado (`landing/pedidos.html`) | Rate limited 20/min. `403` si `clave` no coincide con `CLAVE_ADMIN` |
-| `POST /api/pedidos/{id}/pagado?clave=` | Marca un pedido como pagado a mano | Rate limited 20/min. `403` con clave incorrecta, `404` si el pedido no existe. A partir de aquí, `/soluciones` y `/pdf` quedan desbloqueados de verdad para ese escaneo |
+| `GET /check/{...}?dominio=&clave=` | Cada check por separado | **Requiere `clave` de admin** desde el 13 ago 2026 (antes estaban abiertos a internet, ver P0-bis). Valida el dominio igual que `/api/scan` |
+| `GET /api/scan?dominio=&declara_titularidad=true&consiento=&incluir_rendimiento=` | Orquesta todos los checks en paralelo, guarda en DB | **Rate limited: 5/min por IP real.** `declara_titularidad` es **obligatorio** (`400` si falta) y queda registrado con IP y fecha. `consiento=true` activa `archivos_expuestos`; `incluir_rendimiento=true` añade PageSpeed (+10-15s). Devuelve `token`, que hay que llevar a todo lo demás |
+| `GET /api/scan/{id}?t=` | Recupera un escaneo guardado | `403` sin token |
+| `GET /api/estadisticas` | Nº de webs revisadas, nota media y % con fallo grave | Rate limited 30/min. Cuenta cada dominio una vez (su escaneo más reciente). Alimenta el dato de la landing y el "tu web frente a la media" del informe |
+| `GET /api/scan/{id}/rendimiento?t=` | Audita velocidad (PageSpeed) del dominio de ese escaneo | Rate limited 5/min. **Cacheado** en `rendimiento_json` |
+| `GET /api/informe/{id}?t=` | Hallazgos interpretados por IA + nota (determinista) + desglose por familias + comparación con el escaneo anterior + precio orientativo del arreglo | Rate limited 5/min. **Cacheado** en `informe_json`. Familias/comparación/precio se añaden al vuelo, no se cachean dentro del informe |
+| `POST /api/informe/{id}/soluciones?clave=` | Soluciones paso a paso | **HERRAMIENTA INTERNA**: requiere clave de admin, no hay ningún botón público que lleve aquí. Es lo que se vende, ver P2 |
+| `GET /api/informe/{id}/pdf?t=&marca=` | Informe en PDF con marca Pipo (`app/pdf/generar_pdf.py`) | **Gratis** (solo token). **NO lleva soluciones** a propósito. `marca=` pone "Preparado para X" en portada (para agencias) |
+| `POST /api/leads?email=&dominio=&id_escaneo=&t=` | Lista de avisos ("cuando esté la revisión mensual, avísame") | Rate limited 5/min. Guarda en tabla `leads`, sin FOREIGN KEY hacia `escaneos` a propósito |
+| `POST /api/solicitudes?email=&dominio=&id_escaneo=&t=&telefono=&mensaje=` | Solicitud de "arregladlo vosotros" — el producto de pago | Rate limited 5/min. Guarda en tabla `solicitudes`, manda el diagnóstico al cliente y avisa a Alberto. **No cobra ni pide pago por adelantado**: es un servicio, primero se presupuesta |
+| `GET /api/solicitudes?clave=` | Lista todas las solicitudes — panel privado (`landing/pedidos.html`) | Rate limited 20/min. `403` si la clave no coincide |
+| `POST /api/solicitudes/{id}/estado?clave=&estado=` | Mueve una solicitud: `nueva` → `presupuestada` → `hecha` | Rate limited 20/min. `400` con un estado inventado, `404` si no existe |
 
 ---
 
 ## Decisiones de diseño ya tomadas (no las repitas ni las cuestiones sin motivo)
 
-1. **La nota (0-100) nunca la calcula la IA** — la calcula `puntuacion.py` con una fórmula fija (verde=100, ámbar=60, rojo=20, media). Es determinista y reproducible a propósito, para que la IA no pueda "inventar" una puntuación. La IA solo pone el texto explicativo.
-2. **El peor check manda en el semáforo global** (`scanner.py::_resumir`) — no se promedia, un solo rojo tira todo el resumen a rojo. Es intencionado: en seguridad, el eslabón débil pesa más que la media.
+1. **La nota (0-100) nunca la calcula la IA** — la calcula `puntuacion.py` con una fórmula fija. Es determinista y reproducible a propósito, para que la IA no pueda "inventar" una puntuación. La IA solo pone el texto explicativo. **Desde el 13 ago 2026 la fórmula es una media PONDERADA**: cada check tiene un peso (`PESOS`), de 3 (SSL, privacidad, archivos expuestos) a 1 (WHOIS, DNSSEC, accesibilidad). Antes todos pesaban igual y un `<title>` largo de más contaba como un certificado caducado.
+2. ~~El peor check manda en el semáforo global~~ **CAMBIADO el 13 ago 2026** (`puntuacion.py::resumir_checks`). El problema medido: de los escaneos reales guardados, **todos** salían en rojo, incluida la web de Pipo — si todo es rojo, el semáforo no informa y el producto se lee como venta del miedo. Ahora los checks se agrupan en **tres familias** (`seguridad`, `cumplimiento`, `clientes`) y el color global se decide así:
+   - **Rojo** solo si hay un rojo en un check de peso ≥2 de una familia crítica (seguridad o cumplimiento legal). Eso sí merece llamarse crítico.
+   - **Ámbar** para cualquier otro rojo (un detalle menor, o algo de la familia "clientes") y para cualquier ámbar.
+   - **Verde** si no hay nada.
+   El principio original sigue vivo donde tiene sentido — dentro de seguridad manda el eslabón débil — pero un detalle de SEO ya no puede pintar el informe entero de rojo.
 3. **`archivos_expuestos` es el único check ámbar**, apagado por defecto en `/api/scan`, solo se activa con `consiento=true`. Nunca debe entrar en el escaneo gratis.
 4. **HIBP (Have I Been Pwned) está aparcado** — su API exige verificar la propiedad del dominio antes de consultarlo, lo cual no encaja con escanear dominios de terceros en self-service. Solo tendría sentido en el futuro nivel "Pipo + acompañamiento" (servicio manual, el cliente coopera).
 5. ✅ **La capa de IA está desacoplada del proveedor** (`app/ia/cliente.py`) — el 11 ago 2026 se resolvió el problema de pago y se cambió de Google Gemini a **Claude (Anthropic)**, precisamente para dejar atrás la cuota gratuita de Gemini (ver P1 más abajo). El cambio solo tocó ese archivo — `interpretar.py` y `soluciones.py` no saben qué proveedor hay detrás, tal y como estaba pensado. `GOOGLE_GEMINI_API_KEY` se deja en `config.py` y en las variables de Railway sin usar, por si algún día hiciera falta volver atrás; `google-genai` se queda en `requirements.txt` por la misma razón.
 6. **Modelo de Claude en uso:** `claude-haiku-4-5-20251001` (ver `app/ia/cliente.py`) — elegido por precio sobre `claude-sonnet-5` dado el volumen bajo de peticiones por escaneo (máximo 2, informe + soluciones, gracias a la caché del punto P1). Si la calidad de redacción no convence, el candidato a probar es `claude-sonnet-5`, más caro pero con mejor pluma en español.
-7. ✅ **El botón "soluciones" es un segundo paso deliberadamente separado** del informe interpretado — no todo el que ve el diagnóstico quiere ya los pasos técnicos. La puerta que dejaba abierta a pago ya se cruzó el 11 ago 2026: soluciones + PDF son ahora el nivel de 19€ (ver P2).
+7. ✅ **Las soluciones son herramienta interna, no producto** (cambiado el 13 ago 2026; antes eran el nivel de pago de 19€ junto al PDF). El razonamiento: el diagnóstico y el PDF cuestan céntimos de IA y no consumen tiempo de nadie, así que cobrarlos convertía Pipo en un negocio de muchos clientes a poco dinero — justo el que no se puede servir cobrando a mano por Bizum. Y había un riesgo concreto: entregar los pasos técnicos hace que el cliente se los reenvíe a su informático de siempre y la venta se pierda ahí. Ahora el diagnóstico y el PDF se regalan (crean la conversación) y lo que se vende es **aplicar los cambios**. `/soluciones` solo responde con la clave de admin y es lo que Alberto abre en el panel para hacer el trabajo.
 8. ✅ **CORS restringido** (10 ago 2026) — ya no es `allow_origins=["*"]`. Con el backend en Railway (internet real) y la cuota de Gemini tan ajustada, dejarlo abierto permitía que cualquier página web disparase peticiones a la API desde el navegador de cualquier visitante. Hoy permite `http://127.0.0.1:5500` y `http://localhost:5500` (desarrollo local) y `https://piposcan.vercel.app` (la landing real, añadida el 10 ago 2026). Si algún día la landing cambia de dominio, hay que añadirlo aquí **y hacer `git push`** — si no, el navegador bloquea todas las llamadas a la API y la landing parece rota sin dar error claro.
 
 ---
 
+9. **El rate limiting se identifica por `X-Forwarded-For`, no por la IP de la conexión** (`app/seguridad.py::ip_cliente`). Detrás del proxy de Railway, el `get_remote_address` que trae slowapi ve la IP del proxy, no la del visitante, y el límite **no se aplicaba nunca en producción** — comprobado con curl el 13 ago 2026: 7 escaneos seguidos, los 7 aceptados, mientras el mismo código en local cortaba al sexto. Si alguna vez se toca el rate limiting, **hay que verificarlo contra Railway**, no solo en local: es un fallo que no se ve desde el código.
+10. **Todo lo de un escaneo va con token** (`?t=`). Los ids son correlativos; sin token, cualquiera podía recorrer `/api/scan/1,2,3...` y leer todos los escaneos con sus resultados. El token no es un sistema de cuentas: el enlace se sigue compartiendo tal cual, solo deja de ser adivinable.
+11. **Pipo no ejecuta JavaScript, y ahora lo dice cuando importa** (`pagina.py::parece_dibujada_con_javascript`). En webs hechas con React/Vue el HTML llega vacío, y SEO/privacidad/accesibilidad daban por ausente lo que solo era invisible desde fuera. Ahora esos tres checks detectan el caso y responden "no hemos podido comprobarlo" en ámbar, en vez de acusar. Lo mismo con los banners de cookies: casi todos los reales (Cookiebot, Complianz, CookieYes, Iubenda, OneTrust...) se inyectan con JavaScript, así que se reconocen por el **script del gestor** — buscar la palabra "aceptar cookies" en el HTML fallaba en la mayoría de webs que sí cumplen, y es la acusación más grave que hace Pipo.
+
+---
+
 ## Qué falta por hacer, con prioridad
+
+### ✅ P0-bis — Auditoría del 13 ago 2026: cerraduras abiertas en producción, HECHO
+
+Una auditoría del proyecto entero (leyendo el repo y lanzando peticiones reales contra Railway) encontró tres agujeros que el código no dejaba ver, más un puñado de promesas que la web hacía y el código no cumplía. Todo arreglado el mismo día:
+
+- ✅ **El rate limit no se aplicaba en producción** — ver decisión #9 arriba. Arreglado con `key_func=ip_cliente`. Verificado en local: misma IP de visitante → `429` en la sexta; IPs distintas → pasan todas. **Verificar otra vez tras desplegar** con `for i in {1..7}; curl .../api/scan?...`.
+- ✅ **Los `/check/*` estaban abiertos a internet**, sin límite y aceptando hasta direcciones internas (`169.254.169.254`): cualquiera podía usar el servidor de Pipo como escáner de webs ajenas, con la IP de Pipo en los registros del sitio escaneado. Ahora van detrás de `?clave=` en un `APIRouter` con dependencia, para que no se pueda añadir un endpoint nuevo ahí y olvidarse de protegerlo.
+- ✅ **`/docs` estaba público** — ahora solo con `PIPO_DOCS=1` en el `.env` local. Apagado por defecto, así producción queda segura sin tener que configurar nada en Railway.
+- ✅ **Los escaneos eran enumerables** — tokens (decisión #10). La migración rellena token a las filas antiguas, así que no queda ninguna accesible sin él.
+- ✅ **Validación del dominio de entrada** (`app/seguridad.py`): normaliza lo que escriba el usuario (`https://www.x.es/contacto?a=1` → `www.x.es`), rechaza IPs, puertos, `localhost`, sufijos internos, y **comprueba que resuelve a una IP pública** antes de tocar nada — un dominio normal puede apuntar a `127.0.0.1` a propósito (el patrón SSRF).
+- ✅ **El consentimiento de titularidad ahora se guarda de verdad** (`declara_titularidad`, obligatorio, con IP y fecha). La FAQ decía "queda registrado" y era la única frase de la web que prometía algo que el código no hacía — y justo la que protege a Alberto.
+- ✅ **El texto de la IA ya no se inyecta con `innerHTML`** en `informe.html`, sino con `textContent` sobre nodos creados a mano. Ese texto describe contenido de la web analizada, así que había un camino estrecho pero real desde una web hostil hasta código ejecutándose en el dominio de Pipo.
+- ✅ **Se quitó de la landing lo que no existía**: el check de "Brechas conocidas" (HIBP está aparcado desde el principio, decisión #4) y el botón de suscripción a "Vigilancia", que ahora aparece como *En preparación* y capta el email en vez de fingir un producto. El **43%** inventado del titular se sustituyó por el dato real de `/api/estadisticas`, que se oculta solo si todavía hay menos de 10 webs revisadas.
 
 ### ✅ P0 — Bloqueante legal, HECHO (10 ago 2026)
 - **Checkbox de consentimiento** en la landing (`index.html`): "Declaro ser el titular de este dominio o tener autorización para analizarlo". El botón "Analizar" empieza deshabilitado y solo se activa al marcarlo; además hay una comprobación en el `submit` por si se reactiva el botón desde devtools. **Importante:** este checkbox NO se envía como `consiento=true` al backend — es solo la puerta legal del escaneo en sí, distinta del parámetro `consiento` que activa el check ámbar (`archivos_expuestos`), que sigue sin tocarse en el escaneo gratis (decisión #3 intacta).
@@ -173,7 +209,7 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 
 - ✅ **Escena de carga del informe: Pipo encima de la pantalla que analiza** (12 ago 2026, `informe.html`) — antes el búho de espaldas estaba **al lado** del documento, así que no se leía que estuviera analizándolo. Ahora `.escena-figuras` apila en columna (Pipo arriba, pantalla justo debajo). Se probaron dos versiones con lupa (colgando al lado, luego centrada por delante con el cristal asomando bajo el cuerpo) y Alberto decidió quitarla del todo — queda más limpio sin ella, solo el búho posado mirando hacia abajo. `#pipo-espaldas` volvió a su `viewBox` normal (`0 0 240 260`, como el símbolo de frente) y recuperó los pies.
 
-### ✅ Ampliación del escáner: de 7 a 10 comprobaciones (11 ago 2026)
+### ✅ Ampliación del escáner: de 7 a 10 comprobaciones (11 ago 2026) — y a 11 el 13 ago (ver `experiencia_check.py`)
 Alberto pidió revisar si Pipo estaba haciendo "todo el análisis posible" dentro de la regla 100% pasiva, y valorar una checklist de 20 puntos de un TikTok sobre qué le falta a cualquier web antes de lanzarla. De ahí salieron dos bloques de trabajo:
 
 **A) 3 checks nuevos (nuevas filas en el semáforo):**
@@ -199,6 +235,21 @@ Mismo encargo de arriba, pero aplicado a `piposcan.vercel.app` en vez de a las w
 - **Falsa alarma corregida sobre la marcha**: se pensó que el 404 personalizado (`404.html`) no se estaba sirviendo en Vercel, porque `curl -o /dev/null -w "%{http_code}"` daba `404`. Eso es tratar el código de estado como si probara "página genérica" — un 404 bien hecho **debe** devolver estado 404 aunque enseñe contenido propio. Al mirar el cuerpo real de la respuesta (`content-disposition: filename="404.html"`, título "Página no encontrada — Pipo"), se confirmó que ya funcionaba bien desde que se desplegó. No se tocó nada, no hacía falta.
 - **No hecho hoy, sí confirmado que hace falta más adelante**: Google Analytics. Se preguntó primero porque instalarlo de verdad exige un banner de consentimiento (una cookie de analytics no puede cargar antes de aceptar, por LSSI/RGPD) y una propiedad de Analytics que Alberto no ha creado. Por ahora solo se confirmó que `cookies.html`/`privacidad.html` siguen describiendo la realidad actual (solo Google Fonts, nada de analítica) — **queda pendiente de verdad, ver la lista de "Qué falta por hacer" más abajo**, no descartado.
 - **Matización legal importante, corregida tras aviso de Alberto**: el primer intento de actualizar `aviso-legal.html`/`privacidad.html` decía que Pipo "ya procesa pagos y tiene clientes reales" — Alberto corrigió que sigue en fase de pruebas sobre sus propios dominios (trabajos ya desplegados por él), sin haber contactado todavía a ninguna empresa. Las páginas legales quedaron con esa redacción más precisa: publicado en internet, pero en pruebas, sin clientes reales todavía.
+
+### ✅ Modelo de precios reescrito (13 ago 2026) — sustituye al reparto de 19€
+
+El escalón de 19€ tenía tres problemas: el nivel de 19€/mes costaba lo mismo que el pago único e incluía más (nadie elegiría el único), 19€ no paga los quince minutos de gestión manual que costaba cada pedido, y se cobraba por lo que sale barato (el PDF) en vez de por lo que el cliente quiere (que el problema desaparezca). Estructura actual:
+
+| Nivel | Qué incluye | Precio | Estado |
+|---|---|---|---|
+| **Revisión** | Escaneo, semáforo por áreas, informe interpretado y **PDF** | Gratis | Funcionando |
+| **Te lo arreglamos** | Alberto aplica los cambios y enseña el antes/después | 89-149€, calculado por `calcular_precio_arreglo()` | Funcionando (solicitud + email, sin cobro automático) |
+| **Tranquilidad** | Revisión mensual, avisos, arreglos pequeños | 15-25€/mes | **No existe**: en la landing como "En preparación", capta email |
+| **Para profesionales** | Informes en lote con marca de la agencia | A convenir | Media pieza hecha: `?marca=` en el PDF y `herramientas/lote.py` |
+
+- **Nada se cobra por adelantado**: es un servicio, primero se presupuesta. Por eso desaparecieron el Bizum en pantalla, la referencia de pago y el "plan B" si fallaba el email. `TELEFONO_BIZUM` deja de usarse en el código (la variable puede quedarse en Railway sin molestar).
+- La tabla `pedidos` se queda huérfana con los datos de prueba de la demo; la nueva es `solicitudes` (con `estado`: nueva → presupuestada → hecha).
+- El PDF **no lleva las soluciones** (ver decisión #7) pero sí un desglose por áreas y una llamada a "¿prefieres que lo arreglemos nosotros?".
 
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:

@@ -41,16 +41,25 @@
 
   main{padding:44px 0 120px}
 
-  /* tarjeta de desbloqueo: aparece flotando sobre el detalle
-     difuminado (hallazgos + acciones), no antes de generarlo — el
-     informe se carga siempre, y solo el detalle queda borroso hasta
-     dejar el email (ver CLAUDE.md) */
+  /* El informe ya no se difumina ni se esconde detrás de un email: lo
+     que se vende es el arreglo, no ver los fallos (ver CLAUDE.md, P2).
+     Lo que había aquí antes era la tarjeta de desbloqueo; queda el
+     formulario de email, ahora usado solo para la lista de avisos. */
   .zona-detalle{position:relative}
-  .detalle-difuminable.difuminado{filter:blur(6px);user-select:none;pointer-events:none;transition:filter .2s ease}
-  .capa-desbloqueo-informe{position:absolute;inset:0;display:none;justify-content:center;align-items:flex-start;pointer-events:none}
-  .tarjeta-desbloqueo-informe{position:sticky;top:96px;margin-top:8px;pointer-events:auto;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:30px 26px;max-width:340px;width:100%;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
-  .tarjeta-desbloqueo-informe h2{font-size:19px;color:var(--ink)}
-  .tarjeta-desbloqueo-informe .sub{font-size:13.5px;color:var(--brown-dark)}
+
+  /* Desglose por áreas (seguridad / cumplimiento / clientes) */
+  .familias{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:20px}
+  .familia{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px 16px}
+  .familia-cab{display:flex;align-items:center;gap:9px}
+  .familia-nombre{flex:1;font-weight:700;font-size:14.5px;color:var(--ink)}
+  .familia-nota{font-family:'Fraunces';font-size:20px;font-weight:600;color:var(--ink)}
+  .familia-conteo{font-size:12.5px;color:#8a7a68;margin-top:5px}
+
+  /* Comparación con el escaneo anterior y con la media */
+  .comparacion{border-radius:14px;padding:12px 16px;font-size:14px;margin-bottom:12px;border:1px solid var(--line);background:#fff;color:var(--brown-dark)}
+  .comparacion.mejor{border-color:var(--sage);background:rgba(138,154,91,.09)}
+  .comparacion.peor{border-color:var(--brick);background:rgba(179,71,51,.08)}
+  .comparacion strong{color:var(--ink)}
   .form-desbloqueo-informe{display:flex;gap:8px;width:100%;max-width:320px;margin-top:6px}
   .form-desbloqueo-informe input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-family:'Nunito';font-size:14.5px;color:var(--ink)}
   .consentimiento-lead{display:flex;align-items:flex-start;gap:8px;max-width:320px;text-align:left;margin-top:2px}
@@ -131,8 +140,7 @@
 
   /* nivel de pago: soluciones + PDF por Bizum */
   .accion-pago{background:var(--cream-deep);border-radius:18px;padding:24px 26px}
-  .precio-informe-completo{font-family:'Fraunces';font-size:26px;font-weight:600;color:var(--ink);margin-bottom:14px}
-  .precio-informe-completo span{font-family:'Nunito';font-size:13px;font-weight:600;color:#8a7a68}
+  .precio-arreglo{font-family:'Fraunces';font-size:19px;font-weight:600;color:var(--ink);margin-bottom:14px}
   .form-pedido{display:flex;flex-wrap:wrap;gap:8px;max-width:480px;margin-top:14px}
   .form-pedido input{flex:1 1 160px;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-family:'Nunito';font-size:14.5px;color:var(--ink)}
   .form-pedido button{flex-shrink:0}
@@ -261,28 +269,49 @@
     </div>
 
     <div class="zona-detalle" id="zona-detalle">
-      <div class="detalle-difuminable" id="detalle-difuminable">
-        <div class="hallazgos" id="lista-hallazgos"></div>
+      <!-- Desglose por áreas y comparación: se rellenan desde JS solo
+           si el backend los manda (los escaneos viejos no los traen). -->
+      <div id="zona-familias"></div>
+      <div id="zona-comparacion"></div>
 
-        <div class="acciones">
-          <div class="accion">
-            <h2>¿Y la velocidad?</h2>
-            <p class="desc">Google audita tu web de verdad, con el mismo motor de Chrome — por eso tarda 20-30 segundos, no es un fallo.</p>
-            <button class="btn btn-ghost" id="btn-velocidad">Comprobar velocidad de carga</button>
-            <div id="zona-velocidad"></div>
-          </div>
+      <div class="hallazgos" id="lista-hallazgos"></div>
 
-          <div class="accion accion-pago" id="accion-informe-completo">
-            <h2>¿Cómo lo arreglo?</h2>
-            <p class="desc">Pipo propone pasos concretos para cada punto en ámbar o rojo, calcula la nota que tendría tu web si los aplicas todos, y te da el informe en PDF con la marca de Pipo para guardarlo o compartirlo.</p>
-            <div class="precio-informe-completo">19€ <span>· pago único</span></div>
-            <button class="btn btn-primary" id="btn-pedir-completo">Pedir informe completo</button>
-            <div id="zona-pedido"></div>
+      <div class="acciones">
+        <div class="accion">
+          <h2>¿Y la velocidad?</h2>
+          <p class="desc">Google audita tu web de verdad, con el mismo motor de Chrome — por eso tarda 20-30 segundos, no es un fallo.</p>
+          <button class="btn btn-ghost" id="btn-velocidad">Comprobar velocidad de carga</button>
+          <div id="zona-velocidad"></div>
+        </div>
+
+        <div class="accion">
+          <h2>Llévate el informe</h2>
+          <p class="desc">Un PDF con la marca de Pipo, para guardarlo, enseñárselo a tu socio o mandárselo a quien te lleva la web. Gratis y sin dejar ningún dato.</p>
+          <a class="btn btn-ghost" id="btn-pdf" href="#" download>Descargar informe en PDF</a>
+        </div>
+
+        <div class="accion accion-pago" id="accion-arreglo">
+          <h2>¿Prefieres que lo arreglemos nosotros?</h2>
+          <p class="desc">Nos encargamos de dejar en verde todo lo que se pueda: cabeceras, cookies, SEO técnico, correo... Tú no tocas nada. Te decimos qué necesitamos y cuánto tardamos antes de empezar.</p>
+          <div class="precio-arreglo" id="precio-arreglo"></div>
+          <button class="btn btn-primary" id="btn-pedir-arreglo">Quiero que me lo arreglen</button>
+          <div id="zona-pedido"></div>
+        </div>
+
+        <div class="accion" id="accion-vigilancia">
+          <h2>Avísame si algo empeora</h2>
+          <p class="desc">Estamos preparando la revisión automática mensual. Déjanos tu email y te avisamos cuando esté lista — o antes, si vemos que algo de tu web se rompe.</p>
+          <form class="form-desbloqueo-informe" id="form-aviso">
+            <input type="email" id="input-email-aviso" placeholder="tu@email.com" required>
+            <button class="btn btn-ghost" type="submit">Avisadme</button>
+          </form>
+          <div class="consentimiento-lead">
+            <input type="checkbox" id="check-consiento-aviso">
+            <label for="check-consiento-aviso">Acepto que Pipo me escriba sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
           </div>
+          <span class="error-desbloqueo" id="error-aviso"></span>
         </div>
       </div>
-
-      <div class="capa-desbloqueo-informe" id="capa-desbloqueo-informe"></div>
     </div>
   </div>
 </main>
@@ -297,6 +326,14 @@
   const parametros = new URLSearchParams(location.search);
   const idEscaneo = parametros.get("id");
   const dominioParam = parametros.get("dominio") || "";
+  // Token del enlace: sin él, el backend no devuelve nada de este
+  // escaneo. Los ids son correlativos, así que sin token bastaba con
+  // contar del 1 en adelante para leer los informes de otras personas.
+  const token = parametros.get("t") || "";
+
+  // Se añade a todas las llamadas de este escaneo, para no repetir la
+  // misma concatenación media docena de veces.
+  const conToken = (url) => `${url}${url.includes("?") ? "&" : "?"}t=${encodeURIComponent(token)}`;
 
   const LETRA = { verde: "g", ambar: "a", rojo: "r" };
   const LETRA_PRIORIDAD = { alta: "r", media: "a", baja: "g" };
@@ -397,9 +434,13 @@
     iniciarRotacionDeFrases();
 
     try {
-      const respuesta = await fetch(`${API_BASE}/api/informe/${idEscaneo}`);
+      const respuesta = await fetch(conToken(`${API_BASE}/api/informe/${idEscaneo}`));
       if (respuesta.status === 404) {
         mostrarError("Ese informe no existe o ha caducado. Vuelve a analizar tu web.", false);
+        return;
+      }
+      if (respuesta.status === 403) {
+        mostrarError("Este enlace no está completo. Copia la dirección entera del informe, o vuelve a analizar tu web.", false);
         return;
       }
       if (!respuesta.ok) {
@@ -419,95 +460,117 @@
     document.getElementById("txt-dominio").textContent = datos.dominio;
     document.getElementById("txt-resumen").textContent = datos.resumen_ejecutivo;
     document.getElementById("txt-nota").textContent = datos.puntuacion_global;
+    if (datos.precio_arreglo_estimado) {
+      document.getElementById("precio-arreglo").textContent = `Desde ${datos.precio_arreglo_estimado}€ · presupuesto cerrado antes de empezar`;
+    }
 
+    // Los textos de los hallazgos los escribe la IA a partir de lo que
+    // hay en la web analizada, así que se meten como TEXTO, nunca como
+    // HTML: con innerHTML, una web hostil podría colar código en su
+    // propio título y acabar ejecutándose aquí, en el dominio de Pipo.
     const lista = document.getElementById("lista-hallazgos");
-    lista.innerHTML = datos.hallazgos.map((h) => {
-      const letra = LETRA_PRIORIDAD[h.prioridad] || "a";
-      return `
-        <div class="hallazgo">
-          <span class="pill ${letra}"></span>
-          <div>
-            <h3>${h.titulo}</h3>
-            <p>${h.explicacion_llana}</p>
-            <span class="impacto">${h.impacto_negocio}</span>
-          </div>
-        </div>`;
-    }).join("");
+    lista.textContent = "";
+    datos.hallazgos.forEach((h) => {
+      const fila = document.createElement("div");
+      fila.className = "hallazgo";
+
+      const punto = document.createElement("span");
+      punto.className = `pill ${LETRA_PRIORIDAD[h.prioridad] || "a"}`;
+
+      const caja = document.createElement("div");
+      const titulo = document.createElement("h3");
+      titulo.textContent = h.titulo || "";
+      const explicacion = document.createElement("p");
+      explicacion.textContent = h.explicacion_llana || "";
+      const impacto = document.createElement("span");
+      impacto.className = "impacto";
+      impacto.textContent = h.impacto_negocio || "";
+      caja.append(titulo, explicacion, impacto);
+
+      fila.append(punto, caja);
+      lista.append(fila);
+    });
+
+    pintarFamilias(datos.resumen);
+    pintarComparacion(datos.comparacion);
+    document.getElementById("btn-pdf").href = conToken(`${API_BASE}/api/informe/${idEscaneo}/pdf`);
 
     document.getElementById("contenido").style.display = "block";
-
-    // El informe se genera siempre (ya ha costado la llamada a la IA);
-    // lo que queda oculto hasta dejar el email es solo el detalle
-    // (hallazgos + acciones), difuminado detrás de una tarjeta flotante.
-    // La cabecera (dominio, nota, resumen de la IA) se ve siempre —
-    // es el gancho que demuestra que el informe ya existe de verdad.
-    const yaDesbloqueado = localStorage.getItem(`pipo_desbloqueado_${idEscaneo}`) === "true";
-    if (!yaDesbloqueado) {
-      mostrarCapaDesbloqueoInforme();
-    }
+    compararConLaMedia(datos.puntuacion_global);
   }
 
-  function mostrarCapaDesbloqueoInforme() {
-    document.getElementById("detalle-difuminable").classList.add("difuminado");
+  // Desglose por áreas: seguridad, cumplimiento legal y clientes. Es lo
+  // que evita que la nota sea un número suelto — dice DÓNDE está el
+  // problema. Los escaneos guardados antes del 13 ago 2026 no traen
+  // este dato, así que la sección simplemente no aparece.
+  function pintarFamilias(resumen) {
+    const zona = document.getElementById("zona-familias");
+    if (!resumen || !resumen.familias || !resumen.familias.length) return;
 
-    const capa = document.getElementById("capa-desbloqueo-informe");
-    capa.style.display = "flex";
-    capa.innerHTML = `
-      <div class="tarjeta-desbloqueo-informe">
-        <svg width="40" height="40"><use href="#pipo"/></svg>
-        <h2>Desbloquea el resto</h2>
-        <p class="sub">Deja tu email y ves los hallazgos explicados uno a uno, sus soluciones y la comprobación de velocidad.</p>
-        <form class="form-desbloqueo-informe" id="form-desbloqueo-informe">
-          <input type="email" id="input-email-lead" placeholder="tu@email.com" required>
-          <button class="btn btn-primary" type="submit">Ver</button>
-        </form>
-        <div class="consentimiento-lead">
-          <input type="checkbox" id="check-consiento-lead">
-          <label for="check-consiento-lead">Acepto que Pipo me contacte sobre este informe y sus servicios. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
-        </div>
-        <span class="error-desbloqueo" id="error-desbloqueo"></span>
+    zona.innerHTML = `
+      <div class="familias">
+        ${resumen.familias.map((f) => `
+          <div class="familia">
+            <div class="familia-cab">
+              <span class="pill ${LETRA[f.estado]}"></span>
+              <span class="familia-nombre"></span>
+              <span class="familia-nota">${f.puntuacion}</span>
+            </div>
+            <div class="familia-conteo">${f.conteo.verde} bien · ${f.conteo.ambar} a mejorar · ${f.conteo.rojo} ${f.conteo.rojo === 1 ? "grave" : "graves"}</div>
+          </div>`).join("")}
       </div>`;
-
-    document.getElementById("form-desbloqueo-informe").addEventListener("submit", async (evento) => {
-      evento.preventDefault();
-
-      const checkConsientoLead = document.getElementById("check-consiento-lead");
-      const errorDesbloqueo = document.getElementById("error-desbloqueo");
-      const email = document.getElementById("input-email-lead").value.trim();
-
-      if (!checkConsientoLead.checked) {
-        errorDesbloqueo.textContent = "Marca la casilla para continuar.";
-        return;
-      }
-
-      const formulario = document.getElementById("form-desbloqueo-informe");
-      const boton = formulario.querySelector("button");
-      boton.disabled = true;
-      errorDesbloqueo.textContent = "";
-
-      try {
-        const respuesta = await fetch(
-          `${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`,
-          { method: "POST" }
-        );
-
-        if (respuesta.status === 429) {
-          errorDesbloqueo.textContent = "Demasiados intentos seguidos. Espera un minuto.";
-          return;
-        }
-        if (!respuesta.ok) {
-          errorDesbloqueo.textContent = "Ese email no parece válido.";
-          return;
-        }
-
-        localStorage.setItem(`pipo_desbloqueado_${idEscaneo}`, "true");
-        document.getElementById("detalle-difuminable").classList.remove("difuminado");
-        document.getElementById("capa-desbloqueo-informe").style.display = "none";
-      } catch (error) {
-        errorDesbloqueo.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
-        boton.disabled = false;
-      }
+    // El nombre de la familia viene del backend: se escribe como texto.
+    zona.querySelectorAll(".familia-nombre").forEach((elemento, indice) => {
+      elemento.textContent = resumen.familias[indice].nombre;
     });
+  }
+
+  // "¿He mejorado desde la última vez?" — solo sale si esta web ya se
+  // había analizado antes. Es la prueba de que un arreglo funcionó.
+  function pintarComparacion(comparacion) {
+    if (!comparacion) return;
+    const zona = document.getElementById("zona-comparacion");
+    const diferencia = comparacion.diferencia;
+    const signo = diferencia > 0 ? "+" : "";
+    const clase = diferencia > 0 ? "mejor" : diferencia < 0 ? "peor" : "igual";
+    const cambios = [...comparacion.mejoras, ...comparacion.empeoramientos].length;
+
+    const titular = diferencia === 0
+      ? "<strong>Sin cambios</strong> desde la última revisión"
+      : `<strong>${signo}${diferencia} puntos</strong> desde la última revisión (${comparacion.nota_anterior} → ${comparacion.nota_actual})`;
+
+    zona.innerHTML = `
+      <div class="comparacion ${clase}">
+        ${titular}.
+        ${cambios ? `${comparacion.mejoras.length} cosa(s) mejoraron y ${comparacion.empeoramientos.length} empeoraron.` : "Ningún punto ha cambiado de color."}
+      </div>`;
+  }
+
+  // "Tu web frente a las demás": convierte la nota en una posición, que
+  // es lo que de verdad mueve a alguien a actuar.
+  async function compararConLaMedia(nota) {
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/estadisticas`);
+      if (!respuesta.ok) return;
+      const datos = await respuesta.json();
+      if (!datos.nota_media || datos.webs_analizadas < 5) return;
+
+      const zona = document.getElementById("zona-comparacion");
+      const aviso = document.createElement("div");
+      aviso.className = "comparacion media";
+      const diferencia = nota - datos.nota_media;
+      const referencia = `la media de las ${datos.webs_analizadas} webs que hemos revisado (${datos.nota_media}/100)`;
+      if (diferencia === 0) {
+        aviso.textContent = `Tu web está justo en ${referencia}.`;
+      } else if (diferencia > 0) {
+        aviso.textContent = `Tu web está ${diferencia} puntos por encima de ${referencia}.`;
+      } else {
+        aviso.textContent = `Tu web está ${Math.abs(diferencia)} puntos por debajo de ${referencia}.`;
+      }
+      zona.append(aviso);
+    } catch (error) {
+      /* si no hay estadísticas, simplemente no se enseña nada */
+    }
   }
 
   document.getElementById("btn-velocidad").addEventListener("click", async () => {
@@ -526,7 +589,7 @@
       // backend pueda cachear el resultado: si ya se pidió antes para
       // este escaneo, la respuesta llega al instante sin volver a
       // pedirle la auditoría a Google.
-      const respuesta = await fetch(`${API_BASE}/api/scan/${idEscaneo}/rendimiento`);
+      const respuesta = await fetch(conToken(`${API_BASE}/api/scan/${idEscaneo}/rendimiento`));
       const datos = await respuesta.json();
       const letra = LETRA[datos.estado] || "a";
       const d = datos.datos || {};
@@ -550,57 +613,41 @@
     }
   });
 
-  // NIVEL DE PAGO "informe completo" (soluciones + PDF, 19€, cobro
-  // manual por Bizum — ver CLAUDE.md, P2). A propósito, la web NO
-  // enseña el número de Bizum ni la referencia a la vista de cualquiera:
-  // le llegan al cliente por email, en privado, junto con su diagnóstico
-  // concreto (nota + qué falla). Alberto recibe un segundo email
-  // avisando del pedido para poder hacer seguimiento.
+  // SOLICITUD DE ARREGLO — el producto de pago desde el 13 ago 2026.
+  // Antes esto era un pedido de 19€ por ver las soluciones; ahora el
+  // diagnóstico y el PDF son gratis y lo que se vende es el trabajo.
   //
-  // Importante: esto NO desbloquea nada todavía de forma automática —
-  // no existe (aún) un mecanismo para marcar un pedido como pagado, así
-  // que tras el Bizum el desbloqueo real lo hace Alberto a mano.
-  function pintarConfirmacionPedido(datos, email) {
-    // Plan B si el email al cliente no ha podido enviarse (Gmail sin
-    // configurar, corte de red...): mejor enseñar el Bizum directamente
-    // en la página que dejar a alguien que ya ha pedido esto sin
-    // ninguna forma de pagar.
-    if (!datos.email_enviado) {
-      const asunto = encodeURIComponent(`Quiero que me arregléis ${dominioParam}`);
-      const cuerpo = encodeURIComponent(`Referencia del pedido: ${datos.referencia}`);
-      document.getElementById("zona-pedido").innerHTML = `
-        <div class="confirmacion-pedido">
-          <h4>Pedido registrado</h4>
-          <p>No hemos podido escribirte por email, así que aquí tienes cómo pagar: Bizum de <strong>${datos.precio}€</strong> al <span class="telefono">${datos.telefono_bizum}</span>, indicando en el concepto la referencia: <span class="referencia">${datos.referencia}</span></p>
-          <p>En cuanto confirmemos el pago (normalmente en menos de 24 horas), te escribimos con las soluciones y el PDF.</p>
-          <div class="upsell-arreglo">
-            ¿Prefieres que te lo arreglemos nosotros? Precio orientativo: <strong>${datos.precio_arreglo_estimado}€</strong>.
-            <a href="mailto:alberyules11@gmail.com?subject=${asunto}&body=${cuerpo}">Contáctanos</a>.
-          </div>
-        </div>`;
-      return;
-    }
-
-    document.getElementById("zona-pedido").innerHTML = `
+  // No se cobra nada aquí ni se pide método de pago: es un servicio, así
+  // que primero se habla y se cierra presupuesto. Al cliente le llega un
+  // email con su diagnóstico y el precio orientativo; Alberto recibe
+  // otro con el caso para contestarle.
+  function pintarConfirmacionSolicitud(datos, email) {
+    const zona = document.getElementById("zona-pedido");
+    zona.innerHTML = `
       <div class="confirmacion-pedido">
-        <h4>Pedido registrado</h4>
-        <p>Te hemos escrito a <strong>${email}</strong> con el diagnóstico completo de ${dominioParam} y cómo completar el pago. Confirmamos los pagos normalmente en menos de 24 horas.</p>
-        <p>¿No te llega? Revisa spam o escríbenos a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>.</p>
+        <h4>Solicitud recibida</h4>
+        <p id="txt-confirmacion"></p>
+        <p>Precio orientativo para tu web: <strong>${datos.precio_estimado}€</strong>. El precio cerrado te lo confirmamos al contestarte, y no hay que pagar nada por adelantado.</p>
+        <p>¿No te llega el email? Revisa spam o escríbenos a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a> con la referencia <span class="referencia" id="txt-referencia"></span>.</p>
       </div>`;
+    document.getElementById("txt-confirmacion").textContent = datos.email_enviado
+      ? `Te hemos escrito a ${email} con el detalle. Te contestamos normalmente en menos de 24 horas.`
+      : "La hemos guardado bien, pero el email de confirmación no ha salido. Te contestamos igualmente en menos de 24 horas.";
+    document.getElementById("txt-referencia").textContent = datos.referencia;
   }
 
-  document.getElementById("btn-pedir-completo").addEventListener("click", (evento) => {
+  document.getElementById("btn-pedir-arreglo").addEventListener("click", (evento) => {
     evento.target.style.display = "none";
     document.getElementById("zona-pedido").innerHTML = `
-      <p class="desc" style="margin-bottom:10px">Te escribimos en privado con el diagnóstico completo y cómo pagar.</p>
+      <p class="desc" style="margin-bottom:10px">Déjanos por dónde localizarte y te contestamos con el presupuesto cerrado.</p>
       <form class="form-pedido" id="form-pedido">
         <input type="email" id="input-email-pedido" placeholder="tu@email.com" required>
         <input type="tel" id="input-telefono-pedido" placeholder="teléfono (opcional)">
-        <button class="btn btn-primary" type="submit" disabled>Pedir</button>
+        <button class="btn btn-primary" type="submit" disabled>Enviar solicitud</button>
       </form>
       <div class="consentimiento-lead" style="margin-top:10px;max-width:480px">
         <input type="checkbox" id="check-consiento-pedido">
-        <label for="check-consiento-pedido">Acepto que Pipo me escriba con el diagnóstico de este informe y cómo pagarlo. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
+        <label for="check-consiento-pedido">Acepto que Pipo me escriba para presupuestar este arreglo. Ver <a href="privacidad.html" target="_blank">privacidad</a>.</label>
       </div>
       <p class="error-desbloqueo" id="error-pedido"></p>`;
 
@@ -621,7 +668,7 @@
       // consentimiento, no confiamos solo en eso (podría reactivarse
       // desde las devtools), mismo criterio que el checkbox de index.html.
       if (!checkConsientoPedido.checked) {
-        errorPedido.textContent = "Marca la casilla de consentimiento para poder pedir el informe.";
+        errorPedido.textContent = "Marca la casilla de consentimiento para poder enviar la solicitud.";
         return;
       }
 
@@ -629,7 +676,7 @@
       errorPedido.textContent = "";
 
       try {
-        let url = `${API_BASE}/api/pedidos?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`;
+        let url = conToken(`${API_BASE}/api/solicitudes?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`);
         if (telefono) url += `&telefono=${encodeURIComponent(telefono)}`;
 
         const respuesta = await fetch(url, { method: "POST" });
@@ -638,16 +685,57 @@
           return;
         }
         if (!respuesta.ok) {
-          errorPedido.textContent = "No se ha podido registrar el pedido. Inténtalo de nuevo.";
+          errorPedido.textContent = "No se ha podido registrar la solicitud. Inténtalo de nuevo.";
           return;
         }
-        pintarConfirmacionPedido(await respuesta.json(), email);
+        pintarConfirmacionSolicitud(await respuesta.json(), email);
       } catch (error) {
         errorPedido.textContent = "No se ha podido conectar con el servidor.";
       } finally {
         boton.disabled = false;
       }
     });
+  });
+
+  // Lista de avisos ("cuando esté la revisión mensual, avísame"). Es la
+  // captación de emails que antes se hacía difuminando el informe: ahora
+  // el informe se ve entero y el email se pide a cambio de algo futuro,
+  // no a cambio de destapar lo que ya se ha calculado.
+  document.getElementById("form-aviso").addEventListener("submit", async (evento) => {
+    evento.preventDefault();
+    const consiento = document.getElementById("check-consiento-aviso");
+    const error = document.getElementById("error-aviso");
+    const email = document.getElementById("input-email-aviso").value.trim();
+    const boton = evento.target.querySelector("button");
+
+    if (!consiento.checked) {
+      error.textContent = "Marca la casilla para continuar.";
+      return;
+    }
+
+    boton.disabled = true;
+    error.textContent = "";
+    try {
+      const respuesta = await fetch(
+        conToken(`${API_BASE}/api/leads?email=${encodeURIComponent(email)}&dominio=${encodeURIComponent(dominioParam)}&id_escaneo=${idEscaneo}`),
+        { method: "POST" }
+      );
+      if (respuesta.status === 429) {
+        error.textContent = "Demasiados intentos seguidos. Espera un minuto.";
+        boton.disabled = false;
+        return;
+      }
+      if (!respuesta.ok) {
+        error.textContent = "Ese email no parece válido.";
+        boton.disabled = false;
+        return;
+      }
+      document.getElementById("accion-vigilancia").innerHTML =
+        "<h2>Hecho</h2><p class='desc'>Te avisaremos en cuanto la revisión automática esté lista.</p>";
+    } catch (e) {
+      error.textContent = "No se ha podido conectar. Inténtalo de nuevo.";
+      boton.disabled = false;
+    }
   });
 
   cargarInforme();

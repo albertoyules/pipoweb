@@ -63,14 +63,15 @@
   <table>
     <tr><th>Dato</th><th>Origen</th><th>Para qué</th></tr>
     <tr><td>Dominio que se analiza</td><td>Lo introduce la persona usuaria</td><td>Ejecutar el análisis y guardar el historial del escaneo</td></tr>
-    <tr><td>Dirección IP de quien escanea</td><td>Petición HTTP</td><td>Limitar el número de escaneos por minuto y evitar abuso del servicio</td></tr>
+    <tr><td>Dirección IP de quien escanea</td><td>Petición HTTP</td><td>Limitar el número de escaneos por minuto, evitar abuso del servicio y dejar constancia de quién declaró ser titular del dominio analizado</td></tr>
+    <tr><td>Declaración de titularidad (marcada al analizar)</td><td>Lo confirma la persona usuaria</td><td>Acreditar que quien pidió el análisis manifestó ser responsable de esa web o tener autorización</td></tr>
     <tr><td>Resultado del escaneo (hallazgos, nota)</td><td>Generado por Pipo</td><td>Mostrar el informe y guardarlo para poder recuperarlo después</td></tr>
-    <tr><td>Email (solo si se deja voluntariamente)</td><td>Lo introduce la persona usuaria, para ver el resto del informe gratuito</td><td>Enviar/mostrar el informe completo y, si se acepta expresamente, contactar sobre Pipo y sus servicios</td></tr>
-    <tr><td>Teléfono (opcional)</td><td>Lo introduce la persona usuaria, al pedir el nivel de pago</td><td>Identificar el Bizum entrante y confirmar el pago</td></tr>
-    <tr><td>Datos del pedido (email, dominio, referencia, precio)</td><td>Generado al pedir el nivel de pago</td><td>Gestionar el pedido, avisar del pago pendiente y confirmarlo cuando se recibe</td></tr>
+    <tr><td>Email (solo si se deja voluntariamente)</td><td>Lo introduce la persona usuaria, al apuntarse a los avisos o al pedir un arreglo</td><td>Avisar de novedades del servicio y, si se acepta expresamente, contactar sobre Pipo y sus servicios</td></tr>
+    <tr><td>Teléfono (opcional)</td><td>Lo introduce la persona usuaria, al pedir un arreglo</td><td>Poder llamar o escribir para concretar el presupuesto</td></tr>
+    <tr><td>Datos de la solicitud (email, dominio, referencia, precio orientativo)</td><td>Generado al pedir un arreglo</td><td>Gestionar la solicitud, presupuestarla y hacer el trabajo</td></tr>
   </table>
   <p>
-    Pipo <strong>no</strong> pide ni almacena contraseñas, ni ningún dato del servidor del dominio analizado más allá de lo que ese servidor ya publica a cualquier visitante. El pago en sí (Bizum) ocurre directamente entre quien paga y la cuenta bancaria de Alberto Yules, fuera de los sistemas de Pipo — Pipo no procesa ni almacena ningún dato bancario o de tarjeta.
+    Pipo <strong>no</strong> pide ni almacena contraseñas, ni ningún dato del servidor del dominio analizado más allá de lo que ese servidor ya publica a cualquier visitante. Pipo tampoco cobra nada de forma automática: no procesa ni almacena ningún dato bancario o de tarjeta.
   </p>
 
   <h2>3. Con quién se comparte</h2>

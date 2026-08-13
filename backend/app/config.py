@@ -34,10 +34,12 @@ GOOGLE_PAGESPEED_API_KEY = _leer_clave("GOOGLE_PAGESPEED_API_KEY")
 GOOGLE_GEMINI_API_KEY = _leer_clave("GOOGLE_GEMINI_API_KEY")
 ANTHROPIC_API_KEY = _leer_clave("ANTHROPIC_API_KEY")
 
-# Número de Bizum donde se cobra a mano el nivel de pago "soluciones +
-# PDF" (ver CLAUDE.md, P2) — es un dato personal de Alberto, no una
-# clave de API, pero se trata igual: fuera del código, en variables de
-# entorno, para no dejarlo en claro en el repo (aunque sea privado).
+# Número de Bizum. YA NO SE USA en ningún sitio desde el 13 ago 2026: el
+# producto de pago pasó a ser un servicio que se presupuesta antes de
+# cobrar, así que no hay ningún pago que pedir por adelantado ni ninguna
+# referencia que enseñar. Se deja leído aquí (sin usar) por si vuelve a
+# hacer falta; es un dato personal, así que si se retoma, sigue fuera del
+# código y solo en variables de entorno.
 TELEFONO_BIZUM = _leer_clave("TELEFONO_BIZUM")
 
 # Envío de emails (confirmación de pedido al cliente + aviso a Alberto)
@@ -50,4 +52,16 @@ GMAIL_APP_PASSWORD = _leer_clave("GMAIL_APP_PASSWORD")
 # quien la tenga puede ver los pedidos y marcarlos como pagados. Sin
 # usuarios ni contraseñas de verdad a propósito: es un panel de uso
 # personal para Alberto, no un producto multiusuario.
+#
+# Desde el 13 ago 2026 protege también los endpoints /check/* de
+# depuración, que hasta entonces estaban abiertos a internet sin límite
+# (ver app/main.py).
 CLAVE_ADMIN = _leer_clave("CLAVE_ADMIN")
+
+# ¿Se publica la documentación automática de la API (/docs y /redoc)?
+# Apagada por defecto: enseña el mapa completo de la API, incluidos los
+# endpoints de administración, y no aporta nada a un visitante. Se
+# enciende poniendo PIPO_DOCS=1 en el .env local, que es donde sí
+# resulta cómoda. Al ser "apagado por defecto", producción queda segura
+# sin tener que acordarse de configurar nada en Railway.
+MOSTRAR_DOCS = (os.getenv("PIPO_DOCS") or "").strip() == "1"

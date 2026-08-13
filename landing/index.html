@@ -393,6 +393,11 @@
   .report-head{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:16px}
   .report-head .u{font-weight:800;color:var(--brown-dark)}
   .score{margin-left:auto;font-family:'Fraunces';font-size:30px;font-weight:600;color:var(--amber)}
+  /* Título de área dentro del semáforo (Seguridad / Cumplimiento legal
+     / Clientes): agrupa las filas para que se lea de qué tipo es cada
+     problema, en vez de una lista plana de diez cosas sueltas. */
+  .grupo-titulo{font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--brown);margin:16px 0 2px}
+  .grupo-titulo:first-child{margin-top:0}
   .row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px dashed var(--line)}
   .row:last-child{border-bottom:none}
   .pill{width:11px;height:11px;border-radius:50%;flex-shrink:0}
@@ -415,7 +420,11 @@
   .plan:hover{transform:translateY(-8px);box-shadow:var(--shadow);border-color:var(--terracotta)}
   .plan.feat{border:2px solid var(--terracotta);position:relative}
   .plan.feat:hover{box-shadow:0 26px 60px -18px rgba(201,123,90,.55)}
-  .plan .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--terracotta);color:#fff;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px}
+  .plan .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--terracotta);color:#fff;font-size:12px;font-weight:800;padding:5px 16px;border-radius:999px;white-space:nowrap}
+  /* "En preparación": el nivel de suscripción todavía no existe, y la
+     etiqueta lo dice en vez de disimularlo con un botón que no lleva
+     a ninguna parte. */
+  .plan .badge-pronto{background:var(--brown)}
   .plan h3{font-size:20px;color:var(--brown-dark);margin-bottom:6px}
   .plan .price{font-family:'Fraunces';font-size:38px;font-weight:600;color:var(--ink);margin:8px 0}
   .plan .price span{font-family:'Nunito';font-size:15px;font-weight:600;color:#8a7a68}
@@ -589,7 +598,7 @@
         </span>
       </h1>
       <div class="hero-resto" id="hero-resto">
-        <p class="sub">Pipo mira tu web igual que la ve Google: seguridad, cookies, RGPD, SEO y velocidad. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.</p>
+        <p class="sub">Pipo mira tu web igual que la ve Google: seguridad, cookies, RGPD, SEO y velocidad. En un minuto sabes qué falla, qué es urgente y qué no, en cristiano.</p>
         <div class="hero-cta">
           <a href="#demo" class="btn btn-primary">Revisar mi web gratis →</a>
           <a href="#como" class="btn btn-ghost">Ver cómo funciona</a>
@@ -619,10 +628,14 @@
 </header>
 
 <!-- STAT BAND -->
-<div class="band reveal-scale">
+<div class="band reveal-scale" id="band-estadistica" style="display:none">
   <div class="wrap">
-    <span class="big" data-contador data-hasta="43" data-sufijo="%">0%</span>
-    <p>de las pequeñas webs tienen fallos visibles de seguridad, cookies o RGPD que cualquiera puede ver desde fuera. Pipo los encuentra antes de que lo haga un cliente… o una inspección.</p>
+    <!-- Este número sale de nuestra propia base de datos (/api/estadisticas),
+         no de ningún estudio: antes había aquí un "43%" inventado, en una
+         web que vende rigor. Si todavía no hay suficientes webs revisadas,
+         el bloque se oculta solo en vez de enseñar un dato flojo. -->
+    <span class="big" id="stat-numero">—</span>
+    <p id="stat-texto">de las webs que hemos revisado tienen algún fallo grave de seguridad, cookies o RGPD que cualquiera puede ver desde fuera. Pipo los encuentra antes de que lo haga un cliente… o una inspección.</p>
   </div>
 </div>
 
@@ -660,8 +673,8 @@
       </div>
       <div class="card reveal-right" style="transition-delay:.16s">
         <div class="ico" style="background:rgba(201,123,90,.14)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#C97B5A" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 8v4l3 2"/></svg></div>
-        <h3>Brechas conocidas</h3>
-        <p>Comprobamos si tu dominio aparece en filtraciones de datos públicas para que puedas reaccionar a tiempo.</p>
+        <h3>Tu dominio</h3>
+        <p>Cuándo caduca (que no se te pase), y las protecciones que evitan que alguien emita certificados en tu nombre.</p>
       </div>
     </div>
   </div>
@@ -701,40 +714,42 @@
   <div class="wrap">
     <div class="sec-label reveal-scale">Precios</div>
     <h2 class="reveal-scale" style="transition-delay:.05s">Empieza gratis, paga solo si te sirve</h2>
+    <p class="lead reveal-scale" style="transition-delay:.08s">El diagnóstico entero es gratis, PDF incluido. Solo se paga el trabajo de arreglarlo.</p>
     <div class="plans">
       <div class="plan reveal-left" style="transition-delay:0s">
-        <h3>Vistazo</h3>
+        <h3>Revisión</h3>
         <div class="price">Gratis</div>
         <ul>
-          <li>Nota global de tu web</li>
-          <li>Semáforo de las 10 comprobaciones</li>
-          <li>Resultado al instante</li>
-          <li>Sin registro</li>
+          <li>Semáforo de las 11 comprobaciones</li>
+          <li>Nota global y por áreas</li>
+          <li>Cada fallo explicado en cristiano</li>
+          <li>PDF descargable, sin registro</li>
         </ul>
-        <a href="#demo" class="btn btn-ghost">Probar ahora</a>
+        <a href="#demo" class="btn btn-ghost">Revisar mi web</a>
       </div>
       <div class="plan feat reveal-scale" style="transition-delay:.1s">
-        <span class="badge">El más pedido</span>
-        <h3>Informe completo</h3>
-        <div class="price">19€ <span>/ único</span></div>
+        <span class="badge">Lo que más se pide</span>
+        <h3>Te lo arreglamos</h3>
+        <div class="price">Desde 89€ <span>/ único</span></div>
         <ul>
-          <li>Diagnóstico interpretado gratis primero</li>
-          <li>Soluciones paso a paso de cada punto</li>
-          <li>Nota estimada si aplicas los cambios</li>
-          <li>PDF descargable con la marca de Pipo</li>
+          <li>Aplicamos nosotros las correcciones</li>
+          <li>Tú no tocas nada ni aprendes nada nuevo</li>
+          <li>Te enseñamos el antes y el después</li>
+          <li>Presupuesto cerrado antes de empezar</li>
         </ul>
-        <a href="#demo" class="btn btn-primary">Pedir informe</a>
+        <a href="#demo" class="btn btn-primary">Empezar por la revisión</a>
       </div>
       <div class="plan reveal-right" style="transition-delay:0s">
-        <h3>Vigilancia</h3>
-        <div class="price">19€ <span>/ mes</span></div>
+        <span class="badge badge-pronto">En preparación</span>
+        <h3>Tranquilidad</h3>
+        <div class="price">15-25€ <span>/ mes</span></div>
         <ul>
-          <li>Todo lo del informe completo</li>
           <li>Revisión automática cada mes</li>
-          <li>Aviso si algo empeora</li>
+          <li>Aviso si algo empeora o caduca</li>
+          <li>Arreglos pequeños incluidos</li>
           <li>Histórico de tu web</li>
         </ul>
-        <a href="#demo" class="btn btn-ghost">Suscribirme</a>
+        <a href="#demo" class="btn btn-ghost">Avisadme cuando esté</a>
       </div>
     </div>
   </div>
@@ -749,9 +764,9 @@
       <details class="q reveal-blur" open style="transition-delay:0s"><summary>¿Pipo entra en mi web o la hackea?</summary><div class="a">No. Pipo solo mira información pública, la misma que ve cualquier visitante o Google. No accede a tu servidor, no prueba contraseñas y no toca ningún dato. Es una revisión desde fuera.</div></details>
       <details class="q reveal-blur" style="transition-delay:.06s"><summary>¿Necesito conocimientos técnicos?</summary><div class="a">Ninguno. El informe está escrito para el dueño de un negocio, no para un informático. Cada punto te dice qué pasa, por qué importa y qué hacer.</div></details>
       <details class="q reveal-blur" style="transition-delay:.12s"><summary>¿Puedo revisar la web de otro negocio?</summary><div class="a">Solo debes analizar webs de las que seas responsable o tengas permiso. Al usar Pipo confirmas que es así; queda registrado.</div></details>
-      <details class="q reveal-blur" style="transition-delay:.18s"><summary>¿Qué pasa después del informe?</summary><div class="a">Puedes arreglar los puntos por tu cuenta con las indicaciones, o pedirnos que te echemos una mano. Sin compromiso.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.18s"><summary>¿Qué pasa después del informe?</summary><div class="a">El diagnóstico y el PDF son tuyos, gratis, para hacer con ellos lo que quieras. Si prefieres no pelearte con esto, nos encargamos nosotros: presupuesto cerrado antes de tocar nada, sin compromiso.</div></details>
       <details class="q reveal-blur" style="transition-delay:.24s"><summary>¿Esto me sirve para el RGPD?</summary><div class="a">Pipo detecta fallos visibles de cookies y privacidad y te orienta, pero no sustituye a un asesor legal ni a un Delegado de Protección de Datos. Es un buen primer diagnóstico.</div></details>
-      <details class="q reveal-blur" style="transition-delay:.3s"><summary>Si pido el informe completo, ¿cuánto tardo en recibirlo?</summary><div class="a">El escaneo gratis y el diagnóstico son al instante. Si pides el nivel de pago (soluciones + PDF), confirmamos el pago normalmente en menos de 24 horas y te escribimos con todo desbloqueado.</div></details>
+      <details class="q reveal-blur" style="transition-delay:.3s"><summary>Si os pido que me lo arregléis, ¿cuánto tardáis?</summary><div class="a">La revisión y el PDF son al instante. Si nos pides el arreglo, te contestamos normalmente en menos de 24 horas con el presupuesto cerrado y lo que necesitamos de ti para entrar. No se paga nada por adelantado.</div></details>
     </div>
   </div>
 </section>
@@ -812,8 +827,18 @@
     mixed_content: "Contenido cargado sin cifrar",
     tecnologia: "Tecnología (CMS) actualizada",
     accesibilidad: "Accesibilidad básica",
+    experiencia: "Experiencia del cliente (móvil, contacto)",
     rendimiento: "Velocidad de carga",
     archivos_expuestos: "Archivos sensibles expuestos",
+  };
+
+  // A qué área pertenece cada check, para agrupar el semáforo igual que
+  // lo agrupa el backend (ver app/puntuacion.py, FAMILIAS). Si el
+  // backend manda el desglose, se usa el suyo; esto es solo el respaldo.
+  const NOMBRES_FAMILIA = {
+    seguridad: "Seguridad",
+    cumplimiento: "Cumplimiento legal",
+    clientes: "Clientes y visibilidad",
   };
 
   // Misma fórmula que puntuacion.py en el backend: verde=100, ámbar=60,
@@ -859,19 +884,40 @@
     // el informe explicado. El email se pide más adelante, en
     // informe.html, justo antes de la interpretación con IA (que es lo
     // que de verdad tiene valor, no el semáforo en crudo). Ver CLAUDE.md.
-    const nota = calcularNota(datos.checks);
+    // La nota la calcula el backend con pesos por gravedad (un
+    // certificado roto no vale lo mismo que una etiqueta que falta), así
+    // que aquí se usa la suya en vez de recalcularla a medias.
+    const nota = datos.resumen.puntuacion ?? calcularNota(datos.checks);
     const estadoGlobal = datos.resumen.estado_global;
-    const filas = datos.checks.map((check) => {
+    const familias = datos.resumen.familias || [];
+
+    // El semáforo va agrupado por áreas: así un detalle de SEO se lee
+    // como lo que es y no como si fuera un problema de seguridad.
+    const grupos = familias.length
+      ? familias.map((familia) => ({
+          nombre: familia.nombre || NOMBRES_FAMILIA[familia.clave] || familia.clave,
+          checks: datos.checks.filter((c) => familia.checks.includes(c.check)),
+        }))
+      : [{ nombre: "", checks: datos.checks }];
+
+    const fila = (check) => {
       const nombre = NOMBRES_CHECK[check.check] || check.check;
       const letra = { verde: "g", ambar: "a", rojo: "r" }[check.estado];
-      const texto = { verde: "Bien", ambar: "Aviso", rojo: "Crítico" }[check.estado];
+      const texto = { verde: "Bien", ambar: "A mejorar", rojo: "Grave" }[check.estado];
       return `
         <div class="row">
           <span class="pill ${letra}"></span>
           <span class="lbl">${nombre}</span>
           <span class="tag ${letra}">${texto}</span>
         </div>`;
-    }).join("");
+    };
+
+    const bloques = grupos
+      .filter((grupo) => grupo.checks.length)
+      .map((grupo) => `
+        ${grupo.nombre ? `<div class="grupo-titulo">${grupo.nombre}</div>` : ""}
+        ${grupo.checks.map(fila).join("")}`)
+      .join("");
 
     zona.innerHTML = `
       <div class="report">
@@ -880,9 +926,9 @@
           <span class="u">${dominio}</span>
           <span class="score" data-contador data-hasta="${nota}">0</span>
         </div>
-        ${filas}
+        ${bloques}
       </div>
-      <a class="ver-informe" href="informe.html?id=${datos.id}&dominio=${encodeURIComponent(dominio)}">Ver informe completo →</a>`;
+      <a class="ver-informe" href="informe.html?id=${datos.id}&t=${encodeURIComponent(datos.token)}&dominio=${encodeURIComponent(dominio)}">Ver informe completo →</a>`;
 
     // La nota del escaneo real también sube animada, igual que los
     // contadores de ejemplo de más abajo en la página.
@@ -1003,10 +1049,21 @@
     pintarCargando(zona);
 
     try {
-      const respuesta = await fetch(`${API_BASE}/api/scan?dominio=${encodeURIComponent(dominio)}`);
+      // declara_titularidad=true es el checkbox de arriba viajando de
+      // verdad hasta el backend, que lo guarda con la fecha y la IP.
+      // Antes se quedaba en el navegador mientras la FAQ prometía que
+      // "queda registrado" — ahora esa frase es cierta.
+      const respuesta = await fetch(
+        `${API_BASE}/api/scan?dominio=${encodeURIComponent(dominio)}&declara_titularidad=true`
+      );
 
       if (respuesta.status === 429) {
         pintarError(zona, "Se han hecho demasiadas comprobaciones seguidas. Espera un minuto y vuelve a intentarlo.");
+        return;
+      }
+      if (respuesta.status === 400) {
+        const error = await respuesta.json().catch(() => ({}));
+        pintarError(zona, error.detail || "Ese dominio no parece válido.");
         return;
       }
       if (!respuesta.ok) {
@@ -1149,6 +1206,31 @@
   // Sube un número desde 0 hasta "hasta" con una curva de frenado suave.
   // Se usa tanto para los contadores de ejemplo (el 43%, el 72 de la
   // demo) como para la nota real del escaneo en vivo.
+  // Dato real de la base de datos de Pipo. Solo se enseña a partir de
+  // unas cuantas webs revisadas: con tres escaneos, un porcentaje no
+  // significa nada y quedaría peor que no poner nada.
+  const MINIMO_WEBS_PARA_ENSENAR_ESTADISTICA = 10;
+
+  async function cargarEstadistica() {
+    try {
+      const respuesta = await fetch(`${API_BASE}/api/estadisticas`);
+      if (!respuesta.ok) return;
+      const datos = await respuesta.json();
+      if (datos.webs_analizadas < MINIMO_WEBS_PARA_ENSENAR_ESTADISTICA) return;
+      if (datos.porcentaje_con_fallo_grave === null) return;
+
+      document.getElementById("stat-texto").textContent =
+        `de las ${datos.webs_analizadas} webs que hemos revisado tienen algún fallo grave de seguridad, ` +
+        `cookies o RGPD que cualquiera puede ver desde fuera. Pipo los encuentra antes de que lo haga ` +
+        `un cliente… o una inspección.`;
+      document.getElementById("band-estadistica").style.display = "";
+      animarNumero(document.getElementById("stat-numero"), datos.porcentaje_con_fallo_grave, "%");
+    } catch (error) {
+      /* sin conexión con el backend, el bloque simplemente no aparece */
+    }
+  }
+  cargarEstadistica();
+
   function animarNumero(el, hasta, sufijo = "") {
     if (!el) return;
     if (prefiereMenosMovimiento) {

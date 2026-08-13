@@ -1,0 +1,10 @@
+# Dependencias SOLO para desarrollo y pruebas. No se instalan en Railway
+# (que usa requirements.txt): allí no hacen falta y alargarían el
+# despliegue. Se instalan con:
+#
+#   .venv/bin/pip install -r requirements-dev.txt
+#
+# y los tests se lanzan con:  .venv/bin/pytest
+pytest==9.1.1
+pytest-asyncio==1.4.0
+playwright==1.62.0

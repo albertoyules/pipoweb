@@ -12,17 +12,17 @@ import re
 import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
-from slowapi.util import get_remote_address
 
 from app.checks.accesibilidad_check import comprobar_accesibilidad
 from app.checks.archivos_expuestos import comprobar_archivos_expuestos
 from app.checks.dns_check import comprobar_dns
 from app.checks.dominio_check import comprobar_dominio
+from app.checks.experiencia_check import comprobar_experiencia
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
 from app.checks.pagina import obtener_pagina
@@ -32,42 +32,74 @@ from app.checks.seo_check import comprobar_seo
 from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
 from app.checks.whois_check import comprobar_whois
-from app.config import CLAVE_ADMIN, GMAIL_EMAIL, TELEFONO_BIZUM
+from app.config import CLAVE_ADMIN, GMAIL_EMAIL, MOSTRAR_DOCS
 from app.database import (
-    existe_pedido_pagado,
+    ESTADOS_SOLICITUD,
+    escaneo_anterior,
+    estadisticas_globales,
     guardar_escaneo,
     guardar_informe,
     guardar_lead,
-    guardar_pedido,
     guardar_rendimiento,
+    guardar_solicitud,
     guardar_soluciones,
     inicializar_db,
-    listar_pedidos,
-    marcar_pedido_pagado,
+    listar_solicitudes,
+    marcar_estado_solicitud,
     obtener_escaneo,
 )
 from app.ia.cliente import ErrorIA
 from app.ia.interpretar import interpretar_hallazgos
 from app.ia.soluciones import generar_soluciones
 from app.notificaciones.enviar import ErrorEmail, enviar_email
-from app.notificaciones.mensajes import mensaje_pedido_alberto, mensaje_pedido_cliente
+from app.notificaciones.mensajes import mensaje_solicitud_alberto, mensaje_solicitud_cliente
 from app.pdf.generar_pdf import generar_pdf_informe
-from app.puntuacion import calcular_precio_arreglo
+from app.puntuacion import calcular_precio_arreglo, comparar_escaneos
 from app.scanner import ejecutar_escaneo
-
-# Precio del nivel de pago "soluciones + PDF" (ver CLAUDE.md, P2).
-PRECIO_INFORME_COMPLETO = 19
+from app.seguridad import (
+    DominioNoValido,
+    comprobar_dominio_publico,
+    ip_cliente,
+    normalizar_dominio,
+)
 
 # El "limitador": decide cuántas peticiones permite por IP y en qué
-# ventana de tiempo. get_remote_address identifica a quién limitar por
-# su dirección IP (lo mismo que usaría cualquier firewall básico).
-limiter = Limiter(key_func=get_remote_address)
+# ventana de tiempo. La clave la calcula ip_cliente (ver app/seguridad.py),
+# que lee X-Forwarded-For: con el get_remote_address que traía slowapi,
+# detrás del proxy de Railway todas las peticiones caían en cubos
+# distintos y el límite no se aplicaba NUNCA en producción.
+limiter = Limiter(key_func=ip_cliente)
 
 # Comprobación ligera de que el email tiene forma de email — no es un
 # validador RFC 5322 completo (eso exigiría una librería aparte para
 # poca ganancia real). Solo pretende filtrar errores de escritura
 # evidentes antes de guardar el lead.
 REGEX_EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _verificar_token(escaneo: dict, token: str | None) -> None:
+    """
+    Comprueba que quien pide un escaneo tiene su enlace, no solo su
+    número. Los ids son correlativos (1, 2, 3...), así que sin esto
+    cualquiera puede recorrerlos y leer todos los escaneos hechos con
+    Pipo, con dominios y resultados incluidos — comprobado en producción
+    el 13 ago 2026.
+
+    No es un sistema de cuentas: el enlace del informe sigue siendo
+    compartible tal cual, simplemente deja de ser adivinable. Mismo
+    compare_digest que la clave de admin, por el mismo motivo.
+    """
+    esperado = escaneo.get("token")
+    if not esperado or not token or not secrets.compare_digest(token, esperado):
+        raise HTTPException(status_code=403, detail="Este enlace no es válido o está incompleto.")
+
+
+def _normalizar_o_400(dominio: str) -> str:
+    """Deja el dominio limpio, o devuelve un 400 con un mensaje legible."""
+    try:
+        return normalizar_dominio(dominio)
+    except DominioNoValido as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
 
 
 def _verificar_clave_admin(clave: str | None) -> None:
@@ -101,6 +133,11 @@ app = FastAPI(
     description="Analizador pasivo de webs para pymes",
     version="0.1.0",
     lifespan=ciclo_de_vida,
+    # /docs y /redoc solo si PIPO_DOCS=1 (ver config.py): en producción
+    # publicaban el mapa entero de la API, endpoints de admin incluidos.
+    docs_url="/docs" if MOSTRAR_DOCS else None,
+    redoc_url="/redoc" if MOSTRAR_DOCS else None,
+    openapi_url="/openapi.json" if MOSTRAR_DOCS else None,
 )
 
 # Registramos el limitador en la app: el middleware intercepta cada
@@ -148,103 +185,134 @@ def salud():
     return {"estado": "ok"}
 
 
-@app.get("/check/ssl")
-def check_ssl(dominio: str):
+async def _solo_admin(clave: str = "") -> None:
     """
-    Endpoint de prueba para el check de SSL, aislado del resto.
-    Ejemplo de uso: /check/ssl?dominio=example.com
-
-    Es temporal: cuando montemos el endpoint /api/scan que orquesta
-    todos los checks a la vez (Fase 2 del planning), este quedará
-    solo como utilidad de depuración, o desaparecerá.
+    Dependencia que exige la clave de administración. Se aplica a todo
+    el router de depuración de abajo: FastAPI la ejecuta antes que
+    cualquiera de esas funciones, así que no hay forma de añadir un
+    endpoint nuevo ahí y olvidarse de protegerlo.
     """
-    return comprobar_ssl(dominio)
+    _verificar_clave_admin(clave)
 
 
-@app.get("/check/headers")
+# Los /check/* son utilidades de depuración: ejecutan UN check suelto
+# sobre un dominio. Hasta el 13 ago 2026 estaban abiertos a internet,
+# sin rate limit y sin validar el destino — comprobado con curl real
+# contra producción: 8 llamadas seguidas, las 8 servidas, y aceptaban
+# hasta direcciones internas del hosting. Es decir, cualquiera podía
+# usar el servidor de Pipo como escáner de webs ajenas, con la IP de
+# Pipo apareciendo en los registros del sitio escaneado. Todo el
+# consentimiento de titularidad de la landing rodeaba la puerta
+# principal mientras esta puerta lateral estaba abierta.
+#
+# Ahora piden ?clave= (la misma del panel de pedidos) y el dominio pasa
+# por la misma validación que el escaneo de verdad.
+depuracion = APIRouter(prefix="/check", tags=["depuración"], dependencies=[Depends(_solo_admin)])
+
+
+async def _dominio_de_depuracion(dominio: str) -> str:
+    """Valida el dominio igual que /api/scan, también en depuración."""
+    limpio = _normalizar_o_400(dominio)
+    try:
+        await comprobar_dominio_publico(limpio)
+    except DominioNoValido as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return limpio
+
+
+@depuracion.get("/ssl")
+async def check_ssl(dominio: str):
+    """Check de SSL aislado. Ejemplo: /check/ssl?dominio=example.com&clave=..."""
+    return await asyncio.to_thread(comprobar_ssl, await _dominio_de_depuracion(dominio))
+
+
+@depuracion.get("/headers")
 async def check_headers(dominio: str):
-    """
-    Endpoint de prueba para el check de cabeceras de seguridad.
-    Ejemplo de uso: /check/headers?dominio=example.com
-    """
-    return await comprobar_headers(dominio)
+    """Check de cabeceras de seguridad, aislado."""
+    return await comprobar_headers(await _dominio_de_depuracion(dominio))
 
 
-@app.get("/check/dns")
+@depuracion.get("/dns")
 async def check_dns(dominio: str):
-    """
-    Endpoint de prueba para el check de DNS (SPF/DKIM/DMARC).
-    Ejemplo de uso: /check/dns?dominio=example.com
-    """
-    return await comprobar_dns(dominio)
+    """Check de DNS (SPF/DKIM/DMARC), aislado."""
+    return await comprobar_dns(await _dominio_de_depuracion(dominio))
 
 
-@app.get("/check/seo")
+@depuracion.get("/seo")
 async def check_seo(dominio: str):
-    """Endpoint de prueba del check de SEO técnico."""
-    pagina = await obtener_pagina(dominio)
+    """Check de SEO técnico, aislado."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return await comprobar_seo(pagina)
 
 
-@app.get("/check/privacidad")
+@depuracion.get("/privacidad")
 async def check_privacidad(dominio: str):
-    """Endpoint de prueba del check de privacidad/RGPD."""
-    pagina = await obtener_pagina(dominio)
+    """Check de privacidad/RGPD, aislado."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return comprobar_privacidad(pagina)
 
 
-@app.get("/check/tecnologia")
+@depuracion.get("/tecnologia")
 async def check_tecnologia(dominio: str):
-    """Endpoint de prueba del check de tecnología/CMS desactualizada."""
-    pagina = await obtener_pagina(dominio)
+    """Check de tecnología/CMS desactualizada, aislado."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return await comprobar_tecnologia(pagina)
 
 
-@app.get("/check/mixed-content")
+@depuracion.get("/mixed-content")
 async def check_mixed_content(dominio: str):
-    """Endpoint de prueba del check de mixed content."""
-    pagina = await obtener_pagina(dominio)
+    """Check de mixed content, aislado."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return comprobar_mixed_content(pagina)
 
 
-@app.get("/check/dominio")
+@depuracion.get("/dominio")
 async def check_dominio(dominio: str):
-    """Endpoint de prueba del check de dominio (CAA/DNSSEC)."""
-    return await comprobar_dominio(dominio)
+    """Check de dominio (CAA/DNSSEC), aislado."""
+    return await comprobar_dominio(await _dominio_de_depuracion(dominio))
 
 
-@app.get("/check/whois")
+@depuracion.get("/whois")
 async def check_whois(dominio: str):
-    """Endpoint de prueba del check de WHOIS (caducidad del dominio)."""
-    return await asyncio.to_thread(comprobar_whois, dominio)
+    """Check de WHOIS (caducidad del dominio), aislado."""
+    return await asyncio.to_thread(comprobar_whois, await _dominio_de_depuracion(dominio))
 
 
-@app.get("/check/accesibilidad")
+@depuracion.get("/accesibilidad")
 async def check_accesibilidad(dominio: str):
-    """Endpoint de prueba del check de accesibilidad básica."""
-    pagina = await obtener_pagina(dominio)
+    """Check de accesibilidad básica, aislado."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return comprobar_accesibilidad(pagina)
 
 
-@app.get("/check/archivos-expuestos")
+@depuracion.get("/experiencia")
+async def check_experiencia(dominio: str):
+    """Check de experiencia de cliente (móvil, contacto, formularios), aislado."""
+    limpio = await _dominio_de_depuracion(dominio)
+    pagina = await obtener_pagina(limpio)
+    return await comprobar_experiencia(pagina, limpio)
+
+
+@depuracion.get("/archivos-expuestos")
 async def check_archivos_expuestos(dominio: str):
     """
-    Endpoint de prueba del check de archivos expuestos (ámbar).
-    A diferencia del resto, este SIEMPRE requiere haberlo llamado
-    explícitamente aquí, o pasar consiento=true en /api/scan: nunca
-    se ejecuta como parte de un escaneo por defecto.
+    Check de archivos expuestos (ámbar). A diferencia del resto, este
+    SIEMPRE requiere haberlo llamado explícitamente aquí, o pasar
+    consiento=true en /api/scan: nunca se ejecuta por defecto.
     """
-    return await comprobar_archivos_expuestos(dominio)
+    return await comprobar_archivos_expuestos(await _dominio_de_depuracion(dominio))
 
 
-@app.get("/check/rendimiento")
+@depuracion.get("/rendimiento")
 async def check_rendimiento(dominio: str):
     """
-    Endpoint de prueba del check de rendimiento (Google PageSpeed).
-    Puede tardar 20-30 segundos: Google está auditando la web de
-    verdad, no es un fallo si la respuesta no llega al instante.
+    Check de rendimiento (Google PageSpeed). Puede tardar 20-30
+    segundos: Google está auditando la web de verdad.
     """
-    return await comprobar_rendimiento(dominio)
+    return await comprobar_rendimiento(await _dominio_de_depuracion(dominio))
+
+
+app.include_router(depuracion)
 
 
 @app.get("/api/scan")
@@ -252,6 +320,7 @@ async def check_rendimiento(dominio: str):
 async def escanear(
     request: Request,
     dominio: str,
+    declara_titularidad: bool = False,
     consiento: bool = False,
     incluir_rendimiento: bool = False,
 ):
@@ -259,72 +328,119 @@ async def escanear(
     El endpoint principal del producto: lanza todos los checks
     disponibles sobre un dominio, en paralelo, guarda el resultado en
     la base de datos y lo devuelve. Ejemplo de uso:
-    /api/scan?dominio=example.com
+    /api/scan?dominio=example.com&declara_titularidad=true
 
-    `consiento` representa el checkbox de consentimiento de
-    titularidad del planning (punto 8): solo si viene en True se
-    incluye el check de archivos expuestos (ámbar). Por defecto queda
-    fuera, así el escaneo gratis nunca lo toca por accidente. Cuando
-    exista el formulario real en el frontend, este parámetro vendrá
-    marcado por ese checkbox, no a mano como ahora.
+    `declara_titularidad` es el checkbox de la landing ("declaro ser el
+    titular de este dominio o tener autorización"). Antes se quedaba en
+    el navegador y no llegaba aquí, mientras la FAQ prometía que "queda
+    registrado". Ahora es obligatorio y se guarda junto al escaneo con
+    la fecha y la IP de quien lo declaró, que es lo que convierte esa
+    frase en algo demostrable. No pide ninguna prueba técnica de la
+    propiedad del dominio (eso sería verificar un registro DNS o un
+    archivo subido al servidor) — es una declaración, igual que antes,
+    solo que ahora queda anotada.
+
+    `consiento` es otra cosa distinta: activa el único check ámbar
+    (archivos expuestos). Por defecto queda fuera, así el escaneo
+    gratis nunca lo toca por accidente.
 
     Limitado a 5 peticiones por minuto y por IP (ver 'limiter' arriba):
     es la barrera contra que alguien use Pipo como arma de reconocimiento
     masivo contra terceros (punto 8 del planning, no negociable).
     El parámetro `request` lo exige slowapi para poder identificar de
-    qué IP viene cada petición; no lo usamos nosotros directamente.
+    qué IP viene cada petición; aquí además la usamos para el registro
+    de la declaración.
 
     `incluir_rendimiento` añade el check de PageSpeed, que puede
     añadir 20-30 segundos al escaneo (ver rendimiento_check.py). Por
     defecto queda fuera para que el escaneo rápido siga siendo rápido.
-
-    Los /check/* individuales de arriba siguen ahí como utilidades de
-    depuración por check; este es el que usará el frontend real.
     """
+    if not declara_titularidad:
+        raise HTTPException(
+            status_code=400,
+            detail="Hay que declarar que la web es tuya o que tienes autorización para analizarla.",
+        )
+
+    limpio = _normalizar_o_400(dominio)
+    try:
+        await comprobar_dominio_publico(limpio)
+    except DominioNoValido as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
     resultado = await ejecutar_escaneo(
-        dominio,
+        limpio,
         incluir_archivos_expuestos=consiento,
         incluir_rendimiento=incluir_rendimiento,
     )
-    id_escaneo = guardar_escaneo(
-        dominio=dominio,
+
+    # "¿Ha mejorado desde la última vez?" — se calcula contra el escaneo
+    # anterior del mismo dominio, si lo hay. Es la base del futuro nivel
+    # de vigilancia, pero sin necesitar todavía ninguna tarea programada:
+    # aparece solo cuando alguien vuelve a analizar la misma web.
+    anterior = escaneo_anterior(limpio)
+    resultado["comparacion"] = comparar_escaneos(anterior, resultado) if anterior else None
+
+    id_escaneo, token = guardar_escaneo(
+        dominio=limpio,
         estado_global=resultado["resumen"]["estado_global"],
         resultado=resultado,
+        ip_solicitante=ip_cliente(request),
     )
-    return {"id": id_escaneo, **resultado}
+    return {"id": id_escaneo, "token": token, **resultado}
 
 
 @app.get("/api/scan/{id_escaneo}")
-def obtener_scan(id_escaneo: int):
+def obtener_scan(id_escaneo: int, t: str = ""):
     """
-    Recupera un escaneo ya guardado, por su id. Es lo que permitirá
-    más adelante que un cliente vuelva a ver su informe con un enlace
-    fijo (p.ej. pipo.es/informe/42), sin tener que relanzar el escaneo.
+    Recupera un escaneo ya guardado, por su id y su token (el `t` del
+    enlace del informe). Sin el token no se devuelve nada: los ids son
+    correlativos y sin él bastaba con contar del 1 en adelante para
+    leer todos los escaneos hechos con Pipo.
     """
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+    _verificar_token(escaneo, t)
     return escaneo
+
+
+@app.get("/api/estadisticas")
+@limiter.limit("30/minute")
+async def estadisticas(request: Request):
+    """
+    Números agregados de todo lo que Pipo ha revisado: cuántas webs
+    distintas, su nota media y qué porcentaje tenía algún fallo grave.
+
+    Sirve para dos cosas, las dos honestas: enseñar en la landing un
+    dato propio y verificable en vez de una cifra inventada, y poder
+    decirle a alguien "tu web está por debajo de la media de las que
+    revisamos", que es lo que convierte un número suelto en una
+    posición. Cuenta cada dominio una sola vez (su escaneo más
+    reciente), para que analizar diez veces la misma web no deforme la
+    media.
+    """
+    return estadisticas_globales()
 
 
 @app.post("/api/leads")
 @limiter.limit("5/minute")
-async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int):
+async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int, t: str = ""):
     """
-    Guarda un lead: alguien que ha dejado su email en el escaneo
-    gratis para desbloquear el resto del informe (ver landing/index.html,
-    la sección que queda difuminada hasta que se envía este formulario).
+    Guarda un lead: alguien que ha dejado su email en el informe para
+    que Pipo pueda escribirle.
 
-    `id_escaneo` tiene que ser el de un escaneo real — así no se puede
-    usar este endpoint para acumular emails sueltos sin que estén
-    atados a un escaneo de verdad. Es POST porque escribe datos nuevos,
-    igual que /api/scan.
+    `id_escaneo` tiene que ser el de un escaneo real, y `t` su token —
+    así no se puede usar este endpoint para acumular emails sueltos sin
+    que estén atados a un escaneo de verdad. Es POST porque escribe
+    datos nuevos, igual que /api/scan.
 
     Limitado a 5 peticiones por minuto y por IP, mismo motivo que el
     resto: evitar que alguien reviente el formulario con un script.
     """
-    if obtener_escaneo(id_escaneo) is None:
+    escaneo = obtener_escaneo(id_escaneo)
+    if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+    _verificar_token(escaneo, t)
 
     email_limpio = email.strip().lower()
     if not REGEX_EMAIL.match(email_limpio):
@@ -334,113 +450,125 @@ async def crear_lead(request: Request, email: str, dominio: str, id_escaneo: int
     return {"ok": True}
 
 
-@app.post("/api/pedidos")
+@app.post("/api/solicitudes")
 @limiter.limit("5/minute")
-async def crear_pedido(request: Request, email: str, dominio: str, id_escaneo: int, telefono: str | None = None):
+async def crear_solicitud(
+    request: Request,
+    email: str,
+    dominio: str,
+    id_escaneo: int,
+    t: str = "",
+    telefono: str | None = None,
+    mensaje: str | None = None,
+):
     """
-    Pedido del nivel de pago "soluciones + PDF" (19€). Hoy el cobro es
-    manual por Bizum (ver CLAUDE.md, P2) — este endpoint no cobra nada,
-    solo guarda el pedido con una referencia para que Alberto pueda
-    identificarlo cuando le llegue el Bizum y, más adelante, marcarlo
-    como pagado (ese mecanismo todavía no existe, queda pendiente).
+    Solicitud de "arregladlo vosotros": el producto de verdad (ver
+    CLAUDE.md, P2). Sustituye al antiguo pedido de 19€ por el informe
+    con soluciones.
 
-    A propósito, la web pública no enseña el número de Bizum ni la
-    referencia directamente — le llegan al cliente por email, en
-    privado, junto con un resumen de su caso (nota y checks a mejorar).
-    Alberto recibe un segundo email avisando del pedido nuevo.
+    Por qué cambió: el informe y el PDF cuestan céntimos de IA y no
+    requieren tiempo de nadie, así que cobrarlos convertía a Pipo en un
+    negocio de muchos clientes a poco dinero — justo el que no se puede
+    servir cobrando por Bizum a mano. Lo que sí cuesta tiempo, y es lo
+    que el dueño del negocio quiere en realidad, es que el problema
+    desaparezca. Eso es lo que se vende ahora.
 
-    `email_enviado` en la respuesta le dice al frontend si el email al
-    cliente salió bien. Si falló (Gmail no configurado, corte de red...),
-    el frontend usa eso como señal para enseñar el Bizum y la referencia
-    directamente en la página — mejor un poco menos elegante que dejar
-    a alguien que ya ha pedido esto sin ninguna forma de pagar.
+    Aquí no se cobra nada ni se pide el pago por adelantado: es un
+    servicio, así que primero se habla y se cierra presupuesto. El
+    cliente recibe un email confirmando que la solicitud ha llegado y
+    con su diagnóstico; Alberto recibe otro con el caso para
+    responderle.
     """
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+    _verificar_token(escaneo, t)
 
     email_limpio = email.strip().lower()
     if not REGEX_EMAIL.match(email_limpio):
         raise HTTPException(status_code=400, detail="Ese email no parece válido.")
 
     referencia = f"PIPO{id_escaneo}-{secrets.token_hex(2).upper()}"
-    precio_arreglo_estimado = calcular_precio_arreglo(escaneo["resultado"]["checks"])
-    guardar_pedido(
+    precio_estimado = calcular_precio_arreglo(escaneo["resultado"]["checks"])
+    guardar_solicitud(
         referencia=referencia,
         email=email_limpio,
-        dominio=dominio,
+        dominio=escaneo["dominio"],
         id_escaneo=id_escaneo,
-        precio=PRECIO_INFORME_COMPLETO,
+        precio_estimado=precio_estimado,
         telefono=telefono,
+        mensaje=mensaje,
     )
 
     email_enviado = False
     try:
-        asunto_cliente, cuerpo_cliente = mensaje_pedido_cliente(
-            dominio=dominio,
+        asunto_cliente, cuerpo_cliente = mensaje_solicitud_cliente(
+            dominio=escaneo["dominio"],
             checks=escaneo["resultado"]["checks"],
-            precio=PRECIO_INFORME_COMPLETO,
-            telefono_bizum=TELEFONO_BIZUM or "(número no configurado)",
             referencia=referencia,
-            precio_arreglo_estimado=precio_arreglo_estimado,
+            precio_estimado=precio_estimado,
         )
         await asyncio.to_thread(enviar_email, email_limpio, asunto_cliente, cuerpo_cliente)
         email_enviado = True
     except ErrorEmail:
-        pass  # el frontend cae al plan B (enseñar el Bizum en la propia página)
+        # El frontend ya enseña en pantalla la confirmación y el email de
+        # contacto, así que aunque falle el envío nadie se queda sin saber
+        # qué pasa después. La solicitud ya está guardada.
+        pass
 
     try:
-        asunto_alberto, cuerpo_alberto = mensaje_pedido_alberto(
-            dominio=dominio,
+        asunto_alberto, cuerpo_alberto = mensaje_solicitud_alberto(
+            dominio=escaneo["dominio"],
             email_cliente=email_limpio,
             telefono_cliente=telefono,
+            mensaje_cliente=mensaje,
             referencia=referencia,
-            precio=PRECIO_INFORME_COMPLETO,
-            precio_arreglo_estimado=precio_arreglo_estimado,
+            precio_estimado=precio_estimado,
+            id_escaneo=id_escaneo,
         )
         await asyncio.to_thread(enviar_email, GMAIL_EMAIL, asunto_alberto, cuerpo_alberto)
     except ErrorEmail:
-        pass  # aviso interno, best-effort: no debe romper el pedido del cliente
+        pass  # aviso interno, best-effort: no debe romper la solicitud del cliente
 
     return {
         "referencia": referencia,
-        "precio": PRECIO_INFORME_COMPLETO,
-        "telefono_bizum": TELEFONO_BIZUM,
-        "precio_arreglo_estimado": precio_arreglo_estimado,
+        "precio_estimado": precio_estimado,
         "email_enviado": email_enviado,
     }
 
 
-@app.get("/api/pedidos")
+@app.get("/api/solicitudes")
 @limiter.limit("20/minute")
-async def ver_pedidos(request: Request, clave: str):
+async def ver_solicitudes(request: Request, clave: str):
     """
-    Lista todos los pedidos, para el panel privado de Alberto
-    (landing/pedidos.html). Límite más alto que el resto (20/min en vez
-    de 5/min) porque es él recargando su propio panel, no tráfico
+    Lista todas las solicitudes de arreglo, para el panel privado de
+    Alberto (landing/pedidos.html). Límite más alto que el resto (20/min
+    en vez de 5/min) porque es él recargando su propio panel, no tráfico
     público — y cada llamada aquí no cuesta cuota de IA ni de PageSpeed.
     """
     _verificar_clave_admin(clave)
-    return listar_pedidos()
+    return listar_solicitudes()
 
 
-@app.post("/api/pedidos/{id_pedido}/pagado")
+@app.post("/api/solicitudes/{id_solicitud}/estado")
 @limiter.limit("20/minute")
-async def confirmar_pago_pedido(request: Request, id_pedido: int, clave: str):
+async def cambiar_estado_solicitud(request: Request, id_solicitud: int, clave: str, estado: str):
     """
-    Marca un pedido como pagado a mano, tras comprobar el Bizum. A
-    partir de aquí, /soluciones y /pdf quedan desbloqueados de verdad
-    para el escaneo de ese pedido (ver esos dos endpoints más abajo).
+    Mueve una solicitud por el flujo manual de Alberto:
+    nueva → presupuestada → hecha. No hay automatismo detrás; es una
+    nota para él mismo, para no perder el hilo de a quién ha contestado.
     """
     _verificar_clave_admin(clave)
-    if not marcar_pedido_pagado(id_pedido):
-        raise HTTPException(status_code=404, detail="Ese pedido no existe.")
-    return {"ok": True}
+    if estado not in ESTADOS_SOLICITUD:
+        raise HTTPException(status_code=400, detail=f"Estado no válido. Usa uno de: {', '.join(ESTADOS_SOLICITUD)}.")
+    if not marcar_estado_solicitud(id_solicitud, estado):
+        raise HTTPException(status_code=404, detail="Esa solicitud no existe.")
+    return {"ok": True, "estado": estado}
 
 
 @app.get("/api/scan/{id_escaneo}/rendimiento")
 @limiter.limit("5/minute")
-async def scan_rendimiento(request: Request, id_escaneo: int):
+async def scan_rendimiento(request: Request, id_escaneo: int, t: str = ""):
     """
     El botón "Comprobar velocidad" del informe: audita con PageSpeed el
     dominio de un escaneo ya guardado. Antes llamaba directo a
@@ -457,6 +585,7 @@ async def scan_rendimiento(request: Request, id_escaneo: int):
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+    _verificar_token(escaneo, t)
 
     if escaneo["rendimiento"] is not None:
         return escaneo["rendimiento"]
@@ -477,7 +606,7 @@ async def scan_rendimiento(request: Request, id_escaneo: int):
 
 @app.get("/api/informe/{id_escaneo}")
 @limiter.limit("5/minute")
-async def informe(request: Request, id_escaneo: int):
+async def informe(request: Request, id_escaneo: int, t: str = ""):
     """
     El informe interpretado: coge un escaneo ya guardado y le pide a la
     IA que traduzca cada hallazgo a lenguaje llano. La puntuación global
@@ -500,51 +629,65 @@ async def informe(request: Request, id_escaneo: int):
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
+    # Sin token no se genera: este endpoint llama a la IA de verdad si
+    # el informe no estaba en caché, así que un id adivinable era además
+    # una forma de que un desconocido gastara nuestro saldo de Anthropic.
+    _verificar_token(escaneo, t)
 
-    if escaneo["informe"] is not None:
-        return escaneo["informe"]
+    if escaneo["informe"] is None:
+        try:
+            # interpretar_hallazgos hace una llamada de red bloqueante (el
+            # SDK de la IA no es async); la mandamos a un hilo aparte para
+            # no congelar el servidor mientras espera respuesta.
+            resultado = await asyncio.to_thread(interpretar_hallazgos, escaneo["resultado"])
+        except ErrorIA as error:
+            # 502: el fallo no es culpa de quien pregunta, es que el
+            # proveedor de IA no ha podido responder.
+            raise HTTPException(status_code=502, detail=str(error)) from error
+        guardar_informe(id_escaneo, resultado)
+        escaneo["informe"] = resultado
 
-    try:
-        # interpretar_hallazgos hace una llamada de red bloqueante (el
-        # SDK de Gemini no es async); la mandamos a un hilo aparte para
-        # no congelar el servidor mientras espera respuesta.
-        resultado = await asyncio.to_thread(interpretar_hallazgos, escaneo["resultado"])
-    except ErrorIA as error:
-        # 502: el fallo no es culpa de quien pregunta, es que el
-        # proveedor de IA no ha podido responder.
-        raise HTTPException(status_code=502, detail=str(error)) from error
-
-    guardar_informe(id_escaneo, resultado)
-    return resultado
+    # El desglose por familias y la comparación con el escaneo anterior
+    # se añaden al vuelo, no se guardan dentro del informe: son datos del
+    # escaneo, no de la interpretación de la IA. Así los informes que ya
+    # estaban cacheados también los llevan, sin volver a llamar a la IA.
+    return {
+        **escaneo["informe"],
+        "resumen": escaneo["resultado"].get("resumen"),
+        "comparacion": escaneo["resultado"].get("comparacion"),
+        "fecha": escaneo["fecha"],
+        # Precio orientativo del arreglo, para poder enseñarlo antes de
+        # que nadie rellene ningún formulario. Fórmula fija, nunca IA.
+        "precio_arreglo_estimado": calcular_precio_arreglo(escaneo["resultado"]["checks"]),
+    }
 
 
 @app.post("/api/informe/{id_escaneo}/soluciones")
-@limiter.limit("5/minute")
-async def informe_soluciones(request: Request, id_escaneo: int):
+@limiter.limit("20/minute")
+async def informe_soluciones(request: Request, id_escaneo: int, clave: str = ""):
     """
-    El "segundo botón": soluciones concretas para los checks que no
-    están en verde, más la nota estimada tras aplicarlas. Es POST y no
-    GET porque, a diferencia de /api/informe, dispara una llamada de
-    pago a la IA cada vez — no queremos que un navegador o un bot la
-    repita sin querer (los GET se pueden recargar, cachear, prefetchear).
+    Las soluciones paso a paso: qué hay que tocar exactamente para
+    arreglar cada punto que no está en verde.
 
-    Limitado a 5 peticiones por minuto y por IP, mismo motivo que
-    /api/informe: cada llamada cuesta dinero/cuota de IA de verdad.
+    HERRAMIENTA INTERNA, no producto. Solo responde con la clave de
+    administración, y no hay ningún botón en la web que lleve aquí.
 
-    Cachea el resultado (columna soluciones_json) igual que /api/informe:
-    si alguien pulsa el botón "soluciones" dos veces para el mismo
-    escaneo, la segunda vez se sirve desde la base de datos, sin gastar
-    cuota de Gemini otra vez.
+    El porqué es de negocio, no técnico: el diagnóstico se regala (crea
+    la conversación), pero el "cómo se arregla" es exactamente lo que se
+    vende. Si se entrega junto al informe, el cliente se lo reenvía a su
+    informático de siempre y la venta se pierde ahí — que era el riesgo
+    que teníamos con el nivel de 19€. Ahora esto es lo que abre Alberto
+    en el panel para hacer el trabajo que le han encargado.
 
-    Requiere un pedido pagado para este escaneo (ver /api/pedidos y
-    CLAUDE.md, P2) — 402 Payment Required si no lo hay.
+    Es POST y no GET porque dispara una llamada de pago a la IA cada
+    vez, y los GET se recargan, cachean y prefetchean solos. Se cachea
+    en soluciones_json: abrirlo dos veces no cuesta el doble.
     """
+    _verificar_clave_admin(clave)
+
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
-
-    if not existe_pedido_pagado(id_escaneo):
-        raise HTTPException(status_code=402, detail="Este escaneo no tiene ningún pedido pagado todavía.")
 
     if escaneo["soluciones"] is not None:
         return escaneo["soluciones"]
@@ -560,24 +703,26 @@ async def informe_soluciones(request: Request, id_escaneo: int):
 
 @app.get("/api/informe/{id_escaneo}/pdf")
 @limiter.limit("5/minute")
-async def informe_pdf(request: Request, id_escaneo: int):
+async def informe_pdf(request: Request, id_escaneo: int, t: str = "", marca: str | None = None):
     """
-    El informe en PDF descargable, con la marca de Pipo — el
-    entregable del informe de pago (ver CLAUDE.md, P2). Reaprovecha
-    el informe interpretado (lo genera si todavía no está en caché,
-    igual que /api/informe) y las soluciones si ya se pidieron antes;
-    no hace ninguna llamada a la IA que no fuera a hacer falta de todos
-    modos, solo compone el PDF con lo que hay guardado.
+    El informe en PDF con la marca de Pipo. Desde el 13 ago 2026 es
+    GRATIS (solo pide el token del enlace): cuesta céntimos generarlo y
+    es la mejor tarjeta de visita que tiene el proyecto — algo que el
+    dueño del negocio se guarda, reenvía a su socio o le enseña a su
+    informático, con el nombre de Pipo en cada página.
 
-    Requiere un pedido pagado para este escaneo, mismo criterio que
-    /soluciones — 402 Payment Required si no lo hay.
+    Lo que NO lleva es la sección de soluciones paso a paso: eso es lo
+    que se vende (ver /soluciones). El PDF dice qué falla y por qué
+    importa; no dice cómo se arregla.
+
+    `marca` permite poner "informe elaborado para —tu agencia—" en la
+    portada, para cuando un diseñador o una agencia quiera entregárselo
+    a sus propios clientes.
     """
     escaneo = obtener_escaneo(id_escaneo)
     if escaneo is None:
         raise HTTPException(status_code=404, detail="Ese escaneo no existe.")
-
-    if not existe_pedido_pagado(id_escaneo):
-        raise HTTPException(status_code=402, detail="Este escaneo no tiene ningún pedido pagado todavía.")
+    _verificar_token(escaneo, t)
 
     if escaneo["informe"] is None:
         try:
@@ -590,7 +735,7 @@ async def informe_pdf(request: Request, id_escaneo: int):
     # WeasyPrint es una librería pesada y el renderizado no es
     # instantáneo — se manda a un hilo aparte, igual que las llamadas
     # a la IA, para no bloquear el resto de peticiones al servidor.
-    pdf_bytes = await asyncio.to_thread(generar_pdf_informe, escaneo)
+    pdf_bytes = await asyncio.to_thread(generar_pdf_informe, escaneo, marca)
 
     nombre_archivo = re.sub(r"[^a-zA-Z0-9.-]", "_", escaneo["dominio"])
     return Response(
