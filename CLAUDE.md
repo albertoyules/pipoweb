@@ -289,6 +289,78 @@ Pedido explícito de Alberto tras la auditoría: quitar cualquier muro delante d
 
 **Datos de ejemplo en producción, a propósito**: por petición de Alberto, se sembraron 6 solicitudes y 2 leads ficticios (uno por cada paso del pipeline) para poder ver el panel con contenido real antes de tener casos de verdad — emails y notas con la palabra **DEMO** en mayúsculas, dominios reales que sí resuelven (wordpress.org, github.com, apple.com, wikipedia.org, mozilla.org) porque `/api/scan` valida que el dominio existe. El propio panel avisa arriba del todo si detecta la palabra DEMO en algún dato. **Hay que borrar estas filas antes de enseñarle el panel a nadie o de lanzar de verdad** — quedan mezcladas con las 5 solicitudes reales de las pruebas de hoy (ids 1-5, dominio `cristiyules.com`, email de Alberto) y con los ~68 escaneos de prueba acumulados en `escaneos`. Limpiar `pipo.db` en Railway (o las filas con "DEMO" y los ids de prueba conocidos) es una de las tareas de "preparar para producción", junto con activar Resend para el email.
 
+### ✅ La propia web de Pipo aprueba su escáner (14 ago 2026): 71 → 87
+
+El zapatero iba descalzo: `piposcan.vercel.app` sacaba **71/100 en rojo** en su propio Pipo. Lo
+primero que hace un curioso (o un competidor) al ver la publicidad es escanear la web de Pipo, así
+que era el mayor riesgo de credibilidad del lanzamiento. Ahora **87/100**, con 8 verdes / 2 ámbar /
+1 rojo. Medido con dos escaneos reales contra producción, antes y después de desplegar.
+
+- **`landing/vercel.json`, nuevo** (`headers` rojo → verde). Vercel no manda ninguna cabecera de
+  seguridad por su cuenta salvo HSTS. La CSP es estricta de verdad porque el sitio se lo puede
+  permitir: no hay `<img>`, ni iframes, ni `data:`, ni formularios que envíen fuera. Solo necesita
+  `'unsafe-inline'` en `script-src`/`style-src` porque todo el CSS y el JS viven dentro del HTML —
+  con hosting estático no hay forma de poner nonces, haría falta middleware.
+  **Ojo: `vercel.json` es JSON estricto, no admite comentarios**; por eso se documenta aquí.
+  **Cómo probar una CSP antes de desplegarla:** `python3 -m http.server` no manda cabeceras, así
+  que en local todo parece funcionar y el fallo solo sale en producción. Se montó un servidor de
+  15 líneas que lee las cabeceras del propio `vercel.json` y las aplica, y se hizo un escaneo
+  completo de punta a punta con la CSP activa. Cero violaciones. Repetir eso si se toca la CSP.
+- **Fuentes autohospedadas** (`landing/fonts/` + `landing/fonts.css`), `mixed_content` ámbar →
+  verde. Arregla tres cosas de un golpe: el aviso de SRI (un `<link>` a un CDN ajeno es código de
+  terceros con permiso para ejecutarse), la privacidad (la IP de cada visitante viajaba a Google) y
+  la velocidad. Son **4 archivos, 204 KB**: Fraunces y Nunito son fuentes *variables*, así que un
+  archivo cubre todos los pesos; solo se incluyen los subsets `latin` y `latin-ext`.
+  **Efecto secundario que hubo que arreglar:** `cookies.html` declaraba que la web carga las fuentes
+  desde Google. Al dejar de ser cierto, esa sección se reescribió — una página legal que miente es
+  peor que el problema original.
+- **Meta description** de `index.html`: 162 → 145 caracteres (`seo` ámbar → verde).
+
+**Lo que sigue en rojo y por qué no es código:** `dns` (SPF/DMARC) sigue rojo, y con peso 2 en la
+familia crítica "seguridad" eso basta para que el informe global siga en ROJO (decisión #2). Igual
+`dominio` (CAA/DNSSEC) y `experiencia` (la variante `www.` no responde) en ámbar. **Los tres
+dependen de registros DNS, y el DNS de un subdominio `.vercel.app` es de Vercel, no nuestro.** Se
+cierran los tres al mover el sitio a un dominio propio, no antes. Con eso la nota sube a ~97-100.
+
+Truco útil: la fórmula de `puntuacion.py` (`PESOS`) es determinista, así que **se puede calcular
+qué nota dará un arreglo antes de hacerlo**. Se predijo el 87 exacto antes de tocar una línea.
+
+### ✅ La landing ya no se arrastra de lado en el móvil (14 ago 2026)
+
+Con `scrollWidth=422` contra `clientWidth=390` en un iPhone, la página se podía arrastrar de lado y
+aparecía una franja vacía a la derecha. Sensación de web rota en el primer segundo, y el tráfico de
+publicidad es sobre todo móvil. Verificado ahora en producción: **6 páginas × 6 anchos
+(320/360/390/414/768/1024), cero arrastre**.
+
+**Cómo medirlo, que es la mitad del trabajo.** `scrollWidth > clientWidth` **no** es el criterio:
+da falsos positivos (un adorno que sobresale por la izquierda no genera scroll) y falsos negativos.
+El criterio bueno es el del usuario: `window.scrollTo(9999, y)` y mirar si `window.scrollX` acaba
+distinto de 0. Y **no usar `is_mobile=True` en Playwright**: aplica el "shrink to fit" de Chrome
+(zoom out hasta que quepa todo) y esconde justo lo que se quiere medir. Además hay que recorrer la
+página entera, porque los bloques `.reveal-*` están desplazados hasta que entran en pantalla.
+
+Con ese criterio aparecieron **cuatro causas independientes**, no la que estaba apuntada:
+
+1. Los `.reveal-left/right` (±56px en horizontal). El corte estaba en 880px, que tapaba el móvil
+   pero dejaba rota cualquier pantalla **entre 881 y 1183px** (un iPad en horizontal). Ahora en
+   1200px, con la cuenta escrita en el comentario del CSS.
+2. **`min-width:auto` en items de grid y de flex** — la causa más repetida y la menos evidente.
+   Significa "nunca más estrecho que mi contenido". En el hero lo fijaba el `<input>` del
+   formulario (un input reserva de fábrica el ancho de ~20 caracteres → 340px de suelo); en las
+   páginas legales, una tabla dentro de `<main>`, que es flex item por el patrón sticky footer.
+   Se arregla con `min-width:0` **y `width:100%`** — solo con `min-width:0`, `<main>` seguía
+   midiendo 568px dentro de un body de 320px.
+3. `transform:rotate(20deg) translateY(var(--py))` en las hojas decorativas. **Como `rotate` va
+   primero, el parallax vertical se aplicaba en el sistema de coordenadas ya girado** y movía la
+   hoja también en horizontal al hacer scroll. Se arregla invirtiendo el orden de las funciones.
+4. Halos decorativos con `width:340px` fijos, más anchos que un móvil de 320px → `min(340px,86vw)`.
+
+**`overflow-x:hidden` en el body no vale como arreglo**: ya estaba puesto en `index.html` y NO
+evitaba el arrastre (comprobado midiendo `scrollX`). Además rompe `position:sticky`.
+
+De paso, la medición destapó desbordamientos que nadie había mirado en `privacidad.html` (la tabla
+de datos tratados, que ahora tiene su propio scroll horizontal) y en `404.html`.
+
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:
   - Endpoint `GET /api/informe/{id}/pdf` (ver tabla de endpoints arriba). Genera el informe interpretado si aún no estaba en caché (igual que `/api/informe`) y añade una sección de soluciones solo si `/soluciones` ya se había pedido antes para ese escaneo — no dispara ninguna llamada a la IA que no fuera a hacer falta de todos modos.
