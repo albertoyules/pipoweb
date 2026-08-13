@@ -1,0 +1,825 @@
+<title>Pipo — Hay un búho mirando tu web</title>
+
+<style>
+  /* ============================================================
+     PIPO · PRESENTACIÓN
+
+     La landing de Pipo es de día (fondo crema). Este deck es de
+     NOCHE, a propósito: Pipo es un búho, trabaja cuando tú duermes
+     y ve lo que tú no ves de tu propia web. Misma paleta de marca,
+     re-fundada sobre el propio color de tinta de Pipo (#3A2E24)
+     llevado a la sombra, con el ámbar haciendo de fuente de luz.
+
+     Es un mundo visual cerrado (una proyección), así que no sigue
+     el tema claro/oscuro del visor: pinta todos sus colores de
+     forma explícita y se ve igual en cualquier sitio.
+     ============================================================ */
+
+  @font-face{
+    font-family:'Fraunces';
+    src:url(data:font/woff2;base64,__FRAUNCES__) format('woff2');
+    font-weight:400 700; font-style:normal; font-display:block;
+  }
+  @font-face{
+    font-family:'Nunito';
+    src:url(data:font/woff2;base64,__NUNITO__) format('woff2');
+    font-weight:400 800; font-style:normal; font-display:block;
+  }
+
+  :root{
+    /* Noche: marrón-tinta, nunca negro puro. Es el color de Pipo. */
+    --noche:#1E1712;
+    --noche-2:#2A211A;
+    --noche-3:#3A2E24;
+    --linea:rgba(245,239,230,.14);
+
+    /* La crema de la marca, aquí convertida en luz */
+    --crema:#F5EFE6;
+    --crema-tenue:rgba(245,239,230,.72);
+    --crema-debil:rgba(245,239,230,.48);
+
+    /* Acentos de marca */
+    --ambar:#D9A441;     /* la luz, la lupa, los ojos */
+    --terracota:#C97B5A; /* el acento interactivo */
+    --salvia:#8A9A5B;    /* semáforo: bien */
+    --ladrillo:#C4553D;  /* semáforo: grave */
+
+    --paso:cubic-bezier(.16,1,.3,1);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+
+  body{
+    background:var(--noche);
+    color:var(--crema);
+    font-family:'Nunito',system-ui,sans-serif;
+    line-height:1.6;
+    min-height:100vh;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* Luz ambiental: un halo cálido arriba, como una farola fuera de cuadro */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(120% 80% at 50% -20%, rgba(217,164,65,.16), transparent 60%),
+      radial-gradient(80% 60% at 80% 110%, rgba(201,123,90,.10), transparent 60%);
+  }
+
+  /* ---------- TIPOGRAFÍA ---------- */
+  h1,h2,.cifra,.nota-grande{
+    font-family:'Fraunces',Georgia,serif;
+    font-weight:600;
+    letter-spacing:-.025em;
+    line-height:1.04;
+    text-wrap:balance;
+  }
+  h1{font-size:clamp(2.4rem,6.4vw,5.2rem);font-variation-settings:"opsz" 140}
+  h2{font-size:clamp(1.9rem,4.4vw,3.4rem);font-variation-settings:"opsz" 120}
+
+  .eyebrow{
+    font-size:clamp(.68rem,1.2vw,.78rem);
+    font-weight:800;text-transform:uppercase;letter-spacing:.18em;
+    color:var(--ambar);
+    display:flex;align-items:center;gap:.6em;
+  }
+  .eyebrow::before{
+    content:"";width:1.8em;height:2px;background:var(--ambar);
+    border-radius:2px;flex-shrink:0;
+  }
+
+  .lead{
+    font-size:clamp(1.02rem,1.9vw,1.32rem);
+    color:var(--crema-tenue);
+    max-width:34ch;
+  }
+  .pie{
+    font-size:clamp(.82rem,1.3vw,.94rem);
+    color:var(--crema-debil);
+    max-width:56ch;
+  }
+  strong{color:var(--crema);font-weight:800}
+
+  /* ---------- ESTRUCTURA DEL DECK ---------- */
+  .deck{position:fixed;inset:0;z-index:1}
+
+  .slide{
+    position:absolute;inset:0;
+    display:grid;place-content:center;
+    padding:clamp(22px,4.6vw,68px);
+    padding-bottom:clamp(78px,9vw,110px);
+    opacity:0;visibility:hidden;
+    transition:opacity .5s ease,visibility .5s;
+    overflow-y:auto;overflow-x:hidden;
+    width:100%;
+  }
+  .slide.activa{opacity:1;visibility:visible}
+
+  .interior{width:min(1080px,100%);margin:0 auto}
+
+  /* Portada y cierre: Pipo es el protagonista y se pone arriba, con el
+     texto debajo. En vez de centrar el bloque (que lo metía justo
+     detrás del búho), el contenido arranca por debajo de él. */
+  .slide.hero{place-content:start center;text-align:center}
+  .slide.hero .interior{padding-top:clamp(215px,45vh,470px);place-items:center}
+  .slide.hero .lead{margin-inline:auto}
+
+  /* Los hijos directos de .interior entran escalonados al activarse
+     la diapositiva. El retardo lo pone --i desde el HTML. */
+  .slide .anim{
+    opacity:0;transform:translateY(22px);
+  }
+  .slide.activa .anim{
+    opacity:1;transform:none;
+    transition:opacity .7s var(--paso),transform .7s var(--paso);
+    transition-delay:calc(var(--i,0) * 90ms + 120ms);
+  }
+
+  .pila{display:flex;flex-direction:column;gap:clamp(14px,2.2vw,22px)}
+  .pila-ancha{max-width:none}
+
+  /* ---------- PIPO: UN SOLO BÚHO QUE VIAJA POR EL DECK ----------
+     No es una imagen pegada en cada diapositiva: es el mismo
+     personaje, en una capa fija, que cambia de sitio, de tamaño y
+     de gesto según lo que se está contando. Cada diapositiva le
+     dice dónde ponerse con --px/--py/--pe/--po. */
+  .escenario{
+    position:fixed;z-index:2;pointer-events:none;
+    left:50%;top:50%;
+    width:min(30vw,300px);aspect-ratio:240/260;
+    /* --px/--py van SIEMPRE en vw/vh, nunca en %. Un porcentaje dentro
+       de translate() se mide contra el propio elemento (300px), no
+       contra la ventana, así que Pipo apenas se movía y acababa encima
+       del texto. Con vw/vh la posición es la que uno espera. */
+    transform:translate(-50%,-50%) translate(var(--px,0),var(--py,0)) scale(var(--pe,1));
+    opacity:var(--po,1);
+    transition:transform 1s var(--paso),opacity .7s ease;
+  }
+  .halo{
+    position:absolute;inset:-38%;border-radius:50%;
+    background:radial-gradient(circle,rgba(217,164,65,.20),transparent 62%);
+    animation:latir 6s ease-in-out infinite;
+  }
+  @keyframes latir{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.07)}}
+
+  .pipo{
+    position:relative;width:100%;height:100%;
+    filter:drop-shadow(0 18px 40px rgba(0,0,0,.5));
+    animation:flotar 6s ease-in-out infinite;
+  }
+  @keyframes flotar{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+
+  /* Parpadeo: los ojos se cierran a la vez, con ritmo irregular
+     (dos parpadeos seguidos y una pausa larga) para que parezca vivo. */
+  .ojo{transform-box:fill-box;transform-origin:center;animation:parpadear 7s infinite}
+  @keyframes parpadear{
+    0%,4%,8%,100%{transform:scaleY(1)}
+    5.4%,6.6%{transform:scaleY(.08)}
+    2%,3.2%{transform:scaleY(.08)}
+  }
+  .pupila{transition:transform .5s var(--paso)}
+  .ceja{transform-box:fill-box;transition:transform .5s var(--paso)}
+  .ala{transform-box:fill-box;transition:transform .35s var(--paso)}
+  .lupa{transform-box:fill-box;transform-origin:center;animation:rastrear 5s ease-in-out infinite}
+  @keyframes rastrear{
+    0%,100%{transform:translate(0,0) rotate(0)}
+    50%{transform:translate(-10px,6px) rotate(-11deg)}
+  }
+
+  /* Gestos por diapositiva */
+  body[data-gesto="mira"] .pupila{transform:translate(-5px,3px)}
+  body[data-gesto="alerta"] .ceja-izq{transform:rotate(11deg) translateY(-2px)}
+  body[data-gesto="alerta"] .ceja-der{transform:rotate(-11deg) translateY(-2px)}
+  body[data-gesto="saluda"] .ala-der{transform:rotate(-32deg)}
+  body[data-gesto="saluda"] .ala-izq{transform:rotate(8deg)}
+  body[data-gesto="orgullo"] .ceja-izq{transform:translateY(-4px)}
+  body[data-gesto="orgullo"] .ceja-der{transform:translateY(-4px)}
+
+  /* ---------- TARJETAS Y REJILLAS ---------- */
+  .rejilla{display:grid;gap:clamp(12px,1.6vw,18px)}
+  .rejilla-3{grid-template-columns:repeat(3,1fr)}
+  .rejilla-2{grid-template-columns:repeat(2,1fr)}
+
+  .tarjeta{
+    background:linear-gradient(160deg,rgba(245,239,230,.075),rgba(245,239,230,.03));
+    border:1px solid var(--linea);
+    border-radius:16px;
+    padding:clamp(16px,2vw,24px);
+    display:flex;flex-direction:column;gap:9px;
+    min-width:0;
+  }
+  .tarjeta h3{
+    font-family:'Nunito',sans-serif;
+    font-size:clamp(.95rem,1.5vw,1.06rem);font-weight:800;
+    letter-spacing:-.01em;line-height:1.3;
+  }
+  .tarjeta p{font-size:clamp(.84rem,1.3vw,.93rem);color:var(--crema-tenue)}
+
+  /* Rótulo de área, con el color del semáforo que le toca */
+  .area{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em}
+  .area.seg{color:var(--terracota)}
+  .area.leg{color:var(--ambar)}
+  .area.cli{color:var(--salvia)}
+
+  .lista{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .lista li{
+    font-size:clamp(.82rem,1.25vw,.9rem);color:var(--crema-tenue);
+    padding-left:1.15em;position:relative;line-height:1.45;
+  }
+  .lista li::before{
+    content:"";position:absolute;left:0;top:.62em;
+    width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.55;
+  }
+
+  /* Lista de "nunca": la promesa central del producto */
+  .nunca{list-style:none;display:flex;flex-direction:column;gap:11px}
+  .nunca li{
+    display:flex;align-items:flex-start;gap:12px;
+    font-size:clamp(.9rem,1.4vw,1rem);
+  }
+  .nunca .cruz{
+    flex-shrink:0;width:22px;height:22px;border-radius:50%;
+    border:1.5px solid var(--ladrillo);color:var(--ladrillo);
+    display:grid;place-items:center;font-size:12px;font-weight:800;margin-top:2px;
+  }
+
+  /* ---------- SEMÁFORO ---------- */
+  .semaforo{display:flex;flex-direction:column;gap:12px}
+  .fila-luz{display:flex;align-items:center;gap:13px}
+  .luz{
+    width:15px;height:15px;border-radius:50%;flex-shrink:0;
+    background:var(--c);box-shadow:0 0 16px var(--c);
+  }
+  .fila-luz span{font-size:clamp(.84rem,1.3vw,.94rem);color:var(--crema-tenue)}
+  .fila-luz b{color:var(--crema)}
+
+  /* ---------- MEDIDOR DE NOTA ---------- */
+  .medidor{position:relative;width:clamp(160px,22vw,230px);aspect-ratio:1;flex-shrink:0}
+  .medidor svg{width:100%;height:100%;transform:rotate(-90deg)}
+  .aro-fondo{fill:none;stroke:rgba(245,239,230,.1);stroke-width:11}
+  .aro{
+    fill:none;stroke:var(--salvia);stroke-width:11;stroke-linecap:round;
+    stroke-dasharray:339.3;stroke-dashoffset:339.3;
+    transition:stroke-dashoffset 1.6s var(--paso) .3s,stroke .8s ease;
+  }
+  .slide.activa .aro{stroke-dashoffset:var(--resto,44)}
+  .medidor-centro{
+    position:absolute;inset:0;display:grid;place-content:center;text-align:center;
+  }
+  .cifra{
+    font-size:clamp(2.6rem,6vw,4rem);line-height:1;
+    font-variant-numeric:tabular-nums;font-variation-settings:"opsz" 144;
+  }
+  .cifra-pie{font-size:.72rem;text-transform:uppercase;letter-spacing:.16em;color:var(--crema-debil);margin-top:6px}
+
+  /* ---------- ANTES / DESPUÉS ---------- */
+  .panel{border-radius:16px;padding:clamp(16px,2vw,24px);display:flex;flex-direction:column;gap:11px;min-width:0}
+  .panel-frio{background:rgba(245,239,230,.04);border:1px solid var(--linea)}
+  .panel-calido{background:linear-gradient(160deg,rgba(217,164,65,.16),rgba(201,123,90,.07));border:1px solid rgba(217,164,65,.34)}
+  .panel .rotulo{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:var(--crema-debil)}
+  .panel-calido .rotulo{color:var(--ambar)}
+  .jerga{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:clamp(.76rem,1.15vw,.85rem);line-height:1.75;
+    color:var(--crema-debil);
+  }
+  .llano{font-size:clamp(.86rem,1.35vw,.97rem);color:var(--crema)}
+
+  /* ---------- EL SALTO 71 → 87 ---------- */
+  .salto{display:flex;align-items:center;gap:clamp(14px,3vw,34px);flex-wrap:wrap}
+  .nota-grande{font-size:clamp(3rem,10vw,7rem);line-height:1;font-variant-numeric:tabular-nums;font-variation-settings:"opsz" 144}
+  .nota-mala{color:var(--ladrillo);opacity:.65}
+  .nota-buena{color:var(--salvia)}
+  .flecha{font-size:clamp(1.6rem,4vw,2.6rem);color:var(--crema-debil)}
+  .sello{
+    display:inline-flex;align-items:center;gap:8px;align-self:flex-start;
+    border:1px solid var(--linea);border-radius:999px;
+    padding:6px 14px;font-size:.76rem;font-weight:700;color:var(--crema-tenue);
+  }
+
+  /* ---------- NIVELES ---------- */
+  .nivel{
+    display:grid;grid-template-columns:1fr auto;gap:6px 18px;align-items:baseline;
+    padding:clamp(12px,1.6vw,17px) 0;border-bottom:1px solid var(--linea);
+  }
+  .nivel:last-child{border-bottom:0}
+  .nivel-nombre{font-family:'Fraunces',serif;font-size:clamp(1.05rem,2vw,1.4rem);font-weight:600}
+  .nivel-precio{font-weight:800;color:var(--ambar);white-space:nowrap;font-size:clamp(.9rem,1.5vw,1.05rem)}
+  .nivel-que{grid-column:1/-1;font-size:clamp(.82rem,1.25vw,.9rem);color:var(--crema-tenue);max-width:62ch}
+  .etiqueta{
+    display:inline-block;font-size:.62rem;font-weight:800;text-transform:uppercase;
+    letter-spacing:.13em;color:var(--noche);background:var(--crema-debil);
+    border-radius:999px;padding:2px 8px;margin-left:8px;vertical-align:middle;
+  }
+  .destacado .nivel-precio{color:var(--terracota)}
+
+  /* ---------- CIERRE ---------- */
+  .dominio{
+    font-family:'Fraunces',serif;font-weight:600;
+    font-size:clamp(1.6rem,4.6vw,3rem);color:var(--ambar);
+    letter-spacing:-.02em;
+  }
+
+  /* ---------- CONTROLES ---------- */
+  .barra{
+    position:fixed;left:0;right:0;bottom:0;z-index:6;
+    display:flex;align-items:center;gap:clamp(10px,2vw,18px);
+    padding:clamp(12px,1.8vw,18px) clamp(16px,3.4vw,34px);
+    background:linear-gradient(to top,rgba(30,23,18,.94),transparent);
+  }
+  .puntos{display:flex;gap:7px;flex:1;flex-wrap:wrap}
+  .punto{
+    width:8px;height:8px;border-radius:50%;padding:0;
+    background:rgba(245,239,230,.24);border:none;cursor:pointer;
+    transition:background .3s,transform .3s;
+  }
+  .punto:hover{background:rgba(245,239,230,.5)}
+  .punto.activo{background:var(--ambar);transform:scale(1.5)}
+  .punto:focus-visible,.flecha-btn:focus-visible{outline:2px solid var(--ambar);outline-offset:4px}
+
+  .contador{
+    font-size:.8rem;color:var(--crema-debil);font-variant-numeric:tabular-nums;
+    white-space:nowrap;letter-spacing:.04em;
+  }
+  .flecha-btn{
+    width:42px;height:42px;border-radius:50%;flex-shrink:0;
+    background:rgba(245,239,230,.07);border:1px solid var(--linea);
+    color:var(--crema);font-size:17px;cursor:pointer;
+    display:grid;place-items:center;
+    transition:background .25s,transform .25s,opacity .25s;
+  }
+  .flecha-btn:hover:not(:disabled){background:rgba(217,164,65,.2);transform:scale(1.08)}
+  .flecha-btn:disabled{opacity:.25;cursor:default}
+
+  .progreso{position:fixed;top:0;left:0;height:2px;background:var(--ambar);z-index:7;transition:width .5s var(--paso)}
+
+  .pista{
+    position:fixed;bottom:clamp(64px,8vw,84px);left:50%;transform:translateX(-50%);
+    z-index:5;font-size:.76rem;color:var(--crema-debil);letter-spacing:.05em;
+    animation:respirar 2.6s ease-in-out infinite;pointer-events:none;
+    transition:opacity .4s;text-align:center;
+  }
+  @keyframes respirar{0%,100%{opacity:.42}50%{opacity:.95}}
+  /* `animation:none` es imprescindible aquí: mientras una animación
+     está corriendo, sus valores ganan a una declaración normal, así
+     que sin esto el `opacity:0` no hacía nada y la pista se quedaba
+     visible en todas las diapositivas. */
+  body:not([data-slide="1"]) .pista{opacity:0;animation:none}
+
+  /* Estrellas: creadas por JS, se mueven muy poco. Decoración pura. */
+  .estrella{position:fixed;border-radius:50%;background:var(--crema);z-index:0;pointer-events:none}
+
+  /* ---------- RESPONSIVE ---------- */
+  @media(max-width:900px){
+    .rejilla-3{grid-template-columns:1fr}
+    .rejilla-2{grid-template-columns:1fr}
+    .escenario{width:min(42vw,190px)}
+    .lead,.pie{max-width:none}
+    .salto{gap:12px}
+  }
+  @media(max-width:560px){
+    .escenario{width:min(48vw,150px)}
+    .nivel{grid-template-columns:1fr}
+    .medidor{width:min(48vw,175px)}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    .pipo,.halo,.lupa,.ojo,.pista{animation:none}
+    .slide .anim{opacity:1;transform:none;transition:none}
+    .escenario,.aro,.progreso{transition:none}
+    .slide{transition:none}
+  }
+</style>
+
+<div class="progreso" id="progreso"></div>
+
+<!-- PIPO. Va inline (no con <use>) a propósito: dentro de un <symbol>
+     reutilizado, el navegador no aplica de forma fiable las animaciones
+     a las piezas de dentro, y aquí necesitamos moverle los ojos, las
+     cejas, las alas y la lupa por separado. -->
+<div class="escenario" id="escenario" aria-hidden="true">
+  <div class="halo"></div>
+  <svg class="pipo" viewBox="0 0 240 260">
+    <ellipse cx="120" cy="150" rx="82" ry="90" fill="#B08968"/>
+    <ellipse cx="120" cy="162" rx="58" ry="66" fill="#E8D6BF"/>
+    <path d="M54 82 Q44 40 78 60 Q70 84 54 82Z" fill="#6F4E37"/>
+    <path d="M186 82 Q196 40 162 60 Q170 84 186 82Z" fill="#6F4E37"/>
+    <path class="ceja ceja-izq" d="M70 92 Q92 80 116 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path class="ceja ceja-der" d="M124 92 Q148 80 170 92" stroke="#6F4E37" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <g class="ojo">
+      <circle cx="92" cy="120" r="30" fill="#fff"/>
+      <circle class="pupila" cx="95" cy="122" r="15" fill="#3A2E24"/>
+      <circle cx="100" cy="117" r="5" fill="#fff"/>
+    </g>
+    <g class="ojo">
+      <circle cx="148" cy="120" r="30" fill="#fff"/>
+      <circle class="pupila" cx="145" cy="122" r="15" fill="#3A2E24"/>
+      <circle cx="150" cy="117" r="5" fill="#fff"/>
+    </g>
+    <path d="M120 132 L110 150 Q120 158 130 150Z" fill="#D9A441"/>
+    <path class="ala ala-izq" d="M40 140 Q22 170 44 200 Q52 170 56 150Z" fill="#6F4E37"/>
+    <path class="ala ala-der" d="M200 140 Q218 170 196 200 Q188 170 184 150Z" fill="#6F4E37"/>
+    <path d="M100 236 l0 14 M92 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+    <path d="M140 236 l0 14 M132 250 h16" stroke="#D9A441" stroke-width="5" stroke-linecap="round"/>
+    <g class="lupa">
+      <circle cx="182" cy="196" r="26" fill="none" stroke="#C97B5A" stroke-width="7"/>
+      <circle cx="182" cy="196" r="20" fill="rgba(217,164,65,.18)"/>
+      <line x1="200" y1="214" x2="222" y2="238" stroke="#C97B5A" stroke-width="9" stroke-linecap="round"/>
+    </g>
+  </svg>
+</div>
+
+<main class="deck" id="deck">
+
+  <!-- 1 · PORTADA -->
+  <section class="slide hero" data-px="0" data-py="-24vh" data-pe="1.05" data-po="1" data-px-m="0" data-py-m="-25vh" data-pe-m=".95" data-po-m="1" data-gesto="mira">
+    <div class="interior pila">
+      <div class="anim" style="--i:0;display:flex;justify-content:center">
+        <div class="eyebrow">Auditoría web · 100&nbsp;% pasiva</div>
+      </div>
+      <h1 class="anim" style="--i:1">Hay un búho<br>mirando tu web</h1>
+      <p class="lead anim" style="--i:2;margin:0 auto;text-align:center">
+        Tarda un minuto, no toca nada de tu servidor y te cuenta en cristiano qué está fallando.
+      </p>
+    </div>
+  </section>
+
+  <!-- 2 · EL PROBLEMA -->
+  <section class="slide" data-px="35vw" data-py="-25vh" data-pe=".52" data-po=".85" data-px-m="30vw" data-py-m="26vh" data-pe-m=".42" data-po-m=".4" data-gesto="alerta">
+    <div class="interior pila">
+      <div class="anim" style="--i:0"><div class="eyebrow">El problema</div></div>
+      <h2 class="anim" style="--i:1">Tu web habla de ti<br>cuando tú no estás</h2>
+      <p class="lead anim" style="--i:2">Y a veces dice cosas que tú no dirías nunca.</p>
+      <div class="rejilla rejilla-3 anim" style="--i:3;margin-top:8px">
+        <div class="tarjeta">
+          <h3>«Su certificado caducó hace once días»</h3>
+          <p>El navegador enseña un aviso rojo a pantalla completa antes de que nadie llegue a leer nada.</p>
+        </div>
+        <div class="tarjeta">
+          <h3>«Aquí no hay aviso legal ni política de cookies»</h3>
+          <p>Es obligatorio desde 2002 y es lo primero que se mira si alguien reclama.</p>
+        </div>
+        <div class="tarjeta">
+          <h3>«Cualquiera puede mandar emails con este nombre»</h3>
+          <p>Sin los registros que lo impiden, suplantar tu marca por correo es trivial.</p>
+        </div>
+      </div>
+      <p class="pie anim" style="--i:4">Ninguna de estas cosas avisa. Simplemente pasan, y siguen pasando durante meses.</p>
+    </div>
+  </section>
+
+  <!-- 3 · QUÉ ES -->
+  <section class="slide" data-px="30vw" data-py="5vh" data-pe=".82" data-po="1" data-px-m="30vw" data-py-m="26vh" data-pe-m=".42" data-po-m=".4" data-gesto="mira">
+    <div class="interior pila" style="max-width:640px;margin:0">
+      <div class="anim" style="--i:0"><div class="eyebrow">Cómo funciona</div></div>
+      <h2 class="anim" style="--i:1">Escribes tu dominio.<br>Un minuto después, lo sabes.</h2>
+      <ul class="lista anim" style="--i:2;gap:14px;margin-top:6px">
+        <li style="font-size:1.02rem"><strong>Escribes <em>tunegocio.es</em></strong> y marcas que la web es tuya.</li>
+        <li style="font-size:1.02rem"><strong>Pipo la mira desde fuera</strong>, igual que la ven Google y cualquier visitante.</li>
+        <li style="font-size:1.02rem"><strong>Recibes el informe</strong>: semáforo por áreas, nota del 0 al 100 y qué hacer primero.</li>
+      </ul>
+      <p class="pie anim" style="--i:3">Sin registro, sin instalar nada, sin darle una sola contraseña a nadie.</p>
+    </div>
+  </section>
+
+  <!-- 4 · 100% PASIVO -->
+  <section class="slide" data-px="-31vw" data-py="4vh" data-pe=".9" data-po="1" data-px-m="30vw" data-py-m="26vh" data-pe-m=".42" data-po-m=".4" data-gesto="mira">
+    <div class="interior pila" style="max-width:600px;margin-left:auto">
+      <div class="anim" style="--i:0"><div class="eyebrow">La regla que gobierna todo</div></div>
+      <h2 class="anim" style="--i:1">Pipo mira.<br>Nunca entra.</h2>
+      <p class="lead anim" style="--i:2">
+        Solo consulta lo que tu servidor ya le enseña a cualquiera que pase por delante: exactamente lo mismo que ve un visitante o un buscador.
+      </p>
+      <ul class="nunca anim" style="--i:3;margin-top:4px">
+        <li><span class="cruz">✕</span><span>Nunca prueba contraseñas</span></li>
+        <li><span class="cruz">✕</span><span>Nunca accede a tu servidor</span></li>
+        <li><span class="cruz">✕</span><span>Nunca toca un solo dato de tus clientes</span></li>
+      </ul>
+      <p class="pie anim" style="--i:4">
+        No es una promesa comercial, es el diseño técnico. El artículo 197&nbsp;bis del Código Penal establece que sin vulnerar medidas de seguridad no hay acceso ilícito — por eso Pipo se construyó así desde la primera línea.
+      </p>
+    </div>
+  </section>
+
+  <!-- 5 · LAS 11 COMPROBACIONES -->
+  <section class="slide" data-px="0" data-py="0" data-pe=".4" data-po=".12" data-px-m="0" data-py-m="6vh" data-pe-m=".5" data-po-m=".1" data-gesto="mira">
+    <div class="interior pila pila-ancha">
+      <div class="anim" style="--i:0"><div class="eyebrow">Qué revisa</div></div>
+      <h2 class="anim" style="--i:1">Once comprobaciones, tres preguntas</h2>
+      <div class="rejilla rejilla-3 anim" style="--i:2;margin-top:8px">
+        <div class="tarjeta">
+          <div class="area seg">Seguridad</div>
+          <h3>¿Te pueden hacer daño?</h3>
+          <ul class="lista">
+            <li>Certificado SSL y redirección a HTTPS</li>
+            <li>Cabeceras de seguridad del servidor</li>
+            <li>Suplantación de email (SPF, DKIM, DMARC)</li>
+            <li>Protecciones del dominio (CAA, DNSSEC)</li>
+            <li>Caducidad del dominio</li>
+            <li>Contenido cargado sin cifrar</li>
+            <li>Gestor de contenidos desactualizado</li>
+          </ul>
+        </div>
+        <div class="tarjeta">
+          <div class="area leg">Cumplimiento legal</div>
+          <h3>¿Estás en regla?</h3>
+          <ul class="lista">
+            <li>Aviso legal, privacidad y cookies</li>
+            <li>Rastreadores cargados sin consentimiento</li>
+            <li>Accesibilidad básica — obligatoria para muchos negocios desde junio de 2025</li>
+          </ul>
+        </div>
+        <div class="tarjeta">
+          <div class="area cli">Clientes y visibilidad</div>
+          <h3>¿Te encuentran y te escriben?</h3>
+          <ul class="lista">
+            <li>SEO técnico: título, descripción, H1, datos estructurados</li>
+            <li>Experiencia: móvil, teléfono pulsable, favicon, peso, variante www</li>
+            <li>Velocidad real, medida con Google PageSpeed</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 · LA NOTA Y EL SEMÁFORO -->
+  <section class="slide" data-px="38vw" data-py="22vh" data-pe=".55" data-po=".9" data-px-m="30vw" data-py-m="26vh" data-pe-m=".42" data-po-m=".4" data-gesto="orgullo">
+    <div class="interior pila" style="max-width:900px">
+      <div class="anim" style="--i:0"><div class="eyebrow">La nota</div></div>
+      <h2 class="anim" style="--i:1">Un número que no se inventa nadie</h2>
+      <div class="anim" style="--i:2;display:flex;gap:clamp(20px,4vw,52px);align-items:center;flex-wrap:wrap;margin-top:6px">
+        <div class="medidor" style="--resto:44">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="aro-fondo" cx="60" cy="60" r="54"/>
+            <circle class="aro" cx="60" cy="60" r="54"/>
+          </svg>
+          <div class="medidor-centro">
+            <div class="cifra">87</div>
+            <div class="cifra-pie">sobre 100</div>
+          </div>
+        </div>
+        <div class="semaforo" style="flex:1;min-width:250px">
+          <div class="fila-luz"><span class="luz" style="--c:var(--salvia)"></span><span><b>Verde.</b> No hay nada que corra prisa.</span></div>
+          <div class="fila-luz"><span class="luz" style="--c:var(--ambar)"></span><span><b>Ámbar.</b> Conviene arreglarlo, pero no es una urgencia.</span></div>
+          <div class="fila-luz"><span class="luz" style="--c:var(--ladrillo)"></span><span><b>Rojo.</b> Algo grave en seguridad o en cumplimiento legal.</span></div>
+        </div>
+      </div>
+      <p class="pie anim" style="--i:3">
+        La nota la calcula una fórmula fija, <strong>nunca la inteligencia artificial</strong>: los mismos fallos dan siempre el mismo número, y cada comprobación pesa según lo que te puede costar de verdad. Un certificado caducado no vale lo mismo que una etiqueta de SEO larga de más.
+      </p>
+      <p class="pie anim" style="--i:4"><strong>La IA pone las palabras. La fórmula pone el número.</strong></p>
+    </div>
+  </section>
+
+  <!-- 7 · EN CRISTIANO -->
+  <section class="slide" data-px="0" data-py="0" data-pe=".4" data-po=".1" data-px-m="0" data-py-m="6vh" data-pe-m=".5" data-po-m=".1" data-gesto="mira">
+    <div class="interior pila pila-ancha">
+      <div class="anim" style="--i:0"><div class="eyebrow">El informe</div></div>
+      <h2 class="anim" style="--i:1">Escrito para ti, no para tu informático</h2>
+      <div class="rejilla rejilla-2 anim" style="--i:2;margin-top:8px">
+        <div class="panel panel-frio">
+          <div class="rotulo">Lo que dicen las otras herramientas</div>
+          <p class="jerga">Missing Strict-Transport-Security header.<br>CSP not enforced.<br>TLS 1.0 enabled.<br>SPF record not found.</p>
+        </div>
+        <div class="panel panel-calido">
+          <div class="rotulo">Lo que dice Pipo</div>
+          <p class="llano">
+            «A tu web le falta una instrucción que obliga a usar siempre conexión segura. Si un cliente entra desde el wifi de una cafetería, alguien podría colarse en medio y ver lo que escribe en tu formulario. <strong>Se activa en el panel de tu hosting y se tarda unos cinco minutos.</strong>»
+          </p>
+        </div>
+      </div>
+      <p class="pie anim" style="--i:3">Cada hallazgo responde a lo mismo: qué pasa, por qué te importa a ti, y qué hay que hacer.</p>
+    </div>
+  </section>
+
+  <!-- 8 · LA PRUEBA -->
+  <section class="slide" data-px="30vw" data-py="6vh" data-pe=".62" data-po=".9" data-px-m="30vw" data-py-m="26vh" data-pe-m=".42" data-po-m=".4" data-gesto="orgullo">
+    <div class="interior pila" style="max-width:660px;margin:0">
+      <div class="anim" style="--i:0"><div class="eyebrow">La prueba</div></div>
+      <h2 class="anim" style="--i:1">Pipo se escaneó<br>a sí mismo. Y suspendió.</h2>
+      <div class="salto anim" style="--i:2;margin:6px 0">
+        <div>
+          <div class="nota-grande nota-mala" id="nota-antes">71</div>
+          <div class="cifra-pie">antes</div>
+        </div>
+        <div class="flecha">→</div>
+        <div>
+          <div class="nota-grande nota-buena" id="nota-despues">87</div>
+          <div class="cifra-pie">después</div>
+        </div>
+      </div>
+      <p class="lead anim" style="--i:3;max-width:none">
+        La web de Pipo salió en <strong>rojo</strong> en su propio escáner: le faltaban cabeceras de seguridad y cargaba las tipografías desde un servidor ajeno. Se arregló en una tarde.
+      </p>
+      <p class="pie anim" style="--i:4">Si una herramienta que audita webs no se aguanta a sí misma, no le sirve a nadie.</p>
+    </div>
+  </section>
+
+  <!-- 9 · GRATIS -->
+  <section class="slide" data-px="-31vw" data-py="12vh" data-pe=".55" data-po=".85" data-px-m="30vw" data-py-m="26vh" data-pe-m=".42" data-po-m=".4" data-gesto="saluda">
+    <div class="interior pila" style="max-width:620px;margin-left:auto">
+      <div class="anim" style="--i:0"><div class="eyebrow">Lo que cuesta cero</div></div>
+      <h2 class="anim" style="--i:1">El diagnóstico entero<br>es gratis</h2>
+      <ul class="lista anim" style="--i:2;gap:10px;margin-top:4px">
+        <li style="font-size:.98rem">Las once comprobaciones, completas</li>
+        <li style="font-size:.98rem">Semáforo por áreas y nota del 0 al 100</li>
+        <li style="font-size:.98rem">Informe interpretado, hallazgo por hallazgo</li>
+        <li style="font-size:.98rem">PDF con marca, para guardar o enseñar</li>
+        <li style="font-size:.98rem">Comparación con tu revisión anterior</li>
+      </ul>
+      <div class="sello anim" style="--i:3">Sin registro · Sin tarjeta · Sin letra pequeña</div>
+      <p class="pie anim" style="--i:4">
+        Es gratis porque generarlo cuesta céntimos y no le quita tiempo a nadie. Lo que se cobra es <strong>arreglarlo</strong>.
+      </p>
+    </div>
+  </section>
+
+  <!-- 10 · NIVELES -->
+  <section class="slide" data-px="0" data-py="0" data-pe=".4" data-po=".1" data-px-m="0" data-py-m="6vh" data-pe-m=".5" data-po-m=".1" data-gesto="mira">
+    <div class="interior pila" style="max-width:860px">
+      <div class="anim" style="--i:0"><div class="eyebrow">Niveles</div></div>
+      <h2 class="anim" style="--i:1">Empiezas gratis. Pagas solo si te sirve.</h2>
+      <div class="anim" style="--i:2;margin-top:6px">
+        <div class="nivel">
+          <div class="nivel-nombre">Revisión</div>
+          <div class="nivel-precio">Gratis</div>
+          <div class="nivel-que">Escaneo completo, semáforo por áreas, informe interpretado y PDF.</div>
+        </div>
+        <div class="nivel destacado">
+          <div class="nivel-nombre">Te lo arreglamos</div>
+          <div class="nivel-precio">89 – 149 €</div>
+          <div class="nivel-que">Aplicamos los cambios y te enseñamos el antes y el después. Presupuesto cerrado antes de tocar nada, y no se paga nada por adelantado.</div>
+        </div>
+        <div class="nivel">
+          <div class="nivel-nombre">Tranquilidad <span class="etiqueta">En preparación</span></div>
+          <div class="nivel-precio">15 – 25 €/mes</div>
+          <div class="nivel-que">Revisión mensual, aviso si algo empeora y arreglos pequeños incluidos.</div>
+        </div>
+        <div class="nivel">
+          <div class="nivel-nombre">Para profesionales</div>
+          <div class="nivel-precio">A convenir</div>
+          <div class="nivel-que">Informes en lote con la marca de tu agencia, para revisar la cartera de clientes de una vez.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11 · CIERRE -->
+  <section class="slide hero" data-px="0" data-py="-24vh" data-pe="1.05" data-po="1" data-px-m="0" data-py-m="-25vh" data-pe-m=".95" data-po-m="1" data-gesto="saluda">
+    <div class="interior pila">
+      <h2 class="anim" style="--i:0">Dale a Pipo el nombre de tu web</h2>
+      <p class="lead anim" style="--i:1;margin:0 auto;text-align:center">En un minuto sabrás qué está fallando, qué es urgente y qué no.</p>
+      <div class="dominio anim" style="--i:2;margin-top:6px">pipoweb.com</div>
+    </div>
+  </section>
+
+</main>
+
+<div class="pista" id="pista">Usa las flechas ← → para moverte</div>
+
+<nav class="barra" aria-label="Navegación de la presentación">
+  <button class="flecha-btn" id="btn-atras" aria-label="Diapositiva anterior">←</button>
+  <div class="puntos" id="puntos" role="tablist" aria-label="Ir a una diapositiva"></div>
+  <div class="contador" id="contador"></div>
+  <button class="flecha-btn" id="btn-siguiente" aria-label="Diapositiva siguiente">→</button>
+</nav>
+
+<script>
+(function(){
+  "use strict";
+
+  const slides    = Array.from(document.querySelectorAll(".slide"));
+  const escenario = document.getElementById("escenario");
+  const puntos    = document.getElementById("puntos");
+  const contador  = document.getElementById("contador");
+  const progreso  = document.getElementById("progreso");
+  const btnAtras  = document.getElementById("btn-atras");
+  const btnSig    = document.getElementById("btn-siguiente");
+  const total     = slides.length;
+  let actual = 0;
+
+  const menosMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Puntos de navegación, uno por diapositiva
+  slides.forEach((_, i) => {
+    const b = document.createElement("button");
+    b.className = "punto";
+    b.setAttribute("role", "tab");
+    b.setAttribute("aria-label", `Diapositiva ${i + 1} de ${total}`);
+    b.addEventListener("click", () => ir(i));
+    puntos.appendChild(b);
+  });
+  const listaPuntos = Array.from(puntos.children);
+
+  // Pipo se coloca donde diga la diapositiva. Es el mismo búho todo el
+  // rato: solo cambia de sitio, de tamaño y de gesto. En pantallas
+  // estrechas no hay hueco a los lados del texto, así que cada
+  // diapositiva puede traer una variante "-m" (móvil) que lo manda a
+  // una esquina y lo baja de opacidad.
+  const esEstrecha = () => window.matchMedia("(max-width:900px)").matches;
+
+  function colocarPipo(s){
+    const m = esEstrecha();
+    const dato = (clave, porDefecto) => {
+      const movil = s.dataset[clave + "M"];
+      return (m && movil) ? movil : (s.dataset[clave] || porDefecto);
+    };
+    escenario.style.setProperty("--px", dato("px", "0"));
+    escenario.style.setProperty("--py", dato("py", "0"));
+    escenario.style.setProperty("--pe", dato("pe", "1"));
+    escenario.style.setProperty("--po", dato("po", "1"));
+  }
+
+  function ir(n){
+    actual = Math.max(0, Math.min(total - 1, n));
+    const s = slides[actual];
+
+    slides.forEach((el, i) => el.classList.toggle("activa", i === actual));
+    listaPuntos.forEach((p, i) => {
+      p.classList.toggle("activo", i === actual);
+      p.setAttribute("aria-selected", i === actual ? "true" : "false");
+    });
+
+    colocarPipo(s);
+    document.body.dataset.gesto = s.dataset.gesto || "mira";
+    document.body.dataset.slide = String(actual + 1);
+
+    contador.textContent = `${actual + 1} / ${total}`;
+    progreso.style.width = ((actual + 1) / total * 100) + "%";
+    btnAtras.disabled = actual === 0;
+    btnSig.disabled   = actual === total - 1;
+
+    if (actual === 7) animarSalto();
+  }
+
+  // El 71 → 87 se cuenta solo al llegar a esa diapositiva: es el dato
+  // más importante del deck y merece que el ojo lo siga.
+  let saltoHecho = false;
+  function animarSalto(){
+    if (saltoHecho || menosMovimiento) return;
+    saltoHecho = true;
+    const destino = document.getElementById("nota-despues");
+    const inicio = performance.now(), desde = 71, hasta = 87, dur = 1400;
+    function paso(t){
+      const k = Math.min(1, (t - inicio) / dur);
+      const suave = 1 - Math.pow(1 - k, 3);
+      destino.textContent = Math.round(desde + (hasta - desde) * suave);
+      if (k < 1) requestAnimationFrame(paso);
+    }
+    destino.textContent = "71";
+    setTimeout(() => requestAnimationFrame(paso), 500);
+  }
+
+  // Al girar el móvil o cambiar el tamaño de la ventana, Pipo puede
+  // tener que cambiar de sitio (variante de escritorio ↔ móvil).
+  let temporizador;
+  window.addEventListener("resize", () => {
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => colocarPipo(slides[actual]), 150);
+  });
+
+  btnAtras.addEventListener("click", () => ir(actual - 1));
+  btnSig.addEventListener("click", () => ir(actual + 1));
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ") { e.preventDefault(); ir(actual + 1); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); ir(actual - 1); }
+    else if (e.key === "Home") { e.preventDefault(); ir(0); }
+    else if (e.key === "End")  { e.preventDefault(); ir(total - 1); }
+  });
+
+  // Deslizar con el dedo. Solo cuenta si el gesto es claramente
+  // horizontal, para no robarle el scroll a una diapositiva alta.
+  let x0 = null, y0 = null;
+  document.addEventListener("touchstart", e => {
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+  }, {passive:true});
+  document.addEventListener("touchend", e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.6) ir(actual + (dx < 0 ? 1 : -1));
+    x0 = y0 = null;
+  }, {passive:true});
+
+  // Cielo nocturno: unas cuantas estrellas quietas, con un brillo muy
+  // lento. Se crean una vez y no se vuelven a tocar.
+  if (!menosMovimiento){
+    const cielo = document.createDocumentFragment();
+    for (let i = 0; i < 42; i++){
+      const e = document.createElement("div");
+      const t = Math.random() * 1.8 + 0.9;
+      e.className = "estrella";
+      e.style.cssText =
+        `width:${t}px;height:${t}px;left:${Math.random()*100}vw;top:${Math.random()*100}vh;` +
+        `opacity:${Math.random()*.35+.12};` +
+        `animation:respirar ${Math.random()*5+4}s ease-in-out ${Math.random()*5}s infinite`;
+      cielo.appendChild(e);
+    }
+    document.body.appendChild(cielo);
+  }
+
+  ir(0);
+})();
+</script>
