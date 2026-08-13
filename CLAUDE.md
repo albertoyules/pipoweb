@@ -121,7 +121,11 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 | `GET /api/informe/{id}/pdf?t=&marca=` | Informe en PDF con marca Pipo (`app/pdf/generar_pdf.py`) | **Gratis** (solo token). **NO lleva soluciones** a propósito. `marca=` pone "Preparado para X" en portada (para agencias) |
 | `POST /api/leads?email=&dominio=&id_escaneo=&t=` | Lista de avisos ("cuando esté la revisión mensual, avísame") | Rate limited 5/min. Guarda en tabla `leads`, sin FOREIGN KEY hacia `escaneos` a propósito |
 | `POST /api/solicitudes?email=&dominio=&id_escaneo=&t=&telefono=&mensaje=` | Solicitud de "arregladlo vosotros" — el producto de pago | Rate limited 5/min. Guarda en tabla `solicitudes`, manda el diagnóstico al cliente y avisa a Alberto. **No cobra ni pide pago por adelantado**: es un servicio, primero se presupuesta |
-| `GET /api/solicitudes?clave=` | Lista todas las solicitudes — panel privado (`landing/pedidos.html`) | Rate limited 20/min. `403` si la clave no coincide |
+| `GET /api/solicitudes?clave=` | Lista todas las solicitudes — panel privado (`landing/panel.html`) | Rate limited 20/min. `403` si la clave no coincide |
+| `POST /api/solicitudes/{id}/notas?clave=&notas=` | Guarda las notas libres de una solicitud | Rate limited 20/min. Sustituye el texto, no acumula |
+| `POST /api/solicitudes/{id}/cobro?clave=&importe=` | Registra cuánto se ha cobrado, con la fecha de hoy | Rate limited 20/min. Manual — Pipo no cobra nada automáticamente |
+| `GET /api/leads?clave=` | Todos los emails captados por el formulario de avisos | Rate limited 20/min. Incluye `consiente_marketing` por fila |
+| `GET /api/actividad?clave=` | Los últimos 60 escaneos, con el email captado si lo hay | Rate limited 20/min. "Quién ha entrado a la web" |
 | `POST /api/solicitudes/{id}/estado?clave=&estado=` | Mueve una solicitud: `nueva` → `presupuestada` → `hecha` | Rate limited 20/min. `400` con un estado inventado, `404` si no existe |
 
 ---
@@ -262,7 +266,29 @@ Alberto configuró `GMAIL_EMAIL`/`GMAIL_APP_PASSWORD` en Railway el 13 ago 2026 
 
 **La solución real no es tocar el puerto otra vez — es dejar de usar SMTP.** Cambiar a un proveedor de email transaccional que funcione por API HTTPS (puerto 443, nunca bloqueado): candidato natural, **Resend** — API muy simple, capa gratuita de sobra para el volumen de esta fase (3.000 emails/mes), sin necesidad de verificar dominio propio para empezar a probar (da un remitente `onboarding@resend.dev` de pruebas). Requiere que Alberto cree una cuenta y genere una clave de API — **eso no lo puede hacer un agente**, así que queda pendiente de él. Cuando la tenga: sustituir el cuerpo de `enviar_email()` en `app/notificaciones/enviar.py` por una llamada HTTP a la API de Resend (o el proveedor que se elija), quitar `smtplib`/`GMAIL_APP_PASSWORD` del todo, y repetir la prueba con curl real contra Railway antes de dar esto por cerrado — no basta con probarlo en local.
 
-Mientras tanto, el flujo sigue siendo funcional: la solicitud se guarda bien en la base de datos aunque el email falle (el frontend no depende de que `email_enviado` sea `true`), así que **no se pierde ningún cliente**, solo que Alberto tiene que mirar el panel de solicitudes a mano en vez de recibir el aviso por email.
+Mientras tanto, el flujo sigue siendo funcional: la solicitud se guarda bien en la base de datos aunque el email falle (el frontend no depende de que `email_enviado` sea `true`), así que **no se pierde ningún cliente**, solo que Alberto tiene que mirar el panel de solicitudes a mano en vez de recibir el aviso por email. Esto es justo lo que resuelve el panel CRM de abajo.
+
+---
+
+### ✅ Panel CRM privado (`landing/panel.html`) y captura de email para marketing — hecho el 13 ago 2026
+
+Pedido explícito de Alberto tras la auditoría: quitar cualquier muro delante del informe gratis, pero tener un punto claro donde capturar el email para poder recordarle a un negocio que vuelva más adelante; y una pantalla privada donde ver de un vistazo todo lo que tiene abierto (quién ha entrado, quién ha dejado su email, quién ha pedido un arreglo, quién ha pagado).
+
+**El informe sigue sin muro** — eso no cambió. Lo que se añadió es un único punto de captura de email, honesto sobre su propósito:
+
+- El formulario "Avísame si algo empeora" de `informe.html` se retextó a **"No pierdas de vista tu web"**, y su casilla dejó de ser un consentimiento genérico ("acepto que me contacten") para ser explícitamente de marketing: *"Quiero recibir por email avisos sobre mi web y, de vez en cuando, consejos y ofertas de Pipo. Puedo darme de baja cuando quiera."* Al marcarla se manda `marketing=true` a `/api/leads`, que se guarda en la nueva columna `leads.consiente_marketing` — es la base legal (RGPD art. 6.1.a, consentimiento expreso y específico) que permite mandar campañas más adelante; sin ella marcada, ese email solo debería usarse para lo que se pidió en el momento. `privacidad.html` actualizado con esta base legal.
+
+**`landing/panel.html`** — nuevo, sustituye a `pedidos.html` como panel principal (`pedidos.html` se deja tal cual, funcional pero superado; se puede borrar más adelante). Misma protección de siempre (`?clave=` contra `CLAVE_ADMIN`), tres pestañas:
+
+- **Solicitudes**: el pipeline se amplió de 3 pasos a 6 — `nuevo → contactado → presupuesto_enviado → pagado → arreglado → cerrado` (antes: `nueva/presupuestada/hecha`). Cada tarjeta tiene un selector de estado (no solo "avanzar al siguiente": se puede saltar a cualquier estado, un caso real no siempre es lineal), notas libres editables con botón de guardar, y "Registrar cobro" (pide el importe con un `prompt()`, guarda importe y fecha). Filtro "solo lo que necesita mi atención" que esconde los casos en `cerrado`.
+- **Leads**: tabla de emails captados por el formulario de avisos, con si consintieron marketing o no.
+- **Actividad reciente**: los últimos 60 escaneos, con el email asociado si lo hay — "quién ha entrado a la web", tal cual se pidió.
+
+**Migración de datos**: la tabla `solicitudes` ya existía en producción desde esta misma mañana con el pipeline viejo. `CREATE TABLE IF NOT EXISTS` no toca el `DEFAULT` de una tabla que ya existe, así que hicieron falta dos cosas: (1) `guardar_solicitud()` pasa `estado='nuevo'` explícito en el INSERT en vez de confiar en el DEFAULT de la columna, y (2) una migración de una sola vez en `inicializar_db()` que traduce las filas viejas (`nueva→nuevo`, `presupuestada→presupuesto_enviado`, `hecha→cerrado`). Verificado en producción: las 5 solicitudes de pruebas de esta mañana pasaron limpiamente al pipeline nuevo.
+
+**Bug real encontrado con Playwright antes de desplegar**: `importe_cobrado` es una columna `TEXT` (por cómo funciona `_asegurar_columna`), así que en el panel `suma + s.importe_cobrado` concatenaba strings en vez de sumar (`"0" + "120" + "0"` → `"01200€"`). Arreglado forzando `Number(...)` antes de sumar.
+
+**Datos de ejemplo en producción, a propósito**: por petición de Alberto, se sembraron 6 solicitudes y 2 leads ficticios (uno por cada paso del pipeline) para poder ver el panel con contenido real antes de tener casos de verdad — emails y notas con la palabra **DEMO** en mayúsculas, dominios reales que sí resuelven (wordpress.org, github.com, apple.com, wikipedia.org, mozilla.org) porque `/api/scan` valida que el dominio existe. El propio panel avisa arriba del todo si detecta la palabra DEMO en algún dato. **Hay que borrar estas filas antes de enseñarle el panel a nadie o de lanzar de verdad** — quedan mezcladas con las 5 solicitudes reales de las pruebas de hoy (ids 1-5, dominio `cristiyules.com`, email de Alberto) y con los ~68 escaneos de prueba acumulados en `escaneos`. Limpiar `pipo.db` en Railway (o las filas con "DEMO" y los ids de prueba conocidos) es una de las tareas de "preparar para producción", junto con activar Resend para el email.
 
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:
