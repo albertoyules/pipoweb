@@ -33,13 +33,18 @@ def ip_cliente(request: Request) -> str:
     existía sobre el papel y no se aplicaba nunca.
 
     X-Forwarded-For es una lista, "cliente, proxy1, proxy2": el primero
-    es el visitante original. Es una cabecera que cualquiera puede
-    falsificar a mano, así que no sirve para autorizar nada — pero para
-    repartir cubos de rate limiting es justo lo que hace todo el mundo,
-    y falsificarla solo permite pasar de "un cubo compartido" a "un cubo
-    por IP inventada", que es exactamente el problema que ya teníamos.
-    Para el uso real (proteger de un bucle accidental o de un curl
-    insistente) cumple de sobra.
+    es el visitante original. En general es una cabecera que cualquiera
+    puede escribir a mano, así que nunca sirve para autorizar nada — para
+    repartir cubos de rate limiting sí, que es lo que hace todo el mundo.
+
+    Comprobado en producción tras desplegar (13 ago 2026): **Railway
+    reescribe esta cabecera con la IP real de quien conecta**, no la
+    respeta si viene puesta desde fuera. Se vio mandando siete peticiones
+    con X-Forwarded-For inventadas y distintas: el límite saltó igual a
+    la sexta, señal de que todas cayeron en el mismo cubo (el de la IP de
+    verdad). O sea que aquí no se puede esquivar el límite falsificando
+    la cabecera. Si algún día se cambia de hosting, esto hay que volver a
+    comprobarlo: con un proxy que la respete, sí se podría.
     """
     reenviada = request.headers.get("x-forwarded-for")
     if reenviada:
