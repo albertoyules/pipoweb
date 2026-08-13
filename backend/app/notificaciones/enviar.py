@@ -1,22 +1,31 @@
 """
 Envío de emails transaccionales: la confirmación privada al cliente
-que pide el informe completo, y el aviso a Alberto de que hay un
-pedido nuevo (ver CLAUDE.md, P2).
+que pide un arreglo, y el aviso a Alberto de que hay una solicitud
+nueva (ver CLAUDE.md, P2).
 
-Usa Gmail por SMTP con una "contraseña de aplicación" (no la
-contraseña normal de la cuenta — Gmail bloquea el login SMTP con la
-contraseña normal por seguridad) en vez de un proveedor de email
-transaccional (Resend, SendGrid...): es gratis, no exige darse de alta
-en ningún sitio nuevo, y el volumen de esta fase — unos pocos pedidos
-al día como mucho — está muy por debajo de cualquier límite de Gmail.
-Si el volumen crece de verdad, esto es lo primero que habría que
-cambiar (Gmail no está pensado para enviar cientos de emails/día).
+Usa Resend (API por HTTPS) desde el 13 ago 2026. Antes usaba Gmail por
+SMTP, pero Railway bloquea el tráfico SMTP saliente por completo —
+comprobado con curl real contra producción probando los dos puertos
+estándar (465 y 587): los dos fallaban con el mismo patrón exacto de
+timeout, la firma de un bloqueo de red, no de credenciales mal puestas
+(ver CLAUDE.md para el diagnóstico completo). Resend manda el email con
+una petición HTTP normal por el puerto 443, que ningún hosting bloquea
+— es el mismo puerto por el que ya habla el resto de Pipo con Anthropic
+o con Google PageSpeed.
 """
 
-import smtplib
-from email.mime.text import MIMEText
+import httpx
 
-from app.config import GMAIL_APP_PASSWORD, GMAIL_EMAIL
+from app.config import RESEND_API_KEY
+
+URL_API = "https://api.resend.com/emails"
+
+# Remitente de pruebas de Resend. Sin verificar un dominio propio (Pipo
+# todavía no tiene uno decidido — ver CLAUDE.md), no se puede mandar
+# desde una dirección con marca propia como "pipo@pipo.es": hay que
+# usar este remitente genérico hasta que exista ese dominio y se
+# verifique con sus registros DNS en el panel de Resend.
+REMITENTE = "Pipo <onboarding@resend.dev>"
 
 
 class ErrorEmail(Exception):
@@ -25,33 +34,33 @@ class ErrorEmail(Exception):
 
 def enviar_email(destinatario: str, asunto: str, cuerpo: str) -> None:
     """
-    Envío síncrono y bloqueante a propósito (smtplib no tiene versión
-    async) — quien llame a esto debe mandarlo a un hilo aparte con
-    asyncio.to_thread, igual que ya se hace con la IA y con WeasyPrint.
-
-    Usa el puerto 587 (STARTTLS) en vez del 465 (SSL directo). Se
-    cambió el 13 ago 2026: con 465, cada intento de envío en Railway
-    agotaba el timeout completo (15s) sin llegar a fallar por
-    credenciales — la petición a /api/solicitudes tardaba exactamente
-    30s (dos emails × 15s) y devolvía email_enviado:false. Eso es la
-    firma de un bloqueo de red al puerto, no de un usuario/contraseña
-    mal puestos: un fallo de login se ve casi al instante, no justo al
-    límite del timeout. Muchos hostings bloquean el 465 por defecto
-    para frenar spam saliente; el 587 suele estar abierto porque es el
-    puerto "de sumisión" pensado para que aplicaciones manden correo.
+    Envío síncrono y bloqueante a propósito (usamos el cliente síncrono
+    de httpx, no el asíncrono) — quien llame a esto debe mandarlo a un
+    hilo aparte con asyncio.to_thread, igual que ya se hace con la IA y
+    con WeasyPrint.
     """
-    if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
+    if not RESEND_API_KEY:
         raise ErrorEmail("Pipo no tiene configurado el envío de emails todavía.")
 
-    mensaje = MIMEText(cuerpo)
-    mensaje["Subject"] = asunto
-    mensaje["From"] = GMAIL_EMAIL
-    mensaje["To"] = destinatario
-
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as servidor:
-            servidor.starttls()
-            servidor.login(GMAIL_EMAIL, GMAIL_APP_PASSWORD)
-            servidor.send_message(mensaje)
-    except Exception as error:  # noqa: BLE001 - cualquier fallo de red/SMTP se trata igual
-        raise ErrorEmail(f"No se ha podido enviar el email: {error}") from error
+        respuesta = httpx.post(
+            URL_API,
+            headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
+            json={
+                "from": REMITENTE,
+                "to": [destinatario],
+                "subject": asunto,
+                "text": cuerpo,
+            },
+            timeout=15,
+        )
+        respuesta.raise_for_status()
+    except httpx.HTTPStatusError as error:
+        # Resend explica el motivo del rechazo en el cuerpo de la
+        # respuesta (email inválido, remitente no verificado...) —
+        # se incluye tal cual, es mucho más útil que solo el código.
+        raise ErrorEmail(
+            f"Resend ha rechazado el email ({error.response.status_code}): {error.response.text}"
+        ) from error
+    except httpx.RequestError as error:
+        raise ErrorEmail(f"No se ha podido conectar con Resend: {error}") from error

@@ -42,9 +42,16 @@ ANTHROPIC_API_KEY = _leer_clave("ANTHROPIC_API_KEY")
 # código y solo en variables de entorno.
 TELEFONO_BIZUM = _leer_clave("TELEFONO_BIZUM")
 
-# Envío de emails (confirmación de pedido al cliente + aviso a Alberto)
-# por Gmail SMTP con una "contraseña de aplicación" — ver
-# app/notificaciones/enviar.py para el porqué de esta elección.
+# Envío de emails (confirmación de solicitud al cliente + aviso a
+# Alberto) — ver app/notificaciones/enviar.py para el porqué de Resend.
+RESEND_API_KEY = _leer_clave("RESEND_API_KEY")
+
+# El email de Alberto, como destino de los avisos internos ("nueva
+# solicitud"). Ya no tiene que ver con el envío en sí (eso lo hace
+# RESEND_API_KEY) — es solo "a qué buzón le llega la notificación".
+# GMAIL_EMAIL/GMAIL_APP_PASSWORD se dejan leídos por si algún día se
+# quisiera volver a SMTP (poco probable: Railway lo bloquea, ver
+# CLAUDE.md), pero ya no los usa nada.
 GMAIL_EMAIL = _leer_clave("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = _leer_clave("GMAIL_APP_PASSWORD")
 
