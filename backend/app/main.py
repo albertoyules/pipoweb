@@ -813,3 +813,20 @@ async def informe_pdf(request: Request, id_escaneo: int, t: str = "", marca: str
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="informe-pipo-{nombre_archivo}.pdf"'},
     )
+
+
+@app.get("/api/diagnostico-email")
+@limiter.limit("10/minute")
+async def diagnostico_email(request: Request, clave: str, destinatario: str):
+    """
+    TEMPORAL — solo para diagnosticar el cambio a Resend del 13 ago
+    2026. Manda un email de prueba y devuelve el error tal cual lo da
+    Resend, en vez de tragárselo como hace /api/solicitudes. Borrar en
+    cuanto el envío funcione de verdad (ver CLAUDE.md).
+    """
+    _verificar_clave_admin(clave)
+    try:
+        await asyncio.to_thread(enviar_email, destinatario, "Pipo — email de prueba", "Esto es una prueba.")
+    except ErrorEmail as error:
+        return {"ok": False, "error": str(error)}
+    return {"ok": True}
