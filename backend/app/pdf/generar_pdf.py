@@ -304,7 +304,7 @@ def generar_pdf_informe(escaneo: dict, marca: str | None = None) -> bytes:
       <div class="pie-legal">
         Este informe lo genera Pipo de forma automática a partir de información pública de
         {dominio}, sin acceder a su servidor. No sustituye asesoría legal ni de un
-        Delegado de Protección de Datos (DPO). © Pipo · piposcan.vercel.app
+        Delegado de Protección de Datos (DPO). © Pipo · pipoweb.com
       </div>
     </body>
     </html>
