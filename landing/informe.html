@@ -7,9 +7,12 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Tu informe — Pipo</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Fuentes autohospedadas. Antes venían del CDN de Google Fonts, lo que
+     metía un tercero sin `integrity` en la página (lo marcaba el propio
+     escáner de Pipo) y mandaba la IP del visitante a Google. Ver fonts.css. -->
+<link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts.css">
 <style>
   :root{
     --cream:#F5EFE6; --cream-deep:#EBE1D2; --brown:#B08968; --brown-dark:#6F4E37;
@@ -22,6 +25,16 @@
     font-family:'Nunito',sans-serif;background:var(--cream);color:var(--ink);line-height:1.6;
     min-height:100vh;display:flex;flex-direction:column;
   }
+  /* El body es flex (patrón "sticky footer"), así que <main> es un flex
+     item y nace con `min-width:auto`: "nunca más estrecho que mi
+     contenido". Un bloque ancho dentro (una tabla, un texto sin cortes)
+     bastaría para que la página se arrastrase de lado en el móvil. */
+  /* Y `width:100%` porque el estirado automático del eje transversal no
+     llega a aplicarse aquí: sin él, <main> se dimensiona a su contenido
+     (medido: 568px dentro de un body de 320px). Se nombran los tres
+     elementos en vez de usar `body>*` porque informe.html cuelga del body
+     un <svg> oculto con los iconos, y no queremos tocarlo. */
+  body>nav,body>main,body>footer{min-width:0;width:100%}
   main{flex:1 0 auto}
   footer{flex-shrink:0}
   h1,h2,h3,h4{font-family:'Fraunces',serif;letter-spacing:-.02em}

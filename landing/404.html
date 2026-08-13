@@ -7,9 +7,12 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Página no encontrada — Pipo</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Fuentes autohospedadas. Antes venían del CDN de Google Fonts, lo que
+     metía un tercero sin `integrity` en la página (lo marcaba el propio
+     escáner de Pipo) y mandaba la IP del visitante a Google. Ver fonts.css. -->
+<link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts.css">
 <style>
   :root{
     --cream:#F5EFE6;
@@ -40,7 +43,9 @@
   a{text-decoration:none}
 
   .escena{position:relative;width:280px;height:300px;margin-bottom:8px}
-  .halo{position:absolute;inset:0;margin:auto;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%)}
+  /* 340px fijos se salían de la pantalla en móviles estrechos (medido a
+     320px: 40px de scroll horizontal). Es decoración, puede encoger. */
+  .halo{position:absolute;inset:0;margin:auto;width:min(340px,86vw);height:min(340px,86vw);border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%)}
 
   /* el búho entero se balancea, como si buscara algo que no encuentra */
   .pipo-confuso{width:220px;height:auto;position:relative;z-index:2;animation:busca 3.2s ease-in-out infinite}

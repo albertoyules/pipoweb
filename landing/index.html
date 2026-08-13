@@ -7,7 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Pipo — ¿Dudas de tu web? Pipo te la revisa y te informa</title>
-<meta name="description" content="Pipo analiza tu web gratis: seguridad, RGPD/cookies, SEO técnico y velocidad, sin tocar tu servidor. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.">
+<!-- Máximo recomendado: 160 caracteres (Google recorta a partir de ahí). Esta mide 145. -->
+<meta name="description" content="Pipo revisa tu web gratis: seguridad, RGPD, SEO y velocidad, sin tocar tu servidor. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.">
 <link rel="canonical" href="https://piposcan.vercel.app/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://piposcan.vercel.app/">
@@ -34,9 +35,12 @@
   "areaServed": "ES"
 }
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Fuentes autohospedadas. Antes venían del CDN de Google Fonts, lo que
+     metía un tercero sin `integrity` en la página (lo marcaba el propio
+     escáner de Pipo) y mandaba la IP del visitante a Google. Ver fonts.css. -->
+<link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts.css">
 <style>
   :root{
     --cream:#F5EFE6;
@@ -103,6 +107,14 @@
   .hero{padding:70px 0 40px;position:relative}
   .leaf{position:absolute;opacity:.5;pointer-events:none}
   .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
+  /* Sin esto, el hero no cabe en móviles estrechos. Un item de grid tiene
+     `min-width:auto`, que significa "nunca más estrecho que mi contenido
+     mínimo". Aquí ese mínimo lo marcaba el <input> del formulario (un input
+     reserva de fábrica el ancho de unos 20 caracteres), así que la columna
+     se plantaba en 340px pasara lo que pasara y a 360px de pantalla la
+     página se podía arrastrar de lado. Con min-width:0 la columna puede
+     encogerse y el contenido de dentro se reajusta solo. */
+  .hero-grid>*{min-width:0}
   .eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--cream-deep);border:1px solid var(--line);color:var(--brown-dark);font-weight:700;font-size:13px;padding:7px 14px;border-radius:999px;margin-bottom:22px}
   .eyebrow .dot{width:8px;height:8px;border-radius:50%;background:var(--sage)}
   .hero h1{font-size:clamp(38px,6vw,62px);font-weight:600;color:var(--ink)}
@@ -136,7 +148,10 @@
 
   /* PIPO CHARACTER */
   .pipo-stage{display:flex;justify-content:center;align-items:flex-end;position:relative;min-height:400px}
-  .pipo-halo{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%);top:30px}
+  /* El halo es decorativo, pero sus 340px eran fijos: en una pantalla de
+     320px se salía por la derecha él solo. min() lo deja igual a partir de
+     ~395px de ancho y solo lo encoge en los móviles más estrechos. */
+  .pipo-halo{position:absolute;width:min(340px,86vw);height:min(340px,86vw);border-radius:50%;background:radial-gradient(circle,rgba(201,123,90,.20),transparent 65%);top:30px}
   .tree{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:250px;z-index:1}
   .pipo{width:230px;height:auto;position:relative;z-index:2;margin-bottom:108px;animation:float 5s ease-in-out infinite}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
@@ -480,6 +495,32 @@
   .reveal-rotate{transform:translateY(24px) rotate(-6deg);transform-origin:top center}
   .reveal.visible,.reveal-left.visible,.reveal-right.visible,.reveal-scale.visible,.reveal-blur.visible,.reveal-rotate.visible{
     opacity:1;transform:none;filter:none}
+
+  /* LAS APARICIONES SE MUEVEN SOLO EN VERTICAL SALVO EN PANTALLAS ANCHAS.
+     Un bloque con .reveal-right está desplazado 56px a la derecha hasta
+     que entra en pantalla. Si no hay sitio para esos 56px, el navegador
+     añade scroll horizontal: la página se arrastra de lado y aparece una
+     franja vacía a la derecha. Da sensación de web rota.
+
+     ¿A partir de qué ancho hay sitio? El contenido vive en .wrap
+     (max-width 1120px, padding 24px). Con la ventana por debajo de
+     1120px, el borde derecho del contenido queda en `ancho - 24`, así
+     que al empujarlo 56px se sale SIEMPRE por 32px. Por encima de
+     1120px el .wrap se centra y va sobrando margen, pero no basta hasta
+     que la ventana llega a 1184px:
+         (ancho - 1120)/2 + 1120 - 24 + 56  <=  ancho   →   ancho >= 1184
+     De ahí el corte en 1200px, con un poco de holgura. Antes esto estaba
+     en 880px, que tapaba el caso del móvil pero dejaba rota cualquier
+     pantalla entre 881 y 1183px (un iPad en horizontal, por ejemplo).
+
+     Se arregla en el origen y no con un `overflow-x:hidden` en el body:
+     ese truco ya está puesto (ver la regla de body más arriba) y NO
+     evitaba el arrastre — comprobado midiendo window.scrollX. */
+  @media(max-width:1200px){
+    .reveal-left,.reveal-right{transform:translateY(30px)}
+    .reveal-rotate{transform:translateY(24px)}
+  }
+
   @media(prefers-reduced-motion:reduce){
     .reveal,.reveal-left,.reveal-right,.reveal-scale,.reveal-blur,.reveal-rotate{opacity:1;transform:none;filter:none;transition:none}
   }
@@ -584,9 +625,9 @@
 
 <!-- HERO -->
 <header class="hero">
-  <svg class="leaf" data-parallax=".18" style="width:90px;top:40px;left:-20px;color:var(--terracotta);transform:rotate(20deg) translateY(var(--py,0px))"><use href="#leaf"/></svg>
-  <svg class="leaf" data-parallax=".32" style="width:60px;top:260px;right:40px;color:var(--amber);transform:rotate(-30deg) translateY(var(--py,0px))"><use href="#leaf"/></svg>
-  <svg class="leaf" data-parallax=".25" style="width:44px;bottom:20px;left:15%;color:var(--sage);transform:rotate(60deg) translateY(var(--py,0px))"><use href="#leaf"/></svg>
+  <svg class="leaf" data-parallax=".18" style="width:90px;top:40px;left:-20px;color:var(--terracotta);transform:translateY(var(--py,0px)) rotate(20deg)"><use href="#leaf"/></svg>
+  <svg class="leaf" data-parallax=".32" style="width:60px;top:260px;right:40px;color:var(--amber);transform:translateY(var(--py,0px)) rotate(-30deg)"><use href="#leaf"/></svg>
+  <svg class="leaf" data-parallax=".25" style="width:44px;bottom:20px;left:15%;color:var(--sage);transform:translateY(var(--py,0px)) rotate(60deg)"><use href="#leaf"/></svg>
   <div class="wrap hero-grid">
     <div>
       <span class="eyebrow"><span class="dot"></span>Auditoría web sin tocar tus sistemas</span>

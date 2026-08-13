@@ -8,9 +8,12 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Política de privacidad — Pipo</title>
 <meta name="description" content="Qué datos trata Pipo, con quién se comparten y qué derechos RGPD tienes sobre ellos.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Fuentes autohospedadas. Antes venían del CDN de Google Fonts, lo que
+     metía un tercero sin `integrity` en la página (lo marcaba el propio
+     escáner de Pipo) y mandaba la IP del visitante a Google. Ver fonts.css. -->
+<link rel="preload" href="fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts.css">
 <style>
   :root{
     --cream:#F5EFE6;
@@ -24,6 +27,19 @@
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--ink);line-height:1.7;min-height:100vh;display:flex;flex-direction:column}
+  /* El body es un contenedor flex (patrón "sticky footer": empuja el pie
+     de página al fondo aunque haya poco contenido). Eso convierte a <main>
+     en un flex item, y un flex item nace con `min-width:auto`: "nunca más
+     estrecho que mi contenido". Bastaba una tabla ancha dentro para que
+     <main> se negara a encoger y la página entera se arrastrara de lado en
+     el móvil. Con min-width:0 vuelve a comportarse como un bloque normal y
+     es el contenido de dentro el que se adapta. */
+  /* Y `width:100%` porque el estirado automático del eje transversal no
+     llega a aplicarse aquí: sin él, <main> se dimensiona a su contenido
+     (medido: 568px dentro de un body de 320px). Se nombran los tres
+     elementos en vez de usar `body>*` porque informe.html cuelga del body
+     un <svg> oculto con los iconos, y no queremos tocarlo. */
+  body>nav,body>main,body>footer{min-width:0;width:100%}
   main{flex:1 0 auto}
   footer{flex-shrink:0}
   .wrap{max-width:760px;margin:0 auto;padding:0 24px}
@@ -38,6 +54,12 @@
   p,li{font-size:15.5px;color:#4a3d31}
   ul{margin:10px 0 10px 22px}
   table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px}
+  /* La tabla de datos tratados tiene 3 columnas de texto largo y no cabe en
+     un móvil estrecho: arrastraba la página entera de lado. En vez de
+     encoger la letra hasta que no se lea, se le da su propio scroll
+     horizontal: la tabla se desliza, la página no. */
+  .tabla-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .tabla-scroll table{min-width:520px}
   th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
   th{color:var(--brown-dark)}
   .aviso-provisional{background:rgba(217,164,65,.16);border:1px solid rgba(217,164,65,.4);border-radius:14px;padding:18px 20px;margin:24px 0;font-size:14.5px}
@@ -60,6 +82,7 @@
   <p>Alberto Yules — <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>. Ver más datos en el <a href="aviso-legal.html">aviso legal</a>.</p>
 
   <h2>2. Qué datos trata Pipo</h2>
+  <div class="tabla-scroll">
   <table>
     <tr><th>Dato</th><th>Origen</th><th>Para qué</th></tr>
     <tr><td>Dominio que se analiza</td><td>Lo introduce la persona usuaria</td><td>Ejecutar el análisis y guardar el historial del escaneo</td></tr>
@@ -71,6 +94,7 @@
     <tr><td>Teléfono (opcional)</td><td>Lo introduce la persona usuaria, al pedir un arreglo</td><td>Poder llamar o escribir para concretar el presupuesto</td></tr>
     <tr><td>Datos de la solicitud (email, dominio, referencia, precio orientativo)</td><td>Generado al pedir un arreglo</td><td>Gestionar la solicitud, presupuestarla y hacer el trabajo</td></tr>
   </table>
+  </div>
   <p>
     Pipo <strong>no</strong> pide ni almacena contraseñas, ni ningún dato del servidor del dominio analizado más allá de lo que ese servidor ya publica a cualquier visitante. Pipo tampoco cobra nada de forma automática: no procesa ni almacena ningún dato bancario o de tarjeta.
   </p>
