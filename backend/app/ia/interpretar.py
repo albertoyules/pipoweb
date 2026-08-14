@@ -41,6 +41,12 @@ REGLAS ESTRICTAS, sin excepción:
    inventar cifras o plazos que no estén en los datos.
 6. Responde ÚNICAMENTE con JSON válido que cumpla el esquema pedido. Sin
    texto antes ni después, sin explicaciones fuera del JSON.
+7. Si un check trae "estado": "sin_datos", significa que no se ha podido
+   comprobar ese dato (por una limitación externa, no de la web
+   analizada). Descríbelo de forma neutra: ni digas que está bien, ni
+   que es un problema. No inventes una fecha, un plazo ni una acción
+   para "arreglarlo" — no hay nada que arreglar, solo algo que no se
+   pudo saber.
 """.strip()
 
 ESQUEMA_ESPERADO = """

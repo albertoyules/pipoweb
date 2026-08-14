@@ -417,11 +417,16 @@
   .row:last-child{border-bottom:none}
   .pill{width:11px;height:11px;border-radius:50%;flex-shrink:0}
   .pill.g{background:var(--sage)}.pill.a{background:var(--amber)}.pill.r{background:var(--brick)}
+  /* "n" = neutro, para checks en sin_datos (p.ej. WHOIS sin respuesta):
+     ni bien ni mal, así que ni verde ni rojo. Reutiliza el mismo gris
+     cálido que ya usa el placeholder del buscador, no un color nuevo. */
+  .pill.n{background:#B6A894}
   .row .lbl{font-weight:600;font-size:15px}
   .row .tag{margin-left:auto;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
   .tag.g{background:rgba(138,154,91,.16);color:var(--sage)}
   .tag.a{background:rgba(217,164,65,.18);color:#a9791d}
   .tag.r{background:rgba(179,71,51,.14);color:var(--brick)}
+  .tag.n{background:rgba(182,168,148,.22);color:#7d6d5a}
   .how-steps li{list-style:none;display:flex;gap:16px;margin-bottom:22px}
   .how-steps .n{width:34px;height:34px;border-radius:50%;background:var(--terracotta);color:#fff;font-family:'Fraunces';font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .how-steps h4{font-size:17px;color:var(--brown-dark);margin-bottom:2px}
@@ -891,9 +896,13 @@
   const PUNTOS_POR_ESTADO = { verde: 100, ambar: 60, rojo: 20 };
 
   function calcularNota(checks) {
-    if (checks.length === 0) return 0;
-    const total = checks.reduce((suma, c) => suma + PUNTOS_POR_ESTADO[c.estado], 0);
-    return Math.round(total / checks.length);
+    // "sin_datos" (p.ej. WHOIS sin respuesta) no tiene puntos: no cuenta
+    // ni para bien ni para mal. Sin este filtro, PUNTOS_POR_ESTADO[c.estado]
+    // daría undefined para ese check y la suma entera se volvería NaN.
+    const contables = checks.filter((c) => c.estado !== "sin_datos");
+    if (contables.length === 0) return 0;
+    const total = contables.reduce((suma, c) => suma + PUNTOS_POR_ESTADO[c.estado], 0);
+    return Math.round(total / contables.length);
   }
 
   function pintarCargando(zona) {
@@ -945,8 +954,11 @@
 
     const fila = (check) => {
       const nombre = NOMBRES_CHECK[check.check] || check.check;
-      const letra = { verde: "g", ambar: "a", rojo: "r" }[check.estado];
-      const texto = { verde: "Bien", ambar: "A mejorar", rojo: "Grave" }[check.estado];
+      // "sin_datos": no se ha podido comprobar (p.ej. WHOIS sin
+      // respuesta). No es un aprobado ni un suspenso, así que tiene su
+      // propio color neutro en vez de heredar el verde o el ámbar.
+      const letra = { verde: "g", ambar: "a", rojo: "r", sin_datos: "n" }[check.estado];
+      const texto = { verde: "Bien", ambar: "A mejorar", rojo: "Grave", sin_datos: "No disponible" }[check.estado];
       return `
         <div class="row">
           <span class="pill ${letra}"></span>

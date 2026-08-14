@@ -170,6 +170,9 @@
   .hallazgo{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 24px;display:flex;gap:14px}
   .hallazgo .pill{width:11px;height:11px;border-radius:50%;flex-shrink:0;margin-top:7px}
   .pill.g{background:var(--sage)}.pill.a{background:var(--amber)}.pill.r{background:var(--brick)}
+  /* "n" = neutro (checks en sin_datos, p.ej. WHOIS sin respuesta): ni
+     bien ni mal. Mismo gris cálido que el placeholder del buscador. */
+  .pill.n{background:#B6A894}
   .hallazgo h3{font-family:'Nunito';font-weight:800;font-size:16px;color:var(--brown-dark);margin-bottom:4px}
   .hallazgo p{font-size:14px;color:#5f5142;margin-bottom:6px}
   .hallazgo .impacto{font-size:13px;color:var(--terracotta);font-weight:700}
@@ -381,8 +384,8 @@
   // misma concatenación media docena de veces.
   const conToken = (url) => `${url}${url.includes("?") ? "&" : "?"}t=${encodeURIComponent(token)}`;
 
-  const LETRA = { verde: "g", ambar: "a", rojo: "r" };
-  const LETRA_PRIORIDAD = { alta: "r", media: "a", baja: "g" };
+  const LETRA = { verde: "g", ambar: "a", rojo: "r", sin_datos: "n" };
+  const LETRA_PRIORIDAD = { alta: "r", media: "a", baja: "g", info: "n" };
 
   // Mismos umbrales que usa Google (y que ya usa el backend en
   // rendimiento_check.py) para decidir si una categoría es buena,
@@ -562,7 +565,7 @@
               <span class="familia-nombre"></span>
               <span class="familia-nota">${f.puntuacion}</span>
             </div>
-            <div class="familia-conteo">${f.conteo.verde} bien · ${f.conteo.ambar} a mejorar · ${f.conteo.rojo} ${f.conteo.rojo === 1 ? "grave" : "graves"}</div>
+            <div class="familia-conteo">${f.conteo.verde} bien · ${f.conteo.ambar} a mejorar · ${f.conteo.rojo} ${f.conteo.rojo === 1 ? "grave" : "graves"}${f.conteo.sin_datos ? ` · ${f.conteo.sin_datos} sin datos` : ""}</div>
           </div>`).join("")}
       </div>`;
     // El nombre de la familia viene del backend: se escribe como texto.

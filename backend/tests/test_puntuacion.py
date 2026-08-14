@@ -56,6 +56,76 @@ def test_los_checks_graves_pesan_mas_que_los_menores():
     assert nota_ssl_roto < nota_whois_roto
 
 
+# --- "sin_datos": ni suma ni resta (14 ago 2026) --------------------
+#
+# Antes, cuando WHOIS no daba respuesta, se marcaba VERDE "para no
+# acusar en falso" — pero eso mentía por el otro lado: sumaba puntos a
+# la nota que no le correspondían. Ahora es su propio estado, y estos
+# tests son la promesa de que de verdad no cuenta ni para bien ni para
+# mal, en ningún sitio donde se usa el estado de un check.
+
+def test_sin_datos_da_la_misma_nota_que_si_el_check_no_existiera():
+    """El check en sin_datos debe pesar CERO, no vale ni ganado ni perdido."""
+    con_sin_datos = con("whois", "sin_datos")
+    sin_el_check = [c for c in TODO_VERDE if c["check"] != "whois"]
+    assert calcular_puntuacion(con_sin_datos) == calcular_puntuacion(sin_el_check) == 100
+
+
+def test_sin_datos_no_infla_la_nota_como_hacia_el_verde_antiguo():
+    """
+    Con un ssl roto de verdad, whois en sin_datos debe dar la MISMA nota
+    que si whois no existiera en la lista — no la misma que si whois
+    estuviera en verde (eso sería justo el bug antiguo: un check sin
+    comprobar sumando puntos como si hubiera aprobado).
+    """
+    checks_rojo = con("ssl", "rojo")
+    nota_whois_sin_datos = calcular_puntuacion(
+        [check(c["check"], "sin_datos") if c["check"] == "whois" else c for c in checks_rojo]
+    )
+    nota_sin_el_check = calcular_puntuacion([c for c in checks_rojo if c["check"] != "whois"])
+    nota_whois_verde = calcular_puntuacion(checks_rojo)  # el comportamiento antiguo, el que no queremos
+    assert nota_whois_sin_datos == nota_sin_el_check
+    assert nota_whois_sin_datos != nota_whois_verde
+
+
+def test_todos_los_checks_en_sin_datos_no_revienta():
+    """Caso de borde, no debería pasar en un escaneo real: no hay división por cero."""
+    todo_sin_datos = [check(c["check"], "sin_datos") for c in TODO_VERDE]
+    assert calcular_puntuacion(todo_sin_datos) == 0
+
+
+def test_sin_datos_no_pinta_la_familia_de_gris():
+    """
+    Una familia con un check en sin_datos y el resto verde debe seguir
+    pintándose verde — no existe un cuarto color de familia.
+    """
+    resumen = resumir_checks(con("whois", "sin_datos"))
+    por_clave = {f["clave"]: f for f in resumen["familias"]}
+    assert por_clave["seguridad"]["estado"] == "verde"
+
+
+def test_sin_datos_con_un_rojo_de_verdad_en_la_misma_familia():
+    """El sin_datos no tapa ni suaviza un problema real en la misma familia."""
+    checks = con("whois", "sin_datos")
+    checks = [check(c["check"], "rojo") if c["check"] == "ssl" else c for c in checks]
+    resumen = resumir_checks(checks)
+    por_clave = {f["clave"]: f for f in resumen["familias"]}
+    assert por_clave["seguridad"]["estado"] == "rojo"
+
+
+def test_comparar_escaneos_ignora_transiciones_desde_sin_datos():
+    """
+    Pasar de 'no lo sabíamos' a verde no es una 'mejora' medible (no
+    había ningún problema que arreglar), así que no debe aparecer en
+    el comparador ni como mejora ni como empeoramiento.
+    """
+    antes = {"checks": con("whois", "sin_datos"), "resumen": resumir_checks(con("whois", "sin_datos")), "fecha": "2026-08-01"}
+    ahora = {"checks": TODO_VERDE, "resumen": resumir_checks(TODO_VERDE)}
+    comparacion = comparar_escaneos(antes, ahora)
+    assert comparacion["mejoras"] == []
+    assert comparacion["empeoramientos"] == []
+
+
 # --- Semáforo global ------------------------------------------------
 
 def test_un_detalle_de_seo_no_pinta_el_informe_de_rojo():

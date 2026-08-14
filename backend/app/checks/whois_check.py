@@ -22,6 +22,19 @@ Esto es más frágil que una consulta DNS normal: si no reconocemos el
 formato de un TLD concreto, o el servidor no responde, se trata como
 "no disponible" — nunca como un fallo del dominio en sí, porque la
 limitación es nuestra, no suya.
+
+CAMBIO DEL 14 AGO 2026 (aviso de un amigo de Alberto que hace esto mismo
+en su estudio): antes "no disponible" se marcaba VERDE, con la idea de
+"nunca acusar en falso". Pero eso miente por el otro lado — un punto
+verde dice "comprobado, todo bien" cuando la verdad es "no lo sabemos",
+y de paso SUMABA puntos a la nota que no le correspondían. La causa más
+habitual de "no disponible" no es un fallo técnico nuestro: muchos
+registros de dominios limitan o redactan estos datos por normativa de
+protección de datos (el mismo espíritu del RGPD aplicado al WHOIS
+público), así que a veces solo se puede saber con certeza consultando a
+mano en la web del registrador. Ahora es un estado propio,
+"sin_datos": ni verde ni rojo, no cuenta para la nota (ver
+puntuacion.py) y se explica al cliente en vez de fingir que se comprobó.
 """
 
 import re
@@ -131,14 +144,21 @@ def comprobar_whois(dominio: str) -> dict:
 
 def _resultado_no_disponible(dominio: str, motivo: str) -> dict:
     """
-    No poder consultar el WHOIS de un TLD concreto es una limitación
-    nuestra, no un problema del dominio — nunca debe verse como un
-    check en rojo. Se informa igualmente, en vez de fingir que salió bien.
+    No poder consultar el WHOIS de un TLD concreto no es un fallo del
+    dominio, pero tampoco es una comprobación superada: es que no lo
+    sabemos. Ni verde (fingiría que se comprobó y salió bien) ni rojo
+    (acusaría sin motivo) — un estado propio que no suma ni resta en la
+    nota, y que se lo dice al cliente tal cual.
     """
     return _resultado(
-        estado="verde",
-        prioridad="baja",
-        detalle=f"No se ha podido consultar la fecha de caducidad de este dominio ({motivo}).",
+        estado="sin_datos",
+        prioridad="info",
+        detalle=(
+            f"No hemos podido comprobar la fecha de caducidad de este dominio ({motivo}). "
+            "Muchos registros limitan hoy este dato por normativa de protección de datos, así "
+            "que a veces solo se puede consultar a mano en la web del registrador. No es ni "
+            "bueno ni malo — no cuenta para tu nota."
+        ),
         datos={"disponible": False},
     )
 

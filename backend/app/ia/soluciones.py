@@ -61,7 +61,11 @@ def generar_soluciones(resultado_escaneo: dict) -> dict:
     actual y una estimada tras aplicar los cambios (best case, por código).
     """
     checks = resultado_escaneo["checks"]
-    checks_con_problemas = [c for c in checks if c["estado"] != "verde"]
+    # "sin_datos" (p.ej. WHOIS sin respuesta) no es un problema: es un
+    # dato que no se pudo consultar. No hay ninguna solución real que
+    # proponer para eso, así que pedírsela a la IA solo la empujaría a
+    # inventar un "arreglo" que no existe.
+    checks_con_problemas = [c for c in checks if c["estado"] not in ("verde", "sin_datos")]
 
     if not checks_con_problemas:
         # Nada que arreglar: no hace falta ni llamar a la IA.

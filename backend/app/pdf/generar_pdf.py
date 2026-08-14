@@ -20,17 +20,27 @@ COLOR_PRIORIDAD = {
     "baja": "#8A9A5B",
     "media": "#D9A441",
     "alta": "#B34733",
+    # "info": un check en sin_datos (p.ej. WHOIS sin respuesta) — no es
+    # ni bien ni mal, así que ni verde ni rojo. Mismo gris cálido que
+    # usa la landing para lo mismo (ver informe.html/index.html).
+    "info": "#B6A894",
 }
 TEXTO_PRIORIDAD = {
     "baja": "Prioridad baja",
     "media": "Prioridad media",
     "alta": "Prioridad alta",
+    "info": "Sin datos",
 }
 COLOR_ESTADO = {
     "verde": "#8A9A5B",
     "ambar": "#D9A441",
     "rojo": "#B34733",
 }
+# Nota: "sin_datos" no tiene entrada aquí a propósito — el estado de una
+# FAMILIA (que es lo único que se colorea con este diccionario) nunca es
+# "sin_datos", porque _peor_estado() en puntuacion.py ya lo excluye del
+# cálculo. Solo los checks individuales pueden estar en sin_datos, y esos
+# se colorean por prioridad (COLOR_PRIORIDAD["info"]), no por estado.
 
 # Silueta de Pipo simplificada (sin animaciones ni clases: aquí solo
 # hace falta la imagen estática), reutilizada de landing/index.html.
@@ -234,13 +244,20 @@ def _bloque_familias(resumen: dict) -> str:
     for familia in familias:
         color = COLOR_ESTADO.get(familia["estado"], "#D9A441")
         rojos = familia["conteo"]["rojo"]
+        # Los "sin_datos" (p.ej. WHOIS sin respuesta) no cuentan como
+        # bien ni como mal, pero se mencionan aparte si los hay — si no,
+        # el total de esta línea no cuadraría con el número de checks
+        # reales de la familia, y parecería que a alguien se le olvidó
+        # sumar uno.
+        sin_datos = familia["conteo"].get("sin_datos", 0)
+        texto_sin_datos = f" · {sin_datos} sin datos" if sin_datos else ""
         piezas.append(f"""
           <tr>
             <td class="punto"><span style="background:{color}"></span></td>
             <td class="nombre">{_seguro(familia['nombre'])}</td>
             <td class="detalle">{familia['conteo']['verde']} bien ·
               {familia['conteo']['ambar']} a mejorar ·
-              {rojos} {'grave' if rojos == 1 else 'graves'}</td>
+              {rojos} {'grave' if rojos == 1 else 'graves'}{texto_sin_datos}</td>
             <td class="nota">{familia['puntuacion']}/100</td>
           </tr>
         """)

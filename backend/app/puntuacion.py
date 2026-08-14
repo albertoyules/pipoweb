@@ -20,6 +20,15 @@ miedo. Ahora hay dos ideas nuevas:
    clientes. Dentro de seguridad sigue mandando el eslabón más débil
    (ahí es donde tiene sentido), pero un detalle de SEO ya no puede
    pintar de rojo el informe entero.
+
+AÑADIDO EL 14 AGO 2026: un check puede venir en estado "sin_datos" (hoy
+solo lo usa whois_check.py cuando el registro del dominio no deja
+consultar la caducidad). No es ni un aprobado ni un suspenso — es "no
+lo sabemos" — así que se excluye del todo del cálculo de la nota: ni su
+peso cuenta en el total, ni aporta ni resta puntos. Antes se marcaba
+verde "para no acusar en falso", pero eso mentía por el otro lado
+(sumaba puntos que no le correspondían) y el semáforo pintaba de verde
+algo que en realidad no se había podido comprobar.
 """
 
 # Puntos que aporta cada check según su color. Números redondos y fáciles
@@ -81,11 +90,17 @@ def calcular_puntuacion(checks: list[dict]) -> int:
     """
     Nota actual: media de los puntos de cada check, ponderada por su
     peso. Con 0 checks devuelve 0 en vez de dividir por cero.
+
+    Los checks en "sin_datos" se excluyen del todo: ni su peso entra en
+    el total, ni aportan puntos. Si TODOS los checks recibidos están en
+    "sin_datos" (caso de borde, no debería pasar en un escaneo real),
+    también devuelve 0 en vez de dividir por cero.
     """
-    if not checks:
+    contables = [c for c in checks if c["estado"] != "sin_datos"]
+    if not contables:
         return 0
-    peso_total = sum(peso_de(check["check"]) for check in checks)
-    puntos = sum(PUNTOS_POR_ESTADO[check["estado"]] * peso_de(check["check"]) for check in checks)
+    peso_total = sum(peso_de(check["check"]) for check in contables)
+    puntos = sum(PUNTOS_POR_ESTADO[check["estado"]] * peso_de(check["check"]) for check in contables)
     return round(puntos / peso_total)
 
 
@@ -95,29 +110,44 @@ def calcular_puntuacion_potencial(checks: list[dict], nombres_resueltos: set[str
     cuyo nombre está en nombres_resueltos, asumimos el mejor caso posible
     (pasan a verde) y recalculamos con la misma fórmula. Es una estimación
     optimista y se presenta como tal en el informe, nunca como una promesa.
+
+    Los "sin_datos" se excluyen igual que en calcular_puntuacion: no hay
+    "solución" posible para un dato que no se puede consultar, así que
+    nunca deberían llegar aquí dentro de nombres_resueltos (soluciones.py
+    ya los aparta antes de pedirle nada a la IA), pero se filtran también
+    aquí por si acaso, para que la fórmula sea igual de fiable la llame
+    quien la llame.
     """
-    if not checks:
+    contables = [c for c in checks if c["estado"] != "sin_datos"]
+    if not contables:
         return 0
-    peso_total = sum(peso_de(check["check"]) for check in checks)
+    peso_total = sum(peso_de(check["check"]) for check in contables)
     puntos = sum(
         (PUNTOS_POR_ESTADO["verde"] if check["check"] in nombres_resueltos else PUNTOS_POR_ESTADO[check["estado"]])
         * peso_de(check["check"])
-        for check in checks
+        for check in contables
     )
     return round(puntos / peso_total)
 
 
 def _peor_estado(estados: list[str]) -> str:
-    """El color más grave de la lista. Sin datos, verde."""
-    if "rojo" in estados:
+    """
+    El color más grave de la lista, para pintar una familia o el global.
+    "sin_datos" no cuenta aquí tampoco: no es ni el mejor ni el peor
+    caso, así que una familia nunca se pinta de gris solo porque uno de
+    sus checks no se pudo comprobar — se pinta del peor de los que SÍ se
+    pudieron comprobar. Sin ningún dato real, verde (nada que reprochar).
+    """
+    estados_reales = [e for e in estados if e != "sin_datos"]
+    if "rojo" in estados_reales:
         return "rojo"
-    if "ambar" in estados:
+    if "ambar" in estados_reales:
         return "ambar"
     return "verde"
 
 
 def _contar(checks: list[dict]) -> dict:
-    conteo = {"verde": 0, "ambar": 0, "rojo": 0}
+    conteo = {"verde": 0, "ambar": 0, "rojo": 0, "sin_datos": 0}
     for check in checks:
         conteo[check["estado"]] += 1
     return conteo
@@ -199,6 +229,12 @@ def comparar_escaneos(anterior: dict, actual: dict) -> dict:
     for check in actual["checks"]:
         antes = estados_antes.get(check["check"])
         if antes is None or antes == check["estado"]:
+            continue
+        # "sin_datos" no tiene un lugar en la escala rojo/ámbar/verde: no
+        # se puede decir si pasar de "no lo sabíamos" a "verde" es una
+        # mejora o si es al revés. Se omite del comparador en vez de
+        # forzarlo a un orden que no le corresponde.
+        if "sin_datos" in (antes, check["estado"]):
             continue
         cambio = {"check": check["check"], "antes": antes, "ahora": check["estado"]}
         if orden[check["estado"]] > orden[antes]:
