@@ -1042,6 +1042,53 @@
       return;
     }
 
+    // EN MÓVIL, el destino del vuelo se calcula de verdad, no se
+    // adivina. --vy:-78px (fijo, en el CSS) se calibró viendo un
+    // resultado corto en las pruebas: con pocos checks, la tarjeta de
+    // resultado queda apenas unas líneas por encima de Pipo. Pero un
+    // resultado real con once comprobaciones mide unos 900px, y ese
+    // salto fijo se queda clavado casi al principio — Pipo "vuela" a
+    // un punto que sigue estando cientos de píxeles fuera de la
+    // pantalla, así que el usuario nunca lo ve moverse: solo ve la
+    // tarjeta de resultado aparecer quieta. Aquí se mide la distancia
+    // real entre Pipo y la tarjeta en el momento del vuelo y se
+    // sobrescriben --vx/--vy con ese valor exacto, solo por debajo del
+    // punto de corte de una columna (880px) — en escritorio (dos
+    // columnas, siempre uno al lado del otro) el salto fijo ya
+    // funciona bien, así que ahí no se toca.
+    if (window.matchMedia("(max-width:880px)").matches) {
+      const zona = document.getElementById("zona-resultado");
+      const rectPipo = pipoHero.getBoundingClientRect();
+      const rectZona = zona.getBoundingClientRect();
+      const origenX = rectPipo.left + rectPipo.width / 2;
+      const origenY = rectPipo.top + rectPipo.height / 2;
+      const destinoX = rectZona.left + rectZona.width / 2;
+      // El destino en Y se acota a lo que se ve en pantalla en ESE
+      // momento, no a la altura de la tarjeta: apuntar a "el 18% de la
+      // tarjeta" se rompía con un resultado largo (11 comprobaciones,
+      // ~900px), porque hasta el borde superior de la tarjeta quedaba
+      // ya casi al límite del viewport, y un 18% más adentro caía fuera
+      // del todo — el mismo problema que se quería arreglar, solo que
+      // más disimulado. Aquí se calcula qué trozo de la tarjeta es
+      // VISIBLE ahora mismo (entre el techo y el suelo de la pantalla)
+      // y se apunta a un punto dentro de ese trozo, así el destino
+      // siempre cae en pantalla sea cual sea la longitud del resultado.
+      const visibleArriba = Math.max(rectZona.top, 0);
+      const visibleAbajo = Math.min(rectZona.bottom, window.innerHeight);
+      const destinoY =
+        visibleAbajo > visibleArriba
+          ? visibleArriba + (visibleAbajo - visibleArriba) * 0.35
+          : window.innerHeight * 0.35; // la tarjeta no se ve nada: mejor un punto central que uno inventado
+      pipoHero.style.setProperty("--vx", `${Math.round(destinoX - origenX)}px`);
+      pipoHero.style.setProperty("--vy", `${Math.round(destinoY - origenY)}px`);
+    } else {
+      // En escritorio se usan siempre los valores fijos del CSS, aunque
+      // quede algún valor de una vuelta anterior en móvil (p.ej. si se
+      // gira el teléfono entre un escaneo y otro).
+      pipoHero.style.removeProperty("--vx");
+      pipoHero.style.removeProperty("--vy");
+    }
+
     // Reinicia la animación si ya se había volado antes (sin esto, el
     // navegador ve la misma clase y no la vuelve a lanzar).
     void pipoHero.offsetWidth;
