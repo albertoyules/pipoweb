@@ -126,11 +126,44 @@
   @media(prefers-reduced-motion:reduce){.escena-pipo,.mag,.pantalla-mini .haz{animation:none}}
 
   /* cabecera del informe */
-  .informe-cabecera{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;box-shadow:var(--shadow);margin-bottom:28px}
-  .informe-cabecera svg{width:56px;height:56px;flex-shrink:0}
-  .informe-cabecera h1{font-size:24px;color:var(--ink);margin-bottom:6px}
-  .informe-cabecera p{font-size:15px;color:var(--brown-dark)}
-  .informe-nota{margin-left:auto;font-family:'Fraunces';font-size:44px;font-weight:600;color:var(--amber);flex-shrink:0;padding-left:16px}
+  /* La cabecera es una REJILLA, no una fila flexible. En una fila, el
+     bloque de texto queda encajonado entre el búho y la nota, y en el
+     móvil se convierte en una columna estrechísima que estira la
+     tarjeta hacia abajo. Con rejilla, el texto puede cambiarse de sitio
+     en móvil (ver el @media de abajo) sin tocar el HTML. */
+  .informe-cabecera{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    grid-template-areas:
+      "buho titulo nota"
+      "buho texto  nota";
+    align-items:center;
+    column-gap:20px;row-gap:5px;
+    background:#fff;border:1px solid var(--line);border-radius:20px;
+    padding:28px;box-shadow:var(--shadow);margin-bottom:28px;
+  }
+  .informe-cabecera svg{grid-area:buho;width:56px;height:56px}
+  .informe-cabecera h1{grid-area:titulo;font-size:24px;color:var(--ink);align-self:end;
+    min-width:0;overflow-wrap:anywhere}
+  .informe-cabecera p{grid-area:texto;font-size:15px;color:var(--brown-dark);align-self:start;min-width:0}
+  .informe-nota{grid-area:nota;font-family:'Fraunces';font-size:44px;font-weight:600;color:var(--amber);padding-left:16px;line-height:1}
+
+  /* En móvil: el búho, el dominio y la nota comparten la fila de arriba,
+     y el texto de la IA pasa a ocupar el ancho completo debajo. Así la
+     tarjeta deja de ser una columna alta y estrecha. */
+  @media(max-width:640px){
+    .informe-cabecera{
+      grid-template-areas:
+        "buho titulo nota"
+        "texto texto texto";
+      column-gap:13px;row-gap:14px;
+      padding:22px;
+    }
+    .informe-cabecera svg{width:44px;height:44px}
+    .informe-cabecera h1{font-size:19px;align-self:center}
+    .informe-cabecera p{font-size:14.5px}
+    .informe-nota{font-size:34px;padding-left:0;align-self:center}
+  }
 
   /* hallazgos */
   .hallazgos{display:flex;flex-direction:column;gap:12px;margin-bottom:36px}
@@ -272,13 +305,13 @@
   <div id="estado-error" style="display:none"></div>
 
   <div id="contenido" style="display:none">
+    <!-- Sin div envolviendo el título y el texto: cada uno tiene que ser
+         una celda suelta de la rejilla para poder recolocarse en móvil. -->
     <div class="informe-cabecera">
       <svg><use href="#pipo"/></svg>
-      <div>
-        <h1 id="txt-dominio"></h1>
-        <p id="txt-resumen"></p>
-      </div>
+      <h1 id="txt-dominio"></h1>
       <div class="informe-nota" id="txt-nota"></div>
+      <p id="txt-resumen"></p>
     </div>
 
     <div class="zona-detalle" id="zona-detalle">
