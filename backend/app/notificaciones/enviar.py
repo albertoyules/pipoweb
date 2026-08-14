@@ -16,42 +16,49 @@ o con Google PageSpeed.
 
 import httpx
 
-from app.config import RESEND_API_KEY
+from app.config import REMITENTE_EMAIL, RESEND_API_KEY, RESPONDER_A
 
 URL_API = "https://api.resend.com/emails"
-
-# Remitente de pruebas de Resend. Sin verificar un dominio propio (Pipo
-# todavía no tiene uno decidido — ver CLAUDE.md), no se puede mandar
-# desde una dirección con marca propia como "pipo@pipo.es": hay que
-# usar este remitente genérico hasta que exista ese dominio y se
-# verifique con sus registros DNS en el panel de Resend.
-REMITENTE = "Pipo <onboarding@resend.dev>"
 
 
 class ErrorEmail(Exception):
     """Se lanza cuando no se ha podido enviar el email."""
 
 
-def enviar_email(destinatario: str, asunto: str, cuerpo: str) -> None:
+def enviar_email(destinatario: str, asunto: str, cuerpo: str, html: str | None = None) -> None:
     """
     Envío síncrono y bloqueante a propósito (usamos el cliente síncrono
     de httpx, no el asíncrono) — quien llame a esto debe mandarlo a un
     hilo aparte con asyncio.to_thread, igual que ya se hace con la IA y
     con WeasyPrint.
+
+    `cuerpo` (texto plano) es SIEMPRE obligatorio, `html` es opcional.
+    Cuando se manda `html`, Resend lo entrega como multipart/alternative
+    (igual que cualquier email normal): los clientes de correo modernos
+    enseñan la versión bonita, y los que no soportan HTML —o alguien que
+    lo abre en un lector de texto— caen automáticamente al texto plano.
+    Por eso `cuerpo` no se recorta ni se toca aunque exista `html`: es
+    el plan B real, no un adorno.
     """
     if not RESEND_API_KEY:
         raise ErrorEmail("Pipo no tiene configurado el envío de emails todavía.")
+
+    cuerpo_peticion = {
+        "from": REMITENTE_EMAIL,
+        "to": [destinatario],
+        "subject": asunto,
+        "text": cuerpo,
+    }
+    if html:
+        cuerpo_peticion["html"] = html
+    if RESPONDER_A:
+        cuerpo_peticion["reply_to"] = RESPONDER_A
 
     try:
         respuesta = httpx.post(
             URL_API,
             headers={"Authorization": f"Bearer {RESEND_API_KEY}"},
-            json={
-                "from": REMITENTE,
-                "to": [destinatario],
-                "subject": asunto,
-                "text": cuerpo,
-            },
+            json=cuerpo_peticion,
             timeout=15,
         )
         respuesta.raise_for_status()

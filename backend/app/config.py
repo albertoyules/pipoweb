@@ -46,6 +46,21 @@ TELEFONO_BIZUM = _leer_clave("TELEFONO_BIZUM")
 # Alberto) — ver app/notificaciones/enviar.py para el porqué de Resend.
 RESEND_API_KEY = _leer_clave("RESEND_API_KEY")
 
+# De qué dirección salen los emails. Va en una variable de entorno y no
+# en el código a propósito: Resend RECHAZA cualquier remitente cuyo
+# dominio no esté verificado en su panel, así que si se escribiera
+# "hola@pipoweb.com" directamente aquí, todos los emails empezarían a
+# fallar en el momento del despliegue y no se arreglarían hasta que los
+# registros DNS terminaran de propagar. Con una variable, el cambio se
+# hace en Railway justo cuando Resend da el visto bueno, sin desplegar
+# nada y con marcha atrás inmediata si algo va mal.
+#
+#   PIPO_REMITENTE=Pipo <hola@pipoweb.com>
+#
+# Mientras no exista, se usa el remitente de pruebas de Resend, que
+# funciona siempre.
+REMITENTE_EMAIL = _leer_clave("PIPO_REMITENTE") or "Pipo <onboarding@resend.dev>"
+
 # El email de Alberto, como destino de los avisos internos ("nueva
 # solicitud"). Ya no tiene que ver con el envío en sí (eso lo hace
 # RESEND_API_KEY) — es solo "a qué buzón le llega la notificación".
@@ -54,6 +69,16 @@ RESEND_API_KEY = _leer_clave("RESEND_API_KEY")
 # CLAUDE.md), pero ya no los usa nada.
 GMAIL_EMAIL = _leer_clave("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = _leer_clave("GMAIL_APP_PASSWORD")
+
+# A dónde va la respuesta si el cliente le da a "Responder". Por defecto,
+# al buzón de Alberto. Importa porque Resend solo ENVÍA: una dirección
+# como hola@pipoweb.com no recibe nada por sí sola, así que hasta que
+# tenga reenvío configurado en Namecheap, contestar al remitente se
+# perdería en silencio — y perder el email de un cliente que ya ha
+# pedido presupuesto es de los fallos más caros que puede tener esto.
+# Cuando el reenvío funcione, se puede quitar poniendo PIPO_RESPONDER_A
+# vacío en Railway.
+RESPONDER_A = _leer_clave("PIPO_RESPONDER_A") or GMAIL_EMAIL
 
 # Clave del panel privado de pedidos (landing/pedidos.html?clave=...) —
 # quien la tenga puede ver los pedidos y marcarlos como pagados. Sin

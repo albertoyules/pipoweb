@@ -526,13 +526,13 @@ async def crear_solicitud(
 
     email_enviado = False
     try:
-        asunto_cliente, cuerpo_cliente = mensaje_solicitud_cliente(
+        asunto_cliente, cuerpo_cliente, html_cliente = mensaje_solicitud_cliente(
             dominio=escaneo["dominio"],
             checks=escaneo["resultado"]["checks"],
             referencia=referencia,
             precio_estimado=precio_estimado,
         )
-        await asyncio.to_thread(enviar_email, email_limpio, asunto_cliente, cuerpo_cliente)
+        await asyncio.to_thread(enviar_email, email_limpio, asunto_cliente, cuerpo_cliente, html_cliente)
         email_enviado = True
     except ErrorEmail:
         # El frontend ya enseña en pantalla la confirmación y el email de
@@ -541,7 +541,7 @@ async def crear_solicitud(
         pass
 
     try:
-        asunto_alberto, cuerpo_alberto = mensaje_solicitud_alberto(
+        asunto_alberto, cuerpo_alberto, html_alberto = mensaje_solicitud_alberto(
             dominio=escaneo["dominio"],
             email_cliente=email_limpio,
             telefono_cliente=telefono,
@@ -550,7 +550,7 @@ async def crear_solicitud(
             precio_estimado=precio_estimado,
             id_escaneo=id_escaneo,
         )
-        await asyncio.to_thread(enviar_email, GMAIL_EMAIL, asunto_alberto, cuerpo_alberto)
+        await asyncio.to_thread(enviar_email, GMAIL_EMAIL, asunto_alberto, cuerpo_alberto, html_alberto)
     except ErrorEmail:
         pass  # aviso interno, best-effort: no debe romper la solicitud del cliente
 
