@@ -92,7 +92,7 @@ PIPO ANALIZA/
             └── mensajes.py                  → contenido de los emails de solicitud (cliente + aviso a Alberto)
     ├── herramientas/
     │   └── lote.py                → INTERNO: revisa un CSV de dominios y los ordena por quién está peor
-    ├── tests/                     → pytest (65 tests): puntuación, semáforo, checks con HTML fijo, validación de dominios
+    ├── tests/                     → pytest (69 tests): puntuación, semáforo, checks con HTML fijo, validación de dominios
     └── requirements-dev.txt        → pytest/playwright, NO se instalan en Railway
 ```
 
@@ -156,6 +156,13 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
     - **Si la raíz no sirve la página pero `www` sí (o al revés), la descarga fallaba** y los seis checks de contenido se iban a rojo en cascada. Ahora `obtener_pagina()` reintenta con la otra variante y deja en `host_servido` cuál respondió. Y si no responde ninguna, esos checks salen en **`sin_datos`**, no en rojo: no poder leer una web es una limitación nuestra, no un fallo del negocio. `puntuacion.py` ya excluía `sin_datos` de la nota, así que no hubo que tocarlo.
 
     Es el mismo principio de la decisión #11 llevado hasta el final: **cuando Pipo no puede comprobar algo, lo dice; no lo cuenta como que está mal.** Es la clase de fallo que no se ve leyendo el código, solo verificando a mano contra webs reales.
+
+13. **Pipo se identifica como `PipoBot`, y una página de error no es la web del cliente** (16 ago 2026, `pagina.py::USER_AGENT_PIPO`). El mismo día del `www` aparecieron cinco fallos más de la misma familia, todos encontrados verificando a mano los hallazgos del estudio de Churriana/Alhaurín contra las webs reales. El de fondo era el peor de todos:
+    - **`obtener_pagina()` solo capturaba errores de red, no códigos de error HTTP.** Un `403` llegaba con `ok=True` y los checks analizaban la página de error —125 bytes— como si fuera la home: de ahí salían acusaciones de no tener ni H1, ni aviso legal, ni etiqueta de móvil, dichas con la misma seguridad que un hallazgo real. **Le pasaba a 6 de las 39 webs del estudio (15%)**, entre ellas un despacho de abogados y una clínica veterinaria que estaban en la lista de objetivos comerciales por hallazgos que no existían.
+    - La causa de los 403 era el User-Agent de fábrica de `httpx` (`python-httpx/…`), que bastantes servidores bloquean. **Ahora Pipo se identifica por su nombre en todas las peticiones** (`Mozilla/5.0 (compatible; PipoBot/1.0; +https://pipoweb.com)`), en `pagina.py`, `headers_check`, `ssl_check`, `seo_check`, `tecnologia_check`, `experiencia_check` y `archivos_expuestos`. **Disfrazarse de Chrome funcionaría igual de bien y sería lo contrario de lo que Pipo dice ser**: un visitante identificado que solo mira lo público. Si algún día un servidor bloquea a `PipoBot` por su nombre, la respuesta correcta es aceptar el `sin_datos`, no camuflarse.
+    - `ssl_check` pedía la redirección `http→https` sin UA, así que un 403 se leía como "la web sirve contenido sin cifrar". `experiencia_check` exigía la palabra `width` en el viewport, cuando `initial-scale=1` también adapta al móvil. `seo_check` decía "faltan etiquetas Open Graph" cuando faltaba solo `og:image`. `rendimiento_check` ponía en rojo una avería de la API de Google, y `archivos_expuestos` ponía en rojo un fallo de conexión — o sea, acusaba de tener archivos expuestos justo cuando no había podido comprobar ninguno.
+
+    Efecto medido sobre las 38 webs: **nota media 63 → 69**, y las que tienen algún fallo grave bajan del 95% al 87%. **La lección, que es lo que hay que recordar: los tres bugs del `www` y estos cinco salieron todos de comprobar a mano con `curl`, `openssl` y `dig` lo que decía la nota — ninguno se veía leyendo el código.** Antes de poner un hallazgo delante de un cliente, verifícalo.
 
 ---
 
@@ -382,12 +389,12 @@ los **portales/directorios** (idealista, habitaclia, páginas amarillas) y las *
 pages SEO** ("reformas en [pueblo]" de una empresa que no tiene oficina allí). Ojo también con que
 **"Churriana de la Vega" es Granada**, no la Churriana de Málaga: varios resultados mezclan las dos.
 
-**Resultado:** 38 webs, nota media 67/100, 95% con algún fallo grave. Informe publicado como
+**Resultado:** 38 webs, nota media 69/100, 87% con algún fallo grave (tras corregir los ocho falsos positivos que destapó el propio estudio). Informe publicado como
 Artifact privado (`Ruta Churriana–Alhaurín`).
 
 **Lo que el estudio le enseñó al producto, que vale más que la lista:**
 
-- **`headers` sale en ROJO en el 95% de las webs.** No es un hallazgo, es el estado normal de la
+- **`headers` sale en ROJO en la gran mayoría de las webs.** No es un hallazgo, es el estado normal de la
   pyme española. Como argumento de venta no distingue a nadie y suena a vendedor genérico. Lo que
   sí distingue: cifrado realmente roto (1 de 38) y páginas legales ausentes (42%).
 - **Verificar a mano cambió el ranking dos veces.** La primera versión de la lista tenía tres de
