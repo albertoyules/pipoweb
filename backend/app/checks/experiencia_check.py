@@ -61,8 +61,15 @@ async def comprobar_experiencia(pagina: dict, dominio: str) -> dict:
     menores: list[str] = []
 
     # --- ¿Se ve bien en el móvil? ---
+    # Vale tanto "width=device-width" como "initial-scale=1": las dos
+    # formas hacen que el móvil use el ancho real de la pantalla. Pedir
+    # solo "width" acusaba de "no se adapta al móvil" a webs que sí se
+    # adaptan — le pasó a pascallegalabogados.es, cuyo viewport es
+    # "initial-scale=1, minimum-scale=1, maximum-scale=5, viewport-fit=cover"
+    # (16 ago 2026).
     viewport = soup.find("meta", attrs={"name": re.compile(r"^viewport$", re.I)})
-    tiene_viewport = viewport is not None and "width" in (viewport.get("content") or "").lower()
+    contenido_viewport = (viewport.get("content") or "").lower() if viewport else ""
+    tiene_viewport = "width" in contenido_viewport or "initial-scale" in contenido_viewport
     if not tiene_viewport:
         graves.append(
             "la web no declara adaptarse al móvil (falta la etiqueta viewport), así que en un teléfono "

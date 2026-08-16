@@ -7,6 +7,7 @@ sin ello, cualquiera podía usar Pipo para husmear la red del hosting
 desde dentro (comprobado en producción el 13 ago 2026).
 """
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -105,3 +106,50 @@ def test_dominio_raiz_solo_quita_el_www_de_delante(entrada, esperado):
 )
 def test_variante_www_alterna_las_dos_formas(entrada, esperado):
     assert variante_www(entrada) == esperado
+
+
+# --- Una página de error no es la web del cliente (16 ago 2026) -------
+
+
+def test_un_403_no_se_analiza_como_si_fuera_la_web():
+    """
+    6 de las 39 webs del estudio devolvían 403 al User-Agent de httpx.
+    obtener_pagina() las daba por buenas y los checks analizaban una
+    página de error de 125 bytes como si fuera la home: de ahí salían
+    acusaciones de no tener ni H1, ni aviso legal, ni etiqueta de móvil.
+    """
+    import httpx
+
+    from app.checks.pagina import obtener_pagina
+
+    llamadas = []
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        llamadas.append(str(peticion.url))
+        return httpx.Response(403, text="<html><head><title>403 Forbidden</title></head></html>")
+
+    transporte = httpx.MockTransport(responder)
+    original = httpx.AsyncClient
+
+    class ClienteFalso(original):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transporte
+            super().__init__(*args, **kwargs)
+
+    httpx.AsyncClient = ClienteFalso
+    try:
+        resultado = asyncio.run(obtener_pagina("ejemplo.es"))
+    finally:
+        httpx.AsyncClient = original
+
+    assert resultado["ok"] is False
+    assert "403" in resultado["error"]
+    assert resultado["html"] == ""
+
+
+def test_pipo_se_identifica_por_su_nombre():
+    """No se disfraza de navegador: dice quién es y dónde preguntar."""
+    from app.checks.pagina import USER_AGENT_PIPO
+
+    assert "PipoBot" in USER_AGENT_PIPO
+    assert "pipoweb.com" in USER_AGENT_PIPO

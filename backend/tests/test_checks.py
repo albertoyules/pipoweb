@@ -210,3 +210,39 @@ def test_una_web_ilegible_no_hunde_la_nota():
         {"check": "dns", "estado": "verde", "prioridad": "baja", "detalle": "", "datos": {}},
     ]
     assert calcular_puntuacion(checks) == 100
+
+
+# --- Falsos positivos encontrados el 16 ago 2026 ----------------------
+#
+# Los tres salieron de verificar a mano los hallazgos del estudio de
+# Churriana/Alhaurín contra las webs reales. Los tres acusaban de algo
+# que el negocio sí tenía, que es el error que cuesta una venta entera.
+
+
+def test_viewport_con_initial_scale_cuenta_como_adaptada_a_movil():
+    """
+    pascallegalabogados.es declara "initial-scale=1, minimum-scale=1,
+    maximum-scale=5, viewport-fit=cover" — sin la palabra "width". Pipo
+    decía que la web "se verá diminuta en el móvil" y era mentira.
+    """
+    html = """<html lang="es"><head><title>Despacho</title>
+    <meta name="viewport" content="initial-scale=1, minimum-scale=1, maximum-scale=5, viewport-fit=cover">
+    </head><body><h1>Despacho</h1><p>Texto suficiente para el analisis.</p></body></html>"""
+    resultado = asyncio.run(comprobar_experiencia(pagina(html), "ejemplo.es"))
+    assert resultado["datos"]["adaptada_a_movil"] is True
+    assert "diminuta" not in resultado["detalle"]
+
+
+def test_solo_se_reprocha_la_etiqueta_open_graph_que_falta():
+    """
+    Lo normal es que el CMS ponga og:title y og:description y falte solo
+    la imagen. Decir "faltan las etiquetas Open Graph" delante de quien
+    tiene casi todas hace quedar a Pipo por equivocado.
+    """
+    html = """<html lang="es"><head><title>Taller Paco de Malaga centro</title>
+    <meta name="description" content="Taller mecanico en Malaga con mas de veinte anos de experiencia: revisiones, neumaticos y pre-ITV sin cita previa.">
+    <meta property="og:title" content="Taller Paco">
+    </head><body><h1>Taller</h1><p>Texto suficiente para el analisis de la pagina.</p></body></html>"""
+    resultado = asyncio.run(comprobar_seo(pagina(html)))
+    assert "og:image" in resultado["detalle"]
+    assert "faltan las etiquetas Open Graph" not in resultado["detalle"]

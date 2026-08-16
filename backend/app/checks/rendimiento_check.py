@@ -64,14 +64,21 @@ async def comprobar_rendimiento(dominio: str, timeout: float = 45.0) -> dict:
             _auditar(dominio, "mobile", timeout),
             _auditar(dominio, "desktop", timeout),
         )
+    # Que la API de PageSpeed de Google falle o no conteste es un
+    # problema NUESTRO, no de la web analizada. Ponerlo en rojo le
+    # restaba nota a un negocio por una avería de Google.
     except httpx.RequestError as error:
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
-            detalle=f"No se ha podido completar el análisis de rendimiento ({error}).",
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido medir la velocidad ({error}). No cuenta para la nota.",
         )
     except _ErrorPageSpeed as error:
-        return _resultado(estado="rojo", prioridad="alta", detalle=str(error))
+        return _resultado(
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido medir la velocidad: {error} No cuenta para la nota.",
+        )
 
     puntuacion = movil["rendimiento"]
     datos = {"mobile": movil, "desktop": ordenador}

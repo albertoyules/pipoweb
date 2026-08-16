@@ -25,6 +25,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from app.checks.pagina import USER_AGENT_PIPO
+
 TIMEOUT_REDIRECCION = 5.0
 
 
@@ -40,12 +42,22 @@ def _verificar_redireccion_http_https(dominio: str) -> dict:
     """
     try:
         respuesta = requests.get(
-            f"http://{dominio}", timeout=TIMEOUT_REDIRECCION, allow_redirects=True
+            f"http://{dominio}",
+            timeout=TIMEOUT_REDIRECCION,
+            allow_redirects=True,
+            headers={"User-Agent": USER_AGENT_PIPO},
         )
     except requests.exceptions.RequestException:
         # No responde por HTTP: no hay ninguna puerta de entrada sin
         # cifrar, así que no hay nada que redirigir. Se cuenta como
         # correcto, no como un fallo del check.
+        return {"ok": True, "url_final": None}
+
+    # Un 403 al bot no dice nada sobre si el servidor redirige o no: se
+    # queda en http:// porque nos ha echado, no porque sirva la web sin
+    # cifrar. Sin esto, pascallegalabogados.es salía acusado de "no
+    # redirige a https" cuando redirige perfectamente (16 ago 2026).
+    if respuesta.status_code >= 400:
         return {"ok": True, "url_final": None}
 
     url_final = str(respuesta.url)

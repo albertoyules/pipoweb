@@ -69,10 +69,13 @@ async def comprobar_archivos_expuestos(dominio: str, timeout: float = 4.0) -> di
                     # simplemente no la contamos como expuesta.
                     continue
     except Exception as error:  # noqa: BLE001 - fallo de conexión general al dominio
+        # No haber podido mirar no es haber encontrado algo: en rojo,
+        # este check acusaba de tener archivos expuestos justo cuando no
+        # había podido comprobar ninguno.
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
-            detalle=f"No se ha podido conectar con el dominio para revisar archivos expuestos ({error}).",
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido revisar si hay archivos expuestos ({error}). No cuenta para la nota.",
         )
 
     datos = {"rutas_comprobadas": len(RUTAS_SENSIBLES), "expuestos": expuestos}

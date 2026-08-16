@@ -67,8 +67,23 @@ async def comprobar_seo(pagina: dict) -> dict:
     # --- Open Graph (cómo se ve al compartir en redes/WhatsApp) ---
     tiene_og_title = soup.find("meta", property="og:title") is not None
     tiene_og_image = soup.find("meta", property="og:image") is not None
-    if not tiene_og_title or not tiene_og_image:
-        menores.append("faltan etiquetas Open Graph (se vería mal al compartir en redes/WhatsApp)")
+    # Se dice cuál falta, no "faltan las etiquetas Open Graph" en bloque:
+    # lo normal es tener og:title y og:description puestos por el CMS y
+    # que solo falte la imagen. Decirlo en bloque hacía que Pipo pareciera
+    # equivocado delante de alguien que sí las tiene casi todas.
+    if not tiene_og_title and not tiene_og_image:
+        menores.append(
+            "faltan las etiquetas Open Graph (og:title y og:image): al compartir el enlace en "
+            "WhatsApp o redes sale sin titular ni imagen"
+        )
+    elif not tiene_og_image:
+        menores.append(
+            "falta la etiqueta og:image: al compartir el enlace en WhatsApp o redes sale sin imagen"
+        )
+    elif not tiene_og_title:
+        menores.append(
+            "falta la etiqueta og:title: al compartir el enlace en WhatsApp o redes sale sin titular"
+        )
 
     # --- H1 ---
     h1s = soup.find_all("h1")
