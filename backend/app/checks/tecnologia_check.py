@@ -24,6 +24,8 @@ desactualizado" que ya aparecía en el "cómo funciona" de la landing.
 import re
 
 import httpx
+
+from app.checks.pagina import USER_AGENT_PIPO
 from bs4 import BeautifulSoup
 from packaging.version import InvalidVersion, Version
 
@@ -125,7 +127,7 @@ async def _version_wordpress_desde_readme(url_base: str) -> str | None:
     por seguridad, en cuyo caso simplemente no encontramos versión.
     """
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=4.0) as cliente:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=4.0, headers={"User-Agent": USER_AGENT_PIPO}) as cliente:
             respuesta = await cliente.get(url_base.rstrip("/") + "/readme.html")
     except httpx.RequestError:
         return None
@@ -145,7 +147,7 @@ async def _ultima_version_estable_wordpress() -> str:
     poder valorar nada.
     """
     try:
-        async with httpx.AsyncClient(timeout=4.0) as cliente:
+        async with httpx.AsyncClient(timeout=4.0, headers={"User-Agent": USER_AGENT_PIPO}) as cliente:
             respuesta = await cliente.get("https://api.wordpress.org/core/version-check/1.7/")
             datos = respuesta.json()
             return datos["offers"][0]["version"]

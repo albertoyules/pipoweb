@@ -22,6 +22,8 @@ y le duelen en la caja:
 import re
 
 import httpx
+
+from app.checks.pagina import USER_AGENT_PIPO
 from bs4 import BeautifulSoup
 
 # A partir de aquí el HTML solo (sin contar imágenes ni scripts) ya es
@@ -138,7 +140,7 @@ async def _responde_variante_www(dominio: str) -> bool | None:
     """
     alterno = dominio[4:] if dominio.startswith("www.") else f"www.{dominio}"
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=TIMEOUT_WWW) as cliente:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=TIMEOUT_WWW, headers={"User-Agent": USER_AGENT_PIPO}) as cliente:
             respuesta = await cliente.get(f"https://{alterno}")
     except httpx.RequestError:
         return False

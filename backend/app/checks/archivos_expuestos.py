@@ -25,7 +25,11 @@ no aquí — este módulo solo sabe hacer el check en sí.
 
 import httpx
 
-USER_AGENT_PIPO = "PipoBot/1.0 (+https://pipo.es/bot)"
+# El User-Agent vive en pagina.py, el módulo que centraliza las
+# descargas. Antes había aquí una copia que apuntaba a pipo.es, un
+# dominio que no es de Pipo: un bot que se identifica con una URL
+# falsa es peor que uno que no se identifica.
+from app.checks.pagina import USER_AGENT_PIPO  # noqa: E402
 
 # Lista corta y fija a propósito. Backups y archivos de configuración
 # clásicos que a veces quedan expuestos por error al desplegar.

@@ -15,6 +15,17 @@ from bs4 import BeautifulSoup
 
 from app.seguridad import variante_www
 
+# Pipo se identifica por su nombre, no se disfraza de navegador.
+#
+# Hace falta un User-Agent porque el de fábrica de httpx ("python-httpx/…")
+# lo bloquean bastantes servidores: 6 de las 39 webs del estudio del 16 ago
+# 2026 devolvían 403 solo por eso. Se comprobó que las seis aceptan
+# cualquier UA razonable, incluido este, que dice quién es y a dónde ir a
+# preguntar. Disfrazarse de Chrome funcionaría igual, pero sería lo
+# contrario de lo que Pipo dice ser: un visitante identificado que solo
+# mira lo público.
+USER_AGENT_PIPO = "Mozilla/5.0 (compatible; PipoBot/1.0; +https://pipoweb.com)"
+
 # Contenedores típicos de las webs que se dibujan con JavaScript en el
 # navegador (React, Vue, Angular, Next...). Si la página trae uno de
 # estos y casi nada de texto, lo que hemos descargado es el envoltorio
@@ -53,7 +64,11 @@ async def _descargar(host: str, timeout: float) -> dict:
     """Un intento de descarga contra un host concreto."""
     url = f"https://{host}"
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as cliente:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=timeout,
+            headers={"User-Agent": USER_AGENT_PIPO},
+        ) as cliente:
             respuesta = await cliente.get(url)
     except httpx.RequestError as error:
         return {
@@ -62,6 +77,24 @@ async def _descargar(host: str, timeout: float) -> dict:
             "url": url,
             "html": "",
             "headers": {},
+            "host_pedido": host,
+            "host_servido": None,
+        }
+
+    # Un 403 o un 500 NO son la web del cliente: son una página de error,
+    # normalmente de 100-200 bytes. Analizarla como si fuera su home hacía
+    # que Pipo dijera que no tiene ni título, ni H1, ni aviso legal, ni
+    # etiqueta de móvil — todo falso, y todo dicho con la misma seguridad
+    # que un hallazgo real. Le pasaba a 6 de las 39 webs del estudio del
+    # 16 ago 2026, entre ellas un despacho de abogados al que se estuvo a
+    # punto de acusar de cuatro cosas que sí tenía.
+    if respuesta.status_code >= 400:
+        return {
+            "ok": False,
+            "error": f"el servidor respondió {respuesta.status_code}",
+            "url": str(respuesta.url),
+            "html": "",
+            "headers": respuesta.headers,
             "host_pedido": host,
             "host_servido": None,
         }

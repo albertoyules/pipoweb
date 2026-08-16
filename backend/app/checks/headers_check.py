@@ -23,6 +23,8 @@ Qué comprobamos:
 
 import httpx
 
+from app.checks.pagina import USER_AGENT_PIPO
+
 # Nombre de la cabecera -> qué protege, en una frase que se pueda
 # mostrar tal cual en el informe.
 CABECERAS_ESPERADAS = {
@@ -79,13 +81,20 @@ async def comprobar_headers(dominio: str, timeout: float = 5.0) -> dict:
     url = f"https://{dominio}"
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as cliente:
+        async with httpx.AsyncClient(
+            follow_redirects=True,
+            timeout=timeout,
+            headers={"User-Agent": USER_AGENT_PIPO},
+        ) as cliente:
             respuesta = await cliente.get(url)
     except httpx.RequestError as error:
+        # Mismo criterio que los checks de contenido (ver pagina.py): no
+        # haber podido mirar no es lo mismo que estar mal, así que no
+        # cuenta para la nota en vez de contar como el peor caso.
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
-            detalle=f"No se ha podido acceder a la web para revisar sus cabeceras ({error}).",
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido leer las cabeceras de la web ({error}). No cuenta para la nota.",
         )
 
     # httpx.Headers ya ignora mayúsculas/minúsculas al comparar, igual
