@@ -92,11 +92,11 @@ PIPO ANALIZA/
             └── mensajes.py                  → contenido de los emails de solicitud (cliente + aviso a Alberto)
     ├── herramientas/
     │   └── lote.py                → INTERNO: revisa un CSV de dominios y los ordena por quién está peor
-    ├── tests/                     → pytest (51 tests): puntuación, semáforo, checks con HTML fijo, validación de dominios
+    ├── tests/                     → pytest (65 tests): puntuación, semáforo, checks con HTML fijo, validación de dominios
     └── requirements-dev.txt        → pytest/playwright, NO se instalan en Railway
 ```
 
-**Los tests** se lanzan con `cd backend && .venv/bin/pytest`. No tocan la red: a los checks se les pasa el HTML ya "descargado". Prueban sobre todo los casos donde Pipo podría **acusar de más**, que es lo que costaría credibilidad delante de un cliente. Ya han pagado su coste: encontraron que la detección de favicon no funcionaba nunca (`soup.find("link", rel=lambda...)` no hace lo que parece con atributos de varios valores en BeautifulSoup).
+**Los tests** se lanzan con `cd backend && .venv/bin/python -m pytest`. **Ojo: el atajo `.venv/bin/pytest` está roto** — su shebang apunta a `PRUEBAS PROG/PIPOSCAN/backend/.venv/...`, la ruta de cuando el proyecto se llamaba así, y falla con "No such file or directory". Lanzarlo como módulo (`python -m pytest`) lo esquiva sin tener que rehacer el venv. No tocan la red: a los checks se les pasa el HTML ya "descargado". Prueban sobre todo los casos donde Pipo podría **acusar de más**, que es lo que costaría credibilidad delante de un cliente. Ya han pagado su coste: encontraron que la detección de favicon no funcionaba nunca (`soup.find("link", rel=lambda...)` no hace lo que parece con atributos de varios valores en BeautifulSoup).
 
 No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta "namespace packages" implícitos. No hace falta añadirlos.
 
@@ -150,6 +150,12 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 9. **El rate limiting se identifica por `X-Forwarded-For`, no por la IP de la conexión** (`app/seguridad.py::ip_cliente`). Detrás del proxy de Railway, el `get_remote_address` que trae slowapi ve la IP del proxy, no la del visitante, y el límite **no se aplicaba nunca en producción** — comprobado con curl el 13 ago 2026: 7 escaneos seguidos, los 7 aceptados, mientras el mismo código en local cortaba al sexto. Si alguna vez se toca el rate limiting, **hay que verificarlo contra Railway**, no solo en local: es un fallo que no se ve desde el código.
 10. **Todo lo de un escaneo va con token** (`?t=`). Los ids son correlativos; sin token, cualquiera podía recorrer `/api/scan/1,2,3...` y leer todos los escaneos con sus resultados. El token no es un sistema de cuentas: el enlace se sigue compartiendo tal cual, solo deja de ser adivinable.
 11. **Pipo no ejecuta JavaScript, y ahora lo dice cuando importa** (`pagina.py::parece_dibujada_con_javascript`). En webs hechas con React/Vue el HTML llega vacío, y SEO/privacidad/accesibilidad daban por ausente lo que solo era invisible desde fuera. Ahora esos tres checks detectan el caso y responden "no hemos podido comprobarlo" en ámbar, en vez de acusar. Lo mismo con los banners de cookies: casi todos los reales (Cookiebot, Complianz, CookieYes, Iubenda, OneTrust...) se inyectan con JavaScript, así que se reconocen por el **script del gestor** — buscar la palabra "aceptar cookies" en el HTML fallaba en la mayoría de webs que sí cumplen, y es la acusación más grave que hace Pipo.
+
+12. **El `www` no puede cambiar la nota, y la puerta de entrada a los checks no es la misma para todos** (16 ago 2026, `seguridad.py::dominio_raiz` y `variante_www`). Hasta esta fecha, escanear `ejemplo.com` y `www.ejemplo.com` daba resultados distintos **y los dos estaban mal**, cada uno por un lado. Medido en un caso real: 37 puntos de diferencia en el mismo negocio (`mchomeinmobiliaria.com`, 33 contra 70). Dos causas independientes:
+    - **SPF, DMARC, CAA, DNSSEC y WHOIS solo existen en el dominio registrado.** Preguntarlos en el subdominio `www` devuelve silencio siempre, y Pipo tomaba ese silencio por una acusación (`dns` en ROJO a un dominio con DMARC en `p=quarantine`). Ahora `scanner.py` les pasa `dominio_raiz(dominio)`. **Regla al añadir un check nuevo: si mira registros del DNS o el registro del dominio, va con la raíz; si mira el certificado, las cabeceras o la página, va con el host tal cual lo pidió el usuario**, porque esas tres cosas sí son de cada host.
+    - **Si la raíz no sirve la página pero `www` sí (o al revés), la descarga fallaba** y los seis checks de contenido se iban a rojo en cascada. Ahora `obtener_pagina()` reintenta con la otra variante y deja en `host_servido` cuál respondió. Y si no responde ninguna, esos checks salen en **`sin_datos`**, no en rojo: no poder leer una web es una limitación nuestra, no un fallo del negocio. `puntuacion.py` ya excluía `sin_datos` de la nota, así que no hubo que tocarlo.
+
+    Es el mismo principio de la decisión #11 llevado hasta el final: **cuando Pipo no puede comprobar algo, lo dice; no lo cuenta como que está mal.** Es la clase de fallo que no se ve leyendo el código, solo verificando a mano contra webs reales.
 
 ---
 
@@ -360,6 +366,44 @@ evitaba el arrastre (comprobado midiendo `scrollX`). Además rompe `position:sti
 
 De paso, la medición destapó desbordamientos que nadie había mirado en `privacidad.html` (la tabla
 de datos tratados, que ahora tiene su propio scroll horizontal) y en `404.html`.
+
+### ✅ Primer estudio de campo real: 38 negocios de Churriana y Alhaurín (16 ago 2026)
+
+Encargo de Alberto: buscar negocios de Churriana y Alhaurín de la Torre con web, pasarlos por Pipo
+y sacar un top de "los peores y más asequibles" para visitar. Se usó `herramientas/lote.py`, que
+para esto es exactamente la herramienta buena (llama a `ejecutar_escaneo` en local, sin pasar por
+`/api/scan`, así que no toca el consentimiento de titularidad).
+
+**Selección de sectores, que es la mitad del trabajo:** solo negocios donde la web es un activo y
+un fallo tiene consecuencias — gestorías, inmobiliarias, clínicas (dental/veterinaria), abogados,
+informática, ingeniería, talleres, instaladores. Fuera peluquerías, bares y comercio pequeño: su
+web no les da de comer. Hubo que filtrar a mano dos cosas que ensucian cualquier búsqueda de estas:
+los **portales/directorios** (idealista, habitaclia, páginas amarillas) y las **granjas de landing
+pages SEO** ("reformas en [pueblo]" de una empresa que no tiene oficina allí). Ojo también con que
+**"Churriana de la Vega" es Granada**, no la Churriana de Málaga: varios resultados mezclan las dos.
+
+**Resultado:** 38 webs, nota media 67/100, 95% con algún fallo grave. Informe publicado como
+Artifact privado (`Ruta Churriana–Alhaurín`).
+
+**Lo que el estudio le enseñó al producto, que vale más que la lista:**
+
+- **`headers` sale en ROJO en el 95% de las webs.** No es un hallazgo, es el estado normal de la
+  pyme española. Como argumento de venta no distingue a nadie y suena a vendedor genérico. Lo que
+  sí distingue: cifrado realmente roto (1 de 38) y páginas legales ausentes (42%).
+- **Verificar a mano cambió el ranking dos veces.** La primera versión de la lista tenía tres de
+  sus cinco primeros puestos mal, por fiarse de la nota sin contrastarla. De ahí salieron los dos
+  bugs del `www` y de los banners de cookies (decisión #12 y `GESTORES_DE_COOKIES`). **Antes de
+  poner un negocio delante de un cliente —o de Alberto— hay que comprobar el hallazgo con `curl`,
+  `openssl` o `dig`.** El coste de acusar en falso es la venta entera.
+- **Los resultados varían entre pasadas.** Alguna descarga trae la página a medias. Antes de una
+  visita concreta, reescanear ese dominio solo.
+
+**Aviso legal que hay que repetir cada vez que se retome esto:** escanear estas webs es legal
+(Pipo solo mira lo que ve cualquier visitante), pero **mandarles después un email o un WhatsApp
+comercial que no han pedido no lo es** — LSSI art. 21, sin excepción B2B en España, y la AEPD ha
+sancionado por ello. Recoger sus datos de contacto públicos sí es legal; usarlos para comunicación
+comercial en frío, no. La lista es para **presentarse en persona**, que no está regulado por esa
+ley. Ver también el docstring de `herramientas/lote.py` y el punto 5.3 del `PIPO_PLANNING.md`.
 
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:
