@@ -114,6 +114,45 @@ def normalizar_dominio(texto: str) -> str:
     return limpio
 
 
+def dominio_raiz(dominio: str) -> str:
+    """
+    Quita el "www." del principio, si lo hay.
+
+    Hace falta porque hay registros del DNS que, por definición, viven
+    en el dominio raíz y nunca en el subdominio "www": SPF y DMARC (que
+    mira dns_check), CAA y DNSSEC (dominio_check) y el propio WHOIS,
+    que solo se puede consultar de un dominio registrado, no de un
+    subdominio cualquiera.
+
+    Descubierto el 16 ago 2026 haciendo el estudio de negocios de
+    Churriana/Alhaurín: escanear "www.mchomeinmobiliaria.com" daba dns
+    en ROJO por "no tiene SPF ni DMARC", cuando el dominio los tiene
+    los dos bien puestos (DMARC incluso en p=quarantine). Pipo estaba
+    preguntando donde no podía haber respuesta y tratando el silencio
+    como una acusación.
+
+    Solo se quita el "www" de delante. Cualquier otro subdominio
+    (tienda.ejemplo.com) se deja tal cual: ahí el usuario sí está
+    pidiendo expresamente ese subdominio.
+    """
+    return dominio[4:] if dominio.startswith("www.") else dominio
+
+
+def variante_www(dominio: str) -> str:
+    """
+    La otra forma de escribir la misma dirección: si viene con "www."
+    lo quita, y si viene sin él lo pone.
+
+    Se usa para reintentar la descarga de la home cuando la forma
+    pedida no responde (ver obtener_pagina). Es muy común que solo una
+    de las dos esté bien configurada, y hasta el 16 ago 2026 eso hacía
+    que Pipo diera por muerta una web que funciona perfectamente con
+    la otra forma.
+    """
+    raiz = dominio_raiz(dominio)
+    return raiz if dominio.startswith("www.") else f"www.{raiz}"
+
+
 def _es_ip_publica(ip: str) -> bool:
     """True solo si la IP es de internet abierto, no de una red interna."""
     direccion = ipaddress.ip_address(ip)

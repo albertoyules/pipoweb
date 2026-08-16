@@ -60,9 +60,9 @@ def comprobar_mixed_content(pagina: dict) -> dict:
     """Función síncrona: solo analiza el HTML ya descargado, sin red propia."""
     if not pagina["ok"]:
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
-            detalle=f"No se ha podido acceder a la web para revisar mixed content ({pagina['error']}).",
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido leer la web para revisar mixed content ({pagina['error']}). No cuenta para la nota.",
         )
 
     if not pagina["url"].startswith("https://"):

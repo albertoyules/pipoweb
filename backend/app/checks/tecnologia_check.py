@@ -43,9 +43,9 @@ async def comprobar_tecnologia(pagina: dict) -> dict:
     """
     if not pagina["ok"]:
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
-            detalle=f"No se ha podido acceder a la web para identificar su tecnología ({pagina['error']}).",
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido leer la web para identificar su tecnología ({pagina['error']}). No cuenta para la nota.",
         )
 
     soup = BeautifulSoup(pagina["html"], "html.parser")

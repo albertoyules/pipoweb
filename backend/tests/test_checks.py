@@ -17,9 +17,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.checks.accesibilidad_check import comprobar_accesibilidad  # noqa: E402
 from app.checks.experiencia_check import comprobar_experiencia  # noqa: E402
+from app.checks.mixed_content_check import comprobar_mixed_content  # noqa: E402
 from app.checks.pagina import parece_dibujada_con_javascript  # noqa: E402
 from app.checks.privacidad_check import comprobar_privacidad  # noqa: E402
 from app.checks.seo_check import comprobar_seo  # noqa: E402
+from app.checks.tecnologia_check import comprobar_tecnologia  # noqa: E402
+from app.puntuacion import calcular_puntuacion  # noqa: E402
 
 
 def pagina(html: str, url: str = "https://ejemplo.es") -> dict:
@@ -153,3 +156,57 @@ def test_se_detecta_el_telefono_pulsable():
     resultado = asyncio.run(comprobar_experiencia(pagina(PAGINA_COMPLETA), "ejemplo.es"))
     assert resultado["datos"]["telefono_pulsable"] is True
     assert resultado["datos"]["tiene_favicon"] is True
+
+
+# --- Web que no se puede descargar (16 ago 2026) ----------------------
+#
+# Antes, un fallo al descargar la home mandaba a ROJO los seis checks de
+# contenido a la vez. Eso convertía "no he podido leerla" en "lo tienes
+# todo mal": mchomeinmobiliaria.com sacaba un 33 sobre 100 cuando su web
+# real (la variante www) saca un 79. Ahora salen en "sin_datos", que
+# puntuacion.py ya excluye de la nota igual que hace con el WHOIS.
+
+
+def pagina_caida() -> dict:
+    """El formato que devuelve obtener_pagina() cuando no hay respuesta."""
+    return {
+        "ok": False,
+        "error": "Server disconnected without sending a response.",
+        "url": "https://ejemplo.es",
+        "html": "",
+        "headers": {},
+        "host_pedido": "ejemplo.es",
+        "host_servido": None,
+    }
+
+
+def test_una_web_ilegible_no_se_marca_en_rojo():
+    """No poder leer una web es una limitación nuestra, no un fallo suyo."""
+    caida = pagina_caida()
+    resultados = [
+        asyncio.run(comprobar_seo(caida)),
+        comprobar_privacidad(caida),
+        comprobar_accesibilidad(caida),
+        comprobar_mixed_content(caida),
+        asyncio.run(comprobar_tecnologia(caida)),
+        asyncio.run(comprobar_experiencia(caida, "ejemplo.es")),
+    ]
+    for resultado in resultados:
+        assert resultado["estado"] == "sin_datos", f"{resultado['check']} sigue acusando"
+
+
+def test_una_web_ilegible_no_hunde_la_nota():
+    """
+    La prueba que de verdad importa: seis checks en sin_datos no pueden
+    restar. Con la única señal real en verde, la nota debe ser 100, no
+    un suspenso fabricado por no haber podido abrir la página.
+    """
+    caida = pagina_caida()
+    checks = [
+        asyncio.run(comprobar_seo(caida)),
+        comprobar_privacidad(caida),
+        comprobar_accesibilidad(caida),
+        comprobar_mixed_content(caida),
+        {"check": "dns", "estado": "verde", "prioridad": "baja", "detalle": "", "datos": {}},
+    ]
+    assert calcular_puntuacion(checks) == 100

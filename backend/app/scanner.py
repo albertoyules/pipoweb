@@ -26,6 +26,7 @@ from app.checks.ssl_check import comprobar_ssl
 from app.checks.tecnologia_check import comprobar_tecnologia
 from app.checks.whois_check import comprobar_whois
 from app.puntuacion import resumir_checks
+from app.seguridad import dominio_raiz
 
 
 async def ejecutar_escaneo(
@@ -50,12 +51,20 @@ async def ejecutar_escaneo(
     """
     inicio = time.monotonic()
 
+    # SPF, DMARC, CAA, DNSSEC y el WHOIS viven en el dominio registrado,
+    # nunca en el subdominio "www". Si se les pasa "www.ejemplo.com"
+    # preguntan donde no puede haber respuesta y toman el silencio por
+    # un fallo del negocio (ver dominio_raiz en seguridad.py). El resto
+    # de checks sí usan el host tal cual lo pidió el usuario: el
+    # certificado y las cabeceras son de ese host concreto.
+    raiz = dominio_raiz(dominio)
+
     tareas = [
         asyncio.to_thread(comprobar_ssl, dominio),
         comprobar_headers(dominio),
-        comprobar_dns(dominio),
-        comprobar_dominio(dominio),
-        asyncio.to_thread(comprobar_whois, dominio),
+        comprobar_dns(raiz),
+        comprobar_dominio(raiz),
+        asyncio.to_thread(comprobar_whois, raiz),
     ]
     if incluir_archivos_expuestos:
         tareas.append(comprobar_archivos_expuestos(dominio))

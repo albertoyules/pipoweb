@@ -14,7 +14,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.seguridad import DominioNoValido, normalizar_dominio  # noqa: E402
+from app.seguridad import (  # noqa: E402
+    DominioNoValido,
+    dominio_raiz,
+    normalizar_dominio,
+    variante_www,
+)
 
 
 @pytest.mark.parametrize(
@@ -65,3 +70,38 @@ def test_dominios_que_se_rechazan(entrada):
 def test_un_email_pegado_por_error_se_queda_con_el_dominio():
     """Alguien pega su email en la casilla; mejor entenderlo que fallar."""
     assert normalizar_dominio("paco@tallerpaco.es") == "tallerpaco.es"
+
+
+# --- www: dominio_raiz y variante_www (16 ago 2026) -------------------
+#
+# SPF, DMARC, CAA, DNSSEC y WHOIS solo existen en el dominio registrado.
+# Preguntarlos en "www." devuelve silencio, y Pipo tomaba ese silencio
+# por una acusación: www.mchomeinmobiliaria.com salía con dns en ROJO
+# teniendo SPF y DMARC (p=quarantine) perfectamente puestos.
+
+
+@pytest.mark.parametrize(
+    ("entrada", "esperado"),
+    [
+        ("www.tallerpaco.es", "tallerpaco.es"),
+        ("tallerpaco.es", "tallerpaco.es"),
+        # Un subdominio que NO es www se respeta: ahí el usuario está
+        # pidiendo expresamente esa dirección, no la raíz.
+        ("tienda.tallerpaco.es", "tienda.tallerpaco.es"),
+        # "www" en medio no es el prefijo, no se toca.
+        ("mi-www.tallerpaco.es", "mi-www.tallerpaco.es"),
+    ],
+)
+def test_dominio_raiz_solo_quita_el_www_de_delante(entrada, esperado):
+    assert dominio_raiz(entrada) == esperado
+
+
+@pytest.mark.parametrize(
+    ("entrada", "esperado"),
+    [
+        ("tallerpaco.es", "www.tallerpaco.es"),
+        ("www.tallerpaco.es", "tallerpaco.es"),
+    ],
+)
+def test_variante_www_alterna_las_dos_formas(entrada, esperado):
+    assert variante_www(entrada) == esperado

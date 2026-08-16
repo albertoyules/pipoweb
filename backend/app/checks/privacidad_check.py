@@ -51,6 +51,20 @@ GESTORES_DE_COOKIES = {
     "usercentrics": "Usercentrics",
     "didomi": "Didomi",
     "axeptio": "Axeptio",
+    # Plugins de WordPress. Se añadieron el 16 ago 2026 tras el estudio de
+    # negocios de Churriana/Alhaurín: sin ellos, webs que SÍ tienen banner
+    # salían acusadas de "trackers sin consentimiento" (caso real:
+    # adrichdental.com, con Moove instalado). Se identifican por el prefijo
+    # de sus clases/scripts, no por un dominio, porque el plugin se sirve
+    # desde el propio WordPress del cliente y no desde un CDN externo.
+    "moove_gdpr": "GDPR Cookie Compliance (Moove)",
+    "gdpr-cookie-compliance": "GDPR Cookie Compliance (Moove)",
+    "cookie-law-info": "GDPR Cookie Consent (WebToffee)",
+    "cmplz": "Complianz",
+    "cookie-notice": "Cookie Notice (dFactory)",
+    "real-cookie-banner": "Real Cookie Banner",
+    "cookiefirst": "CookieFirst",
+    "seersco.com": "Seers",
 }
 
 # Trackers habituales, identificados por un fragmento característico
@@ -76,9 +90,9 @@ def comprobar_privacidad(pagina: dict) -> dict:
     """
     if not pagina["ok"]:
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
-            detalle=f"No se ha podido acceder a la web para revisar privacidad ({pagina['error']}).",
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido leer la web para revisar privacidad ({pagina['error']}). No cuenta para la nota.",
         )
 
     soup = BeautifulSoup(pagina["html"], "html.parser")

@@ -13,6 +13,8 @@ al entrar en la web.
 import httpx
 from bs4 import BeautifulSoup
 
+from app.seguridad import variante_www
+
 # Contenedores típicos de las webs que se dibujan con JavaScript en el
 # navegador (React, Vue, Angular, Next...). Si la página trae uno de
 # estos y casi nada de texto, lo que hemos descargado es el envoltorio
@@ -47,18 +49,22 @@ def parece_dibujada_con_javascript(html: str) -> bool:
     return len(texto_visible) < MINIMO_TEXTO_VISIBLE
 
 
-async def obtener_pagina(dominio: str, timeout: float = 5.0) -> dict:
-    """
-    Descarga la home por HTTPS. Devuelve siempre un diccionario con
-    'ok' para que quien lo use sepa de un vistazo si hubo error, sin
-    tener que andar con try/except repetido en cada check.
-    """
-    url = f"https://{dominio}"
+async def _descargar(host: str, timeout: float) -> dict:
+    """Un intento de descarga contra un host concreto."""
+    url = f"https://{host}"
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as cliente:
             respuesta = await cliente.get(url)
     except httpx.RequestError as error:
-        return {"ok": False, "error": str(error), "url": url, "html": "", "headers": {}}
+        return {
+            "ok": False,
+            "error": str(error),
+            "url": url,
+            "html": "",
+            "headers": {},
+            "host_pedido": host,
+            "host_servido": None,
+        }
 
     return {
         "ok": True,
@@ -66,4 +72,42 @@ async def obtener_pagina(dominio: str, timeout: float = 5.0) -> dict:
         "url": str(respuesta.url),
         "html": respuesta.text,
         "headers": respuesta.headers,
+        "host_pedido": host,
+        "host_servido": host,
     }
+
+
+async def obtener_pagina(dominio: str, timeout: float = 5.0) -> dict:
+    """
+    Descarga la home por HTTPS. Devuelve siempre un diccionario con
+    'ok' para que quien lo use sepa de un vistazo si hubo error, sin
+    tener que andar con try/except repetido en cada check.
+
+    Si la forma pedida no responde, se reintenta con la otra variante
+    del "www" antes de darse por vencido. Es muy común que solo una de
+    las dos esté bien configurada: en el estudio del 16 ago 2026,
+    mchomeinmobiliaria.com no servía HTTPS en la raíz pero sí en
+    www., y Pipo la puntuaba con un 33 sobre 100 cuando la web real
+    saca un 70. Dar por muerta una web que funciona es la peor clase
+    de error que puede cometer Pipo: acusa, y encima de algo falso.
+
+    Quien lea el resultado sabe por 'host_servido' cuál de las dos
+    respondió (experiencia_check lo usa para avisar de que la otra
+    forma no funciona, que sí es un problema real, pero pequeño).
+    """
+    resultado = await _descargar(dominio, timeout)
+    if resultado["ok"]:
+        return resultado
+
+    otra_forma = variante_www(dominio)
+    if otra_forma == dominio:
+        return resultado
+
+    alternativa = await _descargar(otra_forma, timeout)
+    if not alternativa["ok"]:
+        # Ninguna de las dos responde. Se devuelve el error de la que
+        # pidió el usuario, que es la que le importa.
+        return resultado
+
+    alternativa["host_pedido"] = dominio
+    return alternativa
