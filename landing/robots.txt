@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /pedidos.html
 Disallow: /panel.html
+Disallow: /informe.html
 
-Sitemap: https://pipoweb.com/sitemap.xml
+Sitemap: https://www.pipoweb.com/sitemap.xml

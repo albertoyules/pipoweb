@@ -9,27 +9,27 @@
 <title>Pipo — ¿Dudas de tu web? Pipo te la revisa y te informa</title>
 <!-- Máximo recomendado: 160 caracteres (Google recorta a partir de ahí). Esta mide 145. -->
 <meta name="description" content="Pipo revisa tu web gratis: seguridad, RGPD, SEO y velocidad, sin tocar tu servidor. En un minuto sabes qué falla y cómo arreglarlo, en cristiano.">
-<link rel="canonical" href="https://pipoweb.com/">
+<link rel="canonical" href="https://www.pipoweb.com/">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://pipoweb.com/">
+<meta property="og:url" content="https://www.pipoweb.com/">
 <meta property="og:site_name" content="Pipo">
 <meta property="og:title" content="¿Dudas de tu web? Pipo te la revisa y te informa">
 <meta property="og:description" content="Seguridad, RGPD, SEO y velocidad — gratis, en un minuto. Sin tocar tu servidor.">
-<meta property="og:image" content="https://pipoweb.com/og-image.png">
+<meta property="og:image" content="https://www.pipoweb.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="es_ES">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="¿Dudas de tu web? Pipo te la revisa y te informa">
 <meta name="twitter:description" content="Seguridad, RGPD, SEO y velocidad — gratis, en un minuto. Sin tocar tu servidor.">
-<meta name="twitter:image" content="https://pipoweb.com/og-image.png">
+<meta name="twitter:image" content="https://www.pipoweb.com/og-image.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "Pipo",
-  "url": "https://pipoweb.com/",
-  "logo": "https://pipoweb.com/favicon-192.png",
+  "url": "https://www.pipoweb.com/",
+  "logo": "https://www.pipoweb.com/favicon-192.png",
   "description": "Pipo analiza tu web gratis: seguridad, RGPD/cookies, SEO técnico y velocidad, sin tocar tu servidor.",
   "email": "alberyules11@gmail.com",
   "areaServed": "ES"
@@ -638,11 +638,23 @@
       <span class="eyebrow"><span class="dot"></span>Auditoría web sin tocar tus sistemas</span>
       <h1 class="titulo-escritura" id="titulo-hero" aria-label="¿Dudas de tu web? Pipo te la revisa y te informa.">
         <span aria-hidden="true">
-          <span id="th-linea1"></span><br>
-          <span id="th-linea2"><span class="accent" id="th-accent"></span><span id="th-linea2b"></span></span><br>
-          <span id="th-linea3"></span>
+          <span id="th-linea1">¿Dudas de tu web?</span><br>
+          <span id="th-linea2"><span class="accent" id="th-accent">Pipo</span><span id="th-linea2b"> te la revisa</span></span><br>
+          <span id="th-linea3">y te informa.</span>
         </span>
       </h1>
+      <script>
+        // Guarda el texto que trae el HTML y deja los huecos vacíos para
+        // que escribirTitular() lo teclee. Va aquí, y no en el script del
+        // final, para que ocurra antes del primer repintado.
+        window.__titularPipo = ["th-linea1", "th-accent", "th-linea2b", "th-linea3"]
+          .map(function (id) {
+            var el = document.getElementById(id);
+            var texto = el.textContent;
+            el.textContent = "";
+            return texto;
+          });
+      </script>
       <div class="hero-resto" id="hero-resto">
         <p class="sub">Pipo mira tu web igual que la ve Google: seguridad, cookies, RGPD, SEO y velocidad. En un minuto sabes qué falla, qué es urgente y qué no, en cristiano.</p>
         <div class="hero-cta">
@@ -1191,6 +1203,9 @@
   // de escaneo...) en cascada. El h1 lleva aria-label con el texto
   // completo para que un lector de pantalla no tenga que esperar a que
   // se "escriba" letra a letra.
+  // El texto de origen es el que trae el HTML (ver el <h1> y el script que
+  // lo vacía justo debajo): así el titular es contenido indexable aunque el
+  // JS no se ejecute nunca, y aquí solo se vuelve a teclear letra a letra.
   function escribirTexto(el, texto, msPorLetra) {
     return new Promise((resolver) => {
       if (prefiereMenosMovimiento) {
@@ -1216,10 +1231,11 @@
     const heroResto = document.getElementById("hero-resto");
     titulo.classList.add("escribiendo");
 
-    await escribirTexto(document.getElementById("th-linea1"), "¿Dudas de tu web?", 38);
-    await escribirTexto(document.getElementById("th-accent"), "Pipo", 55);
-    await escribirTexto(document.getElementById("th-linea2b"), " te la revisa", 38);
-    await escribirTexto(document.getElementById("th-linea3"), "y te informa.", 38);
+    const t = window.__titularPipo;
+    await escribirTexto(document.getElementById("th-linea1"), t[0], 38);
+    await escribirTexto(document.getElementById("th-accent"), t[1], 55);
+    await escribirTexto(document.getElementById("th-linea2b"), t[2], 38);
+    await escribirTexto(document.getElementById("th-linea3"), t[3], 38);
 
     titulo.classList.remove("escribiendo");
     titulo.classList.add("terminado");

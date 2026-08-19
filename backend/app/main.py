@@ -166,9 +166,10 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5500",
         "http://localhost:5500",
-        # Dominio propio, desde el 14 ago 2026. Van los dos: aunque en
-        # Vercel se redirija www → apex, el navegador comprueba CORS
-        # contra el origen desde el que se cargó la página.
+        # Dominio propio, desde el 14 ago 2026. Van los dos: el host que
+        # Vercel sirve de verdad es www y el apex redirige ahí, pero el
+        # navegador comprueba CORS contra el origen desde el que se cargó
+        # la página, así que los dos tienen que estar.
         "https://pipoweb.com",
         "https://www.pipoweb.com",
         # El dominio viejo se queda a propósito mientras haya enlaces de

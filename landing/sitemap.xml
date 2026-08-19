@@ -1,22 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Las URLs van con www porque es el host que Vercel sirve de verdad:
+     https://pipoweb.com redirige 308 a https://www.pipoweb.com. Un sitemap
+     lleno de URLs que redirigen es lo que Search Console reporta como
+     "Página con redirección" y hace que no se indexen. Si algún día se
+     cambia el dominio principal en Vercel, hay que cambiarlo aquí, en el
+     canonical de cada página y en robots.txt, los tres a la vez. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://pipoweb.com/</loc>
+    <loc>https://www.pipoweb.com/</loc>
+    <lastmod>2026-08-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://pipoweb.com/aviso-legal.html</loc>
+    <loc>https://www.pipoweb.com/aviso-legal.html</loc>
+    <lastmod>2026-08-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://pipoweb.com/privacidad.html</loc>
+    <loc>https://www.pipoweb.com/privacidad.html</loc>
+    <lastmod>2026-08-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://pipoweb.com/cookies.html</loc>
+    <loc>https://www.pipoweb.com/cookies.html</loc>
+    <lastmod>2026-08-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
