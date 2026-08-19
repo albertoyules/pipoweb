@@ -289,7 +289,9 @@ El escalón de 19€ tenía tres problemas: el nivel de 19€/mes costaba lo mis
 
 **Diagnóstico rápido cuando falló la primera vez:** el fallo inicial no fue de Resend, fue que `RESEND_API_KEY` llegaba vacía al proceso — Alberto había guardado la variable en Railway pero el deploy vigente no la había recogido todavía. Se añadió un endpoint temporal (`GET /api/diagnostico-email?clave=&destinatario=`, ya borrado) que llamaba a `enviar_email()` y devolvía el error real de Resend en vez del `email_enviado: false` silencioso de `/api/solicitudes` — así se vio en un segundo que la clave estaba vacía, no que Resend la rechazara. Si algún día el email vuelve a fallar, ese es el patrón a repetir: no adivinar, exponer el error real con un endpoint protegido por `CLAVE_ADMIN` y borrarlo después.
 
-**Pendiente de verdad, no bloqueante:** sin un dominio propio verificado en Resend, los emails salen desde `onboarding@resend.dev`, no desde algo con marca (`pipo@pipo.es`). En cuanto se decida el dominio de Pipo (ver más abajo, todavía sin decidir), hay que verificarlo en el panel de Resend (añadir unos registros DNS) y cambiar `REMITENTE` en `enviar.py`.
+✅ **Remitente con marca propia — hecho** (comprobado el 19 ago 2026 por DNS): `pipoweb.com` está verificado en Resend. Están publicados el DKIM (`resend._domainkey.pipoweb.com`) y el subdominio de envío `send.pipoweb.com`, con su SPF (`include:amazonses.com`) y su MX de rebotes (`feedback-smtp.eu-west-1.amazonses.com`) — Resend usa Amazon SES por debajo, así que esos registros son la firma de un dominio verificado de verdad, no de uno a medias. El `_dmarc` está en `p=quarantine`.
+
+**El remitente NO está escrito en el código**: `config.py` lee la variable de entorno `PIPO_REMITENTE` (formato `Pipo <hola@pipoweb.com>`) y solo cae a `onboarding@resend.dev` si esa variable falta. O sea, que los emails salgan con marca depende de que `PIPO_REMITENTE` esté puesta **en Railway**, no de tocar `enviar.py`. Si algún día vuelven a salir desde `resend.dev`, mirar ahí antes que en el código.
 
 ---
 
@@ -422,6 +424,53 @@ comercial que no han pedido no lo es** — LSSI art. 21, sin excepción B2B en E
 sancionado por ello. Recoger sus datos de contacto públicos sí es legal; usarlos para comunicación
 comercial en frío, no. La lista es para **presentarse en persona**, que no está regulado por esa
 ley. Ver también el docstring de `herramientas/lote.py` y el punto 5.3 del `PIPO_PLANNING.md`.
+
+### ✅ Presentación del proyecto y vídeo (19 ago 2026)
+
+Para enseñar Pipo en LinkedIn. Dos piezas que cuentan **lo mismo**, con las mismas doce
+diapositivas y el mismo texto palabra por palabra — si se toca una, hay que tocar la otra:
+
+- **`presentacion/apaisada.html`** (1920×1080, se edita `apaisada.plantilla.html` y se genera con
+  `python3 presentacion/construir.py apaisada`, que incrusta Fraunces y Nunito en base64 para que
+  sea un archivo suelto sin internet). No confundir con `presentacion/presentacion.html`, el deck
+  **nocturno** de agosto, que sigue vivo y no se ha tocado: este es el de día, con la paleta de la
+  landing.
+- **`video/`** — la misma presentación como MP4, con Remotion. `cd video && npm run render` deja
+  `video/out/pipo-presentacion.mp4` (67 s, H.264). Ver `video/LEEME.md`.
+
+**Regla de unidades del deck, que es lo que lo hace portable entre formatos:** lo que define
+tamaño de letra o aire vertical va en `cqh` (% del ALTO del marco, que son 1080 siempre); lo que
+es desplazamiento o margen lateral va en `cqw`. Gracias a eso pasar de cuadrado a 16:9 fue cambiar
+el `aspect-ratio` y recolocar al búho, sin retocar una sola letra. En el vídeo, `u(7.8)` es
+exactamente `font-size:7.8cqh`.
+
+**Tres fallos que costaron encontrar y que no se ven leyendo el código** (los tres salieron de
+medir, no de mirar):
+
+1. **Pipo se ponía encima del texto en 4 de las 12 diapositivas.** Se detectó con un script que
+   compara las cajas reales de los glifos (un `Range` por nodo de texto) contra la caja del búho —
+   medir la caja de los `<p>` no vale, porque ocupan todo el ancho aunque el texto sea corto. De
+   ahí salió el sistema de dos composiciones: o el búho se sienta a un lado y el texto le deja esa
+   columna, o se retira a una esquina en pequeño.
+2. **En el vídeo, Pipo salía lavado**: el halo ámbar se pintaba POR ENCIMA de él, porque en CSS un
+   elemento posicionado se dibuja sobre uno que no lo está y al `<svg>` le faltaba
+   `position:relative`. A ojo pasaba desapercibido; se vio comparando el píxel de la pupila con el
+   del deck (`94,73,42` en vez de `58,46,36`).
+3. **Remotion no pudo descargarse Chrome con Node 26**: el zip llega entero pero se descomprime a
+   medias (deja solo `ABOUT` y `LICENSE`) sin dar error. Se arregla con `unzip` a mano; está el
+   procedimiento en `video/LEEME.md`.
+
+**Nada del vídeo se anima con CSS**: Remotion no reproduce, fotografía cuadro a cuadro, así que
+todo se calcula desde `useCurrentFrame()` y la aleatoriedad usa `random("semilla")` de Remotion
+(los fotogramas se reparten entre procesos y cada uno tiene que dibujar la misma hoja en el mismo
+sitio).
+
+**Decisión de contenido:** la diapositiva del estudio de campo **no dice «38 negocios de Málaga»**.
+Legalmente publicar cifras agregadas es correcto, pero nombrar el sitio invita a la pregunta «¿me
+habréis escaneado?», y la respuesta honesta no cabe en una diapositiva — además roza con que la
+landing sí exige declarar titularidad y el estudio se hizo con `herramientas/lote.py`, que no pasa
+por esa casilla. Ahora dice «Cómo está la web de la pyme media», con las cifras intactas y una
+línea explícita: *cifras agregadas, aquí no se nombra a ningún negocio*.
 
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:

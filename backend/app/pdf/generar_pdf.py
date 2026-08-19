@@ -116,7 +116,6 @@ body {
 .nota-global .num {
   font-size: 40px;
   font-weight: 700;
-  color: #D9A441;
   line-height: 1;
 }
 .nota-global .lbl {
@@ -287,6 +286,10 @@ def generar_pdf_informe(escaneo: dict, marca: str | None = None) -> bytes:
     dominio = _seguro(escaneo["dominio"])
     fecha = datetime.now().strftime("%d/%m/%Y")
     linea_marca = f'<div class="preparado-para">Preparado para {_seguro(marca)}</div>' if marca else ""
+    # La nota grande va del color del semáforo global, no de un ámbar
+    # fijo: un 100 con todo en verde impreso en ámbar se lee como si
+    # algo fallara y contradice a la tabla de áreas de más abajo.
+    color_nota = COLOR_ESTADO.get(resumen.get("estado_global"), "#D9A441")
 
     html_documento = f"""
     <html>
@@ -301,7 +304,7 @@ def generar_pdf_informe(escaneo: dict, marca: str | None = None) -> bytes:
           {linea_marca}
         </div>
         <div class="nota-global">
-          <div class="num">{informe.get('puntuacion_global', '—')}</div>
+          <div class="num" style="color: {color_nota}">{informe.get('puntuacion_global', '—')}</div>
           <div class="lbl">Nota global</div>
         </div>
       </div>

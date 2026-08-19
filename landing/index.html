@@ -407,7 +407,11 @@
   .report{background:#fff;border-radius:18px;padding:24px;box-shadow:var(--shadow)}
   .report-head{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:16px}
   .report-head .u{font-weight:800;color:var(--brown-dark)}
+  /* La nota grande se colorea con el semáforo global, no con un color
+     fijo: un 100 con todo en verde pintado de ámbar se leía como si
+     algo fallara, contradiciendo a los puntitos de debajo. */
   .score{margin-left:auto;font-family:'Fraunces';font-size:30px;font-weight:600;color:var(--amber)}
+  .score.g{color:var(--sage)}.score.a{color:var(--amber)}.score.r{color:var(--brick)}
   /* Título de área dentro del semáforo (Seguridad / Cumplimiento legal
      / Clientes): agrupa las filas para que se lea de qué tipo es cada
      problema, en vez de una lista plana de diez cosas sueltas. */
@@ -942,6 +946,11 @@
     verde: "¡Muy bien! Tu web está estupenda.",
   };
 
+  // Letra de color para cada estado del semáforo, la misma que usan las
+  // filas (.pill / .tag) — así la nota grande y los puntitos nunca se
+  // contradicen.
+  const LETRA_ESTADO = { verde: "g", ambar: "a", rojo: "r" };
+
   function pintarResultado(zona, dominio, datos) {
     // El semáforo completo (los 7 checks) se enseña siempre, sin pedir
     // nada — es el gancho que convence de que merece la pena desbloquear
@@ -991,7 +1000,7 @@
         <div class="report-head">
           <svg width="30" height="30"><use href="#pipo"/></svg>
           <span class="u">${dominio}</span>
-          <span class="score" data-contador data-hasta="${nota}">0</span>
+          <span class="score ${LETRA_ESTADO[estadoGlobal] || 'a'}" data-contador data-hasta="${nota}">0</span>
         </div>
         ${bloques}
       </div>

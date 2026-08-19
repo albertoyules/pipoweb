@@ -150,7 +150,10 @@
   .informe-cabecera h1{grid-area:titulo;font-size:24px;color:var(--ink);align-self:end;
     min-width:0;overflow-wrap:anywhere}
   .informe-cabecera p{grid-area:texto;font-size:15px;color:var(--brown-dark);align-self:start;min-width:0}
+  /* Color por semáforo global, no fijo: un 100 con todo verde pintado
+     de ámbar contradice al desglose por áreas de justo debajo. */
   .informe-nota{grid-area:nota;font-family:'Fraunces';font-size:44px;font-weight:600;color:var(--amber);padding-left:16px;line-height:1}
+  .informe-nota.g{color:var(--sage)}.informe-nota.a{color:var(--amber)}.informe-nota.r{color:var(--brick)}
 
   /* En móvil: el búho, el dominio y la nota comparten la fila de arriba,
      y el texto de la IA pasa a ocupar el ancho completo debajo. Así la
@@ -512,7 +515,11 @@
     document.getElementById("estado-carga").style.display = "none";
     document.getElementById("txt-dominio").textContent = datos.dominio;
     document.getElementById("txt-resumen").textContent = datos.resumen_ejecutivo;
-    document.getElementById("txt-nota").textContent = datos.puntuacion_global;
+    const nota = document.getElementById("txt-nota");
+    nota.textContent = datos.puntuacion_global;
+    // LETRA ya traduce estado -> letra de color, la misma que usan las
+    // filas y los puntitos de las familias.
+    nota.className = `informe-nota ${LETRA[datos.resumen?.estado_global] || "a"}`;
     if (datos.precio_arreglo_estimado) {
       document.getElementById("precio-arreglo").textContent = `Desde ${datos.precio_arreglo_estimado}€ · presupuesto cerrado antes de empezar`;
     }

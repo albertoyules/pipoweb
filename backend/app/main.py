@@ -50,6 +50,7 @@ from app.database import (
     listar_solicitudes,
     marcar_cobro_solicitud,
     marcar_estado_solicitud,
+    obtener_conexion,
     obtener_escaneo,
 )
 from app.ia.cliente import ErrorIA
@@ -823,3 +824,59 @@ async def informe_pdf(request: Request, id_escaneo: int, t: str = "", marca: str
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="informe-pipo-{nombre_archivo}.pdf"'},
     )
+
+
+# ---------------------------------------------------------------------
+# TEMPORAL — borrar los datos de ejemplo del panel (19 ago 2026).
+#
+# El 13 ago se sembraron a mano 6 solicitudes y 2 leads ficticios en
+# producción, con la palabra DEMO en el email o en las notas, para poder
+# ver el panel con contenido antes de tener casos reales. Ya no hacen
+# falta y estorban.
+#
+# Railway no da acceso a una consola SQL contra el volumen, así que la
+# única vía es un endpoint. Está protegido con la clave de admin y, por
+# defecto, NO BORRA NADA: sin `confirmar=true` solo enseña qué filas
+# se llevaría por delante, para poder revisarlas antes. Mismo patrón que
+# el /api/diagnostico-email de agosto: exponer el dato real, mirar, y
+# borrar el endpoint después.
+#
+# BORRAR ESTE ENDPOINT cuando la limpieza esté hecha.
+# ---------------------------------------------------------------------
+@app.post("/api/limpiar-demo")
+@limiter.limit("20/minute")
+async def limpiar_datos_demo(request: Request, clave: str, confirmar: bool = False):
+    _verificar_clave_admin(clave)
+
+    filtro_solicitudes = (
+        "UPPER(COALESCE(email,'')) LIKE '%DEMO%' OR UPPER(COALESCE(notas,'')) LIKE '%DEMO%'"
+    )
+    filtro_leads = "UPPER(COALESCE(email,'')) LIKE '%DEMO%'"
+
+    conexion = obtener_conexion()
+    try:
+        solicitudes = [
+            dict(fila)
+            for fila in conexion.execute(
+                f"SELECT id, referencia, email, dominio, estado, notas FROM solicitudes WHERE {filtro_solicitudes}"
+            )
+        ]
+        leads = [
+            dict(fila)
+            for fila in conexion.execute(
+                f"SELECT id, email, dominio FROM leads WHERE {filtro_leads}"
+            )
+        ]
+        if confirmar:
+            conexion.execute(f"DELETE FROM solicitudes WHERE {filtro_solicitudes}")
+            conexion.execute(f"DELETE FROM leads WHERE {filtro_leads}")
+            conexion.commit()
+    finally:
+        conexion.close()
+
+    return {
+        "borrado": confirmar,
+        "solicitudes": solicitudes,
+        "leads": leads,
+        "aviso": "Simulación: no se ha borrado nada. Repite con confirmar=true." if not confirmar else "Borrado.",
+    }
