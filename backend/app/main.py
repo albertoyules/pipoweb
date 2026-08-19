@@ -848,10 +848,20 @@ async def informe_pdf(request: Request, id_escaneo: int, t: str = "", marca: str
 async def limpiar_datos_demo(request: Request, clave: str, confirmar: bool = False):
     _verificar_clave_admin(clave)
 
+    # Dos familias de basura, y ninguna se pilla con la otra:
+    #   - Los datos sembrados a mano el 13 ago llevan la palabra DEMO en
+    #     el email o en las notas, que es como se marcaron a propósito.
+    #   - Los leads de las pruebas de Playwright de agosto NO llevan DEMO
+    #     (verificacion@ejemplo.com), así que hay que ir por el dominio
+    #     del email. Se listan los dos dominios de mentira uno a uno en
+    #     vez de usar un LIKE '%ejemplo%': así no hay forma de que se
+    #     lleve por delante el email real de un negocio que, por mala
+    #     suerte, tenga esa palabra en su dirección.
+    dominios_falsos = "(LOWER(COALESCE(email,'')) LIKE '%@ejemplo-pipo.local' OR LOWER(COALESCE(email,'')) LIKE '%@ejemplo.com')"
     filtro_solicitudes = (
-        "UPPER(COALESCE(email,'')) LIKE '%DEMO%' OR UPPER(COALESCE(notas,'')) LIKE '%DEMO%'"
+        f"UPPER(COALESCE(email,'')) LIKE '%DEMO%' OR UPPER(COALESCE(notas,'')) LIKE '%DEMO%' OR {dominios_falsos}"
     )
-    filtro_leads = "UPPER(COALESCE(email,'')) LIKE '%DEMO%'"
+    filtro_leads = f"UPPER(COALESCE(email,'')) LIKE '%DEMO%' OR {dominios_falsos}"
 
     conexion = obtener_conexion()
     try:
