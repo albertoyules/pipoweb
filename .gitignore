@@ -20,3 +20,8 @@ __pycache__/
 
 # Caché de pytest.
 backend/.pytest_cache/
+
+# Proyecto de vídeo (Remotion): las dependencias se reinstalan con
+# `npm install` y los vídeos generados pesan demasiado para git.
+video/node_modules/
+video/out/

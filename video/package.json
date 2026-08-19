@@ -1,0 +1,20 @@
+{
+  "name": "pipo-video",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Presentación de Pipo en vídeo (1920x1080), montada con Remotion",
+  "scripts": {
+    "estudio": "remotion studio",
+    "render": "remotion render Presentacion out/pipo-presentacion.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.290"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "typescript": "5.7.2"
+  }
+}
