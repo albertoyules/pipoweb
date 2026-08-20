@@ -195,6 +195,7 @@
   .velocidad-explicacion .pill{width:12px;height:12px;border-radius:50%;flex-shrink:0}
 
   /* nivel de pago: soluciones + PDF por Bizum */
+  .accion-enhorabuena{border-color:rgba(138,154,91,.45);background:rgba(138,154,91,.07)}
   .accion-pago{background:var(--cream-deep);border-radius:18px;padding:24px 26px}
   .precio-arreglo{font-family:'Fraunces';font-size:19px;font-weight:600;color:var(--ink);margin-bottom:14px}
   .form-pedido{display:flex;flex-wrap:wrap;gap:8px;max-width:480px;margin-top:14px}
@@ -520,7 +521,29 @@
     // LETRA ya traduce estado -> letra de color, la misma que usan las
     // filas y los puntitos de las familias.
     nota.className = `informe-nota ${LETRA[datos.resumen?.estado_global] || "a"}`;
-    if (datos.precio_arreglo_estimado) {
+    // Si no hay NADA que arreglar, el bloque de venta desaparece y en su
+    // sitio va una felicitación. Ofrecerle un arreglo de 89€ a quien
+    // acabas de certificar con un 100/100 es lo único de todo Pipo que se
+    // lee como venta del miedo, y sale justo en el momento de más
+    // confianza. Se mira el semáforo real, no la nota: un 95 con un rojo
+    // sigue teniendo algo que arreglar.
+    const conteo = datos.resumen?.conteo || {};
+    const hayAlgoQueArreglar = (conteo.rojo || 0) + (conteo.ambar || 0) > 0;
+    const bloqueArreglo = document.getElementById("accion-arreglo");
+
+    if (!hayAlgoQueArreglar) {
+      bloqueArreglo.classList.add("accion-enhorabuena");
+      bloqueArreglo.classList.remove("accion-pago");
+      bloqueArreglo.innerHTML = "";
+      const titulo = document.createElement("h2");
+      titulo.textContent = "No hay nada que arreglar";
+      const texto = document.createElement("p");
+      texto.className = "desc";
+      texto.textContent =
+        "Tu web ha pasado las once comprobaciones. No te vamos a vender un arreglo que no necesitas: " +
+        "guarda el PDF y, si quieres, déjanos tu email aquí abajo para que te avisemos si algo cambia.";
+      bloqueArreglo.append(titulo, texto);
+    } else if (datos.precio_arreglo_estimado) {
       document.getElementById("precio-arreglo").textContent = `Desde ${datos.precio_arreglo_estimado}€ · presupuesto cerrado antes de empezar`;
     }
 
@@ -688,7 +711,7 @@
         <h4>Solicitud recibida</h4>
         <p id="txt-confirmacion"></p>
         <p>Precio orientativo para tu web: <strong>${datos.precio_estimado}€</strong>. El precio cerrado te lo confirmamos al contestarte, y no hay que pagar nada por adelantado.</p>
-        <p>¿No te llega el email? Revisa spam o escríbenos a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a> con la referencia <span class="referencia" id="txt-referencia"></span>.</p>
+        <p>¿No te llega el email? Revisa spam o escríbenos a <a href="mailto:hola@pipoweb.com">hola@pipoweb.com</a> con la referencia <span class="referencia" id="txt-referencia"></span>.</p>
       </div>`;
     document.getElementById("txt-confirmacion").textContent = datos.email_enviado
       ? `Te hemos escrito a ${email} con el detalle. Te contestamos normalmente en menos de 24 horas.`
@@ -696,7 +719,11 @@
     document.getElementById("txt-referencia").textContent = datos.referencia;
   }
 
-  document.getElementById("btn-pedir-arreglo").addEventListener("click", (evento) => {
+  // Delegado en el contenedor: cuando la web sale con todo en verde el
+  // botón no llega a existir, y engancharlo directamente reventaba el
+  // script entero justo en el informe que mejor pinta.
+  document.getElementById("accion-arreglo").addEventListener("click", (evento) => {
+    if (evento.target.id !== "btn-pedir-arreglo") return;
     evento.target.style.display = "none";
     document.getElementById("zona-pedido").innerHTML = `
       <p class="desc" style="margin-bottom:10px">Déjanos por dónde localizarte y te contestamos con el presupuesto cerrado.</p>

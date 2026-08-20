@@ -282,9 +282,12 @@ def calcular_precio_arreglo(checks: list[dict]) -> int:
     desde el momento de la solicitud, sin depender de haber generado
     antes las soluciones.
     """
+    # "sin_datos" queda fuera igual que en la nota: si una web no se deja
+    # descargar, seis checks caen ahí y le añadían puntos al precio por un
+    # trabajo que nadie va a hacer, porque no hay nada roto que arreglar.
     incremento = sum(
         PUNTOS_POR_PRIORIDAD.get(check["prioridad"], 0)
         for check in checks
-        if check["estado"] != "verde"
+        if check["estado"] not in ("verde", "sin_datos")
     )
     return min(PRECIO_MAXIMO_ARREGLO, PRECIO_BASE_ARREGLO + incremento)

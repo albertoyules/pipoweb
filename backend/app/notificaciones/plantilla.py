@@ -41,8 +41,8 @@ LINEA = "#E3D8C8"
 # El búho, servido desde la propia web. Tiene que ser una URL pública y
 # por HTTPS: Gmail descarga las imágenes a través de su propio proxy y
 # no acepta ni SVG ni imágenes incrustadas en base64.
-URL_LOGO = "https://pipoweb.com/favicon-192.png"
-URL_WEB = "https://pipoweb.com"
+URL_LOGO = "https://www.pipoweb.com/favicon-192.png"
+URL_WEB = "https://www.pipoweb.com"
 
 SERIF = "Georgia,'Times New Roman',serif"
 SANS = "Helvetica,Arial,sans-serif"

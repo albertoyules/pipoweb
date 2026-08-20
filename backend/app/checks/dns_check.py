@@ -20,13 +20,22 @@ Qué comprobamos:
   típicos.
 """
 
+import asyncio
+
 import dns.asyncresolver
 import dns.exception
+import dns.resolver
 
 # Selectores DKIM más comunes entre proveedores de email habituales
 # (Google Workspace, Microsoft 365, servicios de marketing...).
 SELECTORES_DKIM_HABITUALES = [
-    "google", "selector1", "selector2", "k1", "dkim", "default", "mail", "smtp",
+    # Clásicos y de los grandes proveedores
+    "google", "selector1", "selector2", "k1", "k2", "k3", "dkim", "default", "mail", "smtp",
+    # Añadidos el 20 ago 2026: Pipo decía "no se ha detectado DKIM" sobre
+    # pipoweb.com, que tiene DOS claves publicadas y funcionando
+    # (resend._domainkey y zmail._domainkey). Si le pasaba al dominio de
+    # casa, le pasaba a los clientes.
+    "resend", "zmail", "zoho", "s1", "s2", "mandrill", "sendgrid", "mailjet", "protonmail",
 ]
 
 
@@ -71,12 +80,17 @@ async def comprobar_dns(dominio: str) -> dict:
     dmarc = next((r for r in registros_dmarc if r.startswith("v=DMARC1")), None)
     politica_dmarc = _extraer_politica_dmarc(dmarc) if dmarc else None
 
-    dkim_encontrado = None
-    for selector in SELECTORES_DKIM_HABITUALES:
-        registros = await _consultar_txt(f"{selector}._domainkey.{dominio}")
-        if registros:
-            dkim_encontrado = selector
-            break
+    # Las consultas van en paralelo, no en serie: son ya casi veinte
+    # selectores y cada una puede tardar hasta 3 segundos. En serie, el
+    # peor caso (un dominio sin DKIM y con un DNS lento) se comía casi un
+    # minuto él solo dentro de un escaneo que dura menos de un segundo.
+    respuestas = await asyncio.gather(
+        *(_consultar_txt(f"{selector}._domainkey.{dominio}") for selector in SELECTORES_DKIM_HABITUALES)
+    )
+    dkim_encontrado = next(
+        (selector for selector, registros in zip(SELECTORES_DKIM_HABITUALES, respuestas) if registros),
+        None,
+    )
 
     datos = {
         "spf": spf,

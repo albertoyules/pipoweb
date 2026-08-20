@@ -490,6 +490,119 @@ landing sí exige declarar titularidad y el estudio se hizo con `herramientas/lo
 por esa casilla. Ahora dice «Cómo está la web de la pyme media», con las cifras intactas y una
 línea explícita: *cifras agregadas, aquí no se nombra a ningún negocio*.
 
+### ✅ Barrido completo antes de lanzar (20-21 ago 2026)
+
+Repaso de todo el proyecto buscando lo que no cuadra: escáner, correo, landing, páginas
+legales, paneles y tests. 23 hallazgos, todos comprobados contra producción o reproducidos en
+local antes de tocar nada. **El informe completo está publicado como Artifact privado
+(«Revisión de vuelo de Pipo»).**
+
+**La medición que abre el barrido: `www.pipoweb.com` saca hoy 100/100, once verdes.** Los tres
+que quedaban abiertos (`dns`, `dominio`, `experiencia`) se cerraron solos al mover el sitio al
+dominio propio, como estaba previsto en la nota del 14 ago. El escaneo tarda 0,38 s, el informe
+con IA 17,5 s, y el PDF sale de 3 páginas.
+
+**Lo que se arregló, agrupado por qué clase de fallo era:**
+
+*Identidad a medio cambiar (lo veía el cliente).* El correo personal seguía en **nueve** sitios
+de cara al público —JSON-LD y pie de la landing, las tres páginas legales, la confirmación de
+solicitud y la llamada final del PDF— cuando `hola@pipoweb.com` ya recibía desde el día 20. Todos
+a `hola@pipoweb.com`. `cookies.html` nombraba un dominio inexistente (`pipo.web`).
+
+*Páginas legales que describían un Pipo de hacía una semana.* `privacidad.html` decía que los
+emails salen por **Gmail** (falso desde el 13 ago) y no mencionaba a **Resend**, **Zoho** ni
+**Vercel** como encargados; ahora están los seis, con una nota sobre transferencias fuera de la
+UE. La sección de conservación **no daba ningún plazo**, que es justo lo que pide el art. 13.2.a
+del RGPD: ahora es una tabla con cuatro plazos concretos. Y tanto `privacidad.html` como
+`aviso-legal.html` seguían anunciando el pago por Bizum del informe, retirado el 13 ago.
+
+*La familia de siempre: acusar de lo que no se ha podido comprobar.* Cinco casos nuevos:
+- **`rendimiento_check` reventaba** con un `TypeError` si Google no devolvía la nota de
+  performance — un caso que la propia función contempla dos líneas más arriba y luego olvidaba.
+  Era un 500 en el único botón del informe que tarda medio minuto.
+- **`seo_check` pedía `robots.txt` y `sitemap.xml` sobre la URL FINAL tras los redirects**, así
+  que a cualquier web multiidioma que mande la home a `/es/` le pedía `/es/robots.txt` y la
+  acusaba de no tenerlos. Mismo fallo en `tecnologia_check` con `/es/readme.html`, que por eso no
+  detectaba la versión de WordPress en esas webs. Arreglado con `pagina.raiz_del_sitio()`.
+- **`_responde_variante_www` prometía `None` en su docstring y no tenía ningún `return None`**:
+  ante cualquier timeout devolvía `False` y eso salía como "la otra forma de escribir la
+  dirección no responde". Además ya no se pregunta por el www de un subdominio, donde la
+  pregunta no tiene sentido.
+- **El bug del `www` seguía abierto por el lado del certificado**: `obtener_pagina` reintenta con
+  la otra variante desde el 16 ago y `ssl_check` no, así que sobre una web que solo sirve HTTPS
+  en `www.` el certificado salía ROJO con peso 3 — y ese rojo solo pintaba el informe entero de
+  rojo. **Ojo con cómo se arregló**: el primer intento pasó todos los errores de conexión a
+  `sin_datos`, y eso tapaba a las webs que de verdad NO tienen HTTPS. La versión final
+  distingue: si por https no hay nada pero por http sí responde una web de verdad, es ROJO
+  ("funciona solo sin cifrar"); si no responde nada, `sin_datos`.
+- **Faltar NUESTRA clave de PageSpeed dejaba el check en ámbar**, o sea bajándole la nota a la
+  web de un negocio por una variable de entorno nuestra. Ahora `sin_datos`.
+
+*`sin_datos` tratado como si fuera un problema.* `calcular_precio_arreglo` le sumaba puntos al
+presupuesto (una web que no se deja descargar son seis `sin_datos` = +12 € por trabajo que no
+existe) y `_checks_a_mejorar` los metía en el email al cliente bajo el titular "Esto es lo que
+hay que tocar", donde el texto se contradice solo.
+
+*DKIM.* Pipo decía "no se ha detectado DKIM" sobre `pipoweb.com`, que tiene **dos** claves
+publicadas (`resend._domainkey` y `zmail._domainkey`). La lista de selectores se quedó en ocho
+clásicos; ahora son 19 e incluyen los de los proveedores que usa el propio Pipo. De paso, las
+consultas van en `asyncio.gather` y no en serie.
+
+*Plataformas que se actualizan solas.* Wix, Squarespace y Shopify salían en ámbar permanente por
+"no ha sido posible comprobar si está actualizada" — un reproche que el dueño no puede atender,
+con peso 2 en una familia crítica. Ahora verdes con nota informativa.
+
+*XSS reflejado en la landing, real y verificado.* `pintarResultado` metía en `innerHTML` el texto
+**crudo** del input, no el dominio normalizado que devuelve el backend. Y el camino llegaba hasta
+el final, porque el backend acepta `example.com/<lo que sea>` (se queda con lo de delante de la
+barra) y responde 200. Comprobado con Chrome de verdad contra el `index.html` de HEAD: el payload
+se ejecutaba (`window.__colado === 1` → `True`); con el arreglo, `False`.
+
+*Venta que se contradice.* A una web con 100/100 se le seguía ofreciendo "Quiero que me lo
+arreglen — desde 89 €". Ahora, si no hay ningún check en ámbar ni rojo, ese bloque se sustituye
+por una felicitación y la captura de avisos. Verificado en navegador por los dos caminos. Y el
+botón "Avisadme cuando esté" del plan *Tranquilidad* no captaba ningún email: solo hacía scroll.
+
+*El blindaje anti-alucinación existía solo en el prompt.* `interpretar.py` prometía en su
+docstring tres garantías (un hallazgo por check, referenciado por id, con la prioridad copiada
+del original) y ninguna se comprobaba: lo que devolviera el modelo se guardaba tal cual. Ahora
+`_hallazgos_verificados()` las hace cumplir por código — descarta hallazgos de checks que no
+existen, copia la prioridad del escaneo, y si la IA se deja un check rellena con el texto del
+propio check en vez de perderlo. Importa porque entre los datos que se le mandan va texto de la
+web analizada (`<title>`, cabecera `Server`, URLs), o sea que una web hostil puede escribir
+instrucciones ahí dentro.
+
+**Dos trampas del entorno local que costaron rato y conviene recordar:**
+
+1. **`import anthropic` y `import dns.resolver` se quedan colgados en el Mac de Alberto** (no en
+   Railway, donde todo funciona). Lo de `dns.resolver` es de siempre y por eso ningún test
+   importaba `dns_check`. Lo de `anthropic` sí molestaba: `app/ia/cliente.py` creaba el cliente
+   **al importar el módulo**, así que cualquier test que tocara `interpretar.py` dejaba la suite
+   inservible. Ahora el import es perezoso, dentro de `_cliente()`, mismo patrón que WeasyPrint
+   en `generar_pdf.py` — y de paso deja de poder bloquear el arranque del servidor entero
+   (incluido `/health`) por un problema de la capa de IA.
+2. **Los tests SÍ tocaban la red**, contra lo que decía este archivo. `comprobar_seo` pedía de
+   verdad `ejemplo.es/robots.txt` y `comprobar_experiencia` pedía `www.ejemplo.es`: 69 tests en
+   **83 segundos**, 18 de ellos un solo test esperando timeouts. Con `tests/conftest.py` (fixture
+   `autouse` que apaga esas dos llamadas) son **82 tests en 0,05 s**. Un test que puede fallar por
+   el router no prueba nada del código — y ya sabemos que ese router manipula respuestas.
+
+**Tests nuevos:** `tests/test_no_acusar_de_mas.py`, 13 tests, uno por cada fallo de arriba que se
+pudiera reproducir. Ojo con uno: el primer intento de probar lo de `robots.txt` parcheaba
+`_existe`, que es justo donde vive el arreglo, así que no probaba nada — hay que espiar la
+petición HTTP de dentro.
+
+**Limpieza:** `landing/pedidos.html` borrado (seguía desplegado usando el pipeline de 3 estados
+retirado el 13 ago; ningún botón funcionaba) y fuera de `robots.txt`. `/api/scan/{id}` era el
+único endpoint sin rate limit, ahora 30/min. `/api/leads` guardaba el dominio que viniera en la
+URL sin mirarlo; ahora lo coge del escaneo. El logo de los emails apunta ya a `www`.
+
+**PENDIENTE de Alberto, no se puede hacer desde el código:**
+- En Railway: `PIPO_RESPONDER_A=hola@pipoweb.com` (hoy cae al Gmail por defecto de `config.py`).
+- En el DNS: el `rua=` del DMARC sigue apuntando al Gmail personal.
+- Confirmar los cuatro plazos de conservación que se han escrito en `privacidad.html` — son una
+  propuesta razonable, pero la decisión es suya.
+
 ### 🟡 P2 — Monetización (Fase 6 del planning)
 - ✅ **Generador de PDF** con la marca de Pipo — hecho (11 ago 2026). Se eligió **WeasyPrint** sobre ReportLab (la otra opción que dejaba abierta el planning) porque compone el PDF a partir de HTML+CSS, reaprovechando el mismo lenguaje visual de la web en vez de maquetar cada elemento a mano. Detalles:
   - Endpoint `GET /api/informe/{id}/pdf` (ver tabla de endpoints arriba). Genera el informe interpretado si aún no estaba en caché (igual que `/api/informe`) y añade una sección de soluciones solo si `/soluciones` ya se había pedido antes para ese escaneo — no dispara ninguna llamada a la IA que no fuera a hacer falta de todos modos.

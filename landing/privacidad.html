@@ -73,14 +73,14 @@
 
 <main class="wrap">
   <h1>Política de privacidad</h1>
-  <p class="fecha">Última actualización: 11 de agosto de 2026</p>
+  <p class="fecha">Última actualización: 21 de agosto de 2026</p>
 
   <div class="aviso-provisional">
-    Pipo ya está publicado en internet, pero todavía en fase de pruebas — Alberto Yules lo está probando sobre sus propios dominios, sin haber contactado todavía a ningún cliente real. Esta política describe cómo funciona el tratamiento de datos en el sistema tal y como está construido hoy, para que sea correcta desde el primer día que alguien lo use de verdad. Alberto opera todavía como persona física, sin estar dado de alta como autónomo o empresa (ver <a href="aviso-legal.html">aviso legal</a>) — el nivel de pago del informe (Bizum, fuera de los sistemas de Pipo) está construido pero todavía no se ha usado con ningún cliente.
+    Pipo ya está publicado en internet, pero todavía en fase de pruebas — Alberto Yules lo está probando sobre sus propios dominios, sin haber contactado todavía a ningún cliente real. Esta política describe cómo funciona el tratamiento de datos en el sistema tal y como está construido hoy, para que sea correcta desde el primer día que alguien lo use de verdad. Alberto opera todavía como persona física, sin estar dado de alta como autónomo o empresa (ver <a href="aviso-legal.html">aviso legal</a>) — la revisión, el informe y el PDF son gratuitos; el único servicio de pago es que Alberto aplique los arreglos, que se presupuesta y se cobra fuera de los sistemas de Pipo, y todavía no se ha hecho con ningún cliente.
   </div>
 
   <h2>1. Responsable del tratamiento</h2>
-  <p>Alberto Yules — <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>. Ver más datos en el <a href="aviso-legal.html">aviso legal</a>.</p>
+  <p>Alberto Yules — <a href="mailto:hola@pipoweb.com">hola@pipoweb.com</a>. Ver más datos en el <a href="aviso-legal.html">aviso legal</a>.</p>
 
   <h2>2. Qué datos trata Pipo</h2>
   <div class="tabla-scroll">
@@ -101,28 +101,46 @@
   </p>
 
   <h2>3. Con quién se comparte</h2>
-  <p>Para generar el informe y gestionar los pedidos, algunos datos viajan a proveedores externos que actúan como encargados del tratamiento:</p>
+  <p>Para generar el informe y poder contestarte, algunos datos viajan a proveedores externos que actúan como encargados del tratamiento:</p>
   <ul>
-    <li><strong>Anthropic (API Claude)</strong>: recibe los hallazgos técnicos del escaneo para redactar la explicación en lenguaje llano y las soluciones sugeridas.</li>
-    <li><strong>Google PageSpeed Insights</strong>: si se activa el análisis de velocidad, Google audita la web analizada directamente.</li>
-    <li><strong>Google (Gmail)</strong>: se usa para enviar el email de confirmación de pedido (con el diagnóstico y cómo pagar) y el aviso interno a Alberto — el contenido pasa por los servidores de Gmail como cualquier email normal.</li>
+    <li><strong>Anthropic (API de Claude)</strong>: recibe los hallazgos técnicos del escaneo para redactar la explicación en lenguaje llano. No recibe tu email, tu teléfono ni tu mensaje.</li>
+    <li><strong>Google PageSpeed Insights</strong>: solo si pides el análisis de velocidad. En ese caso es Google quien carga la web analizada, no Pipo.</li>
+    <li><strong>Resend</strong>: envía los emails de Pipo (la confirmación de tu solicitud y el aviso interno a Alberto). Resend se apoya a su vez en Amazon SES para la entrega.</li>
+    <li><strong>Zoho Mail</strong>: es el buzón donde se reciben los emails dirigidos a <a href="mailto:hola@pipoweb.com">hola@pipoweb.com</a>, así que guarda lo que nos escribas. La cuenta está en el centro de datos europeo de Zoho.</li>
     <li><strong>Railway</strong>: aloja el servidor y la base de datos de Pipo.</li>
+    <li><strong>Vercel</strong>: sirve esta web. Como cualquier alojamiento, registra la dirección IP de quien la visita.</li>
   </ul>
-  <p>A estos proveedores solo se les envían los datos que necesitan para su función concreta (el dominio y los resultados técnicos a Anthropic/Google PageSpeed; el email, teléfono y contenido del mensaje a Gmail) — nunca todos los datos juntos a todos los proveedores.</p>
+  <p>A cada proveedor se le manda solo lo que necesita para su función concreta: el dominio y los resultados técnicos a Anthropic y a Google PageSpeed; el email, el teléfono y el contenido del mensaje a Resend y a Zoho. Nunca todos los datos juntos a todos los proveedores.</p>
+
+  <p>
+    <strong>Fuera de la Unión Europea.</strong> Anthropic, Google, Resend (con Amazon) y Railway y Vercel son empresas estadounidenses, así que parte de estos datos se tratan fuera del Espacio Económico Europeo. Esas transferencias se amparan en las garantías que esos proveedores incorporan a sus contratos de tratamiento de datos, conforme al capítulo V del RGPD. El buzón de correo (Zoho) sí está en la Unión Europea.
+  </p>
 
   <h2>4. Cuánto tiempo se conservan los datos</h2>
   <p>
-    Los escaneos, leads y pedidos se guardan en la base de datos de Pipo (SQLite) para poder recuperar el informe más adelante sin repetir el análisis y para gestionar los pedidos pendientes de pago. La base de datos vive en el servidor de Railway donde corre Pipo, sobre un volumen persistente — no en el ordenador de ninguna persona en particular.
+    La base de datos de Pipo (SQLite) vive en el servidor de Railway, sobre un volumen persistente — no en el ordenador de ninguna persona en particular. Estos son los plazos:
+  </p>
+  <div class="tabla-scroll">
+  <table>
+    <tr><th>Dato</th><th>Cuánto se guarda</th></tr>
+    <tr><td>Escaneos e informes (dominio, resultados, nota)</td><td>24 meses desde el análisis, para poder recuperar el enlace del informe y comparar si vuelves a analizar la misma web. Pasado ese plazo se borran.</td></tr>
+    <tr><td>IP y declaración de titularidad</td><td>12 meses. Es el registro de quién pidió analizar qué, y solo tiene sentido mientras pueda hacer falta acreditarlo.</td></tr>
+    <tr><td>Email dejado para avisos</td><td>Hasta que retires el consentimiento, y en todo caso se revisa a los 24 meses sin ninguna interacción por tu parte.</td></tr>
+    <tr><td>Solicitudes de arreglo (email, teléfono, mensaje, notas)</td><td>Mientras dure la relación y 12 meses más. Si llega a haber facturación, los datos fiscales se conservan los plazos que exige la ley.</td></tr>
+  </table>
+  </div>
+  <p>
+    Puedes pedir que se borre cualquiera de estos datos antes de esos plazos, sin dar explicaciones (ver el punto 6).
   </p>
 
   <h2>5. Base legal</h2>
   <p>
-    El tratamiento se basa en la ejecución de la solicitud que la propia persona usuaria hace al introducir un dominio (art. 6.1.b RGPD) y, para la limitación de peticiones por IP, en el interés legítimo de proteger el servicio frente a abuso (art. 6.1.f RGPD). El email para ver el informe completo, y el email/teléfono al pedir el nivel de pago, se tratan con el consentimiento expreso de la persona usuaria (art. 6.1.a RGPD), marcado aparte en cada formulario; el pedido en sí, una vez confirmado, se trata también para la ejecución de esa solicitud (art. 6.1.b RGPD).
+    El tratamiento se basa en la ejecución de la solicitud que la propia persona usuaria hace al introducir un dominio (art. 6.1.b RGPD) y, para la limitación de peticiones por IP, en el interés legítimo de proteger el servicio frente a abuso (art. 6.1.f RGPD). El email que se deja para recibir avisos se trata con el consentimiento expreso de la persona usuaria (art. 6.1.a RGPD), con una casilla propia y separada; el email, el teléfono y el mensaje de una solicitud de arreglo se tratan para poder atender esa solicitud y presupuestarla (art. 6.1.b RGPD). El informe completo no está detrás de ningún muro: no hace falta dejar el email para verlo.
   </p>
 
   <h2>6. Tus derechos</h2>
   <p>
-    Puedes solicitar acceso, rectificación, supresión, u oposición sobre tus datos escribiendo a <a href="mailto:alberyules11@gmail.com">alberyules11@gmail.com</a>. Al no haber todavía un sistema de cuentas de usuario, la identificación de qué datos son tuyos se hará caso por caso (por ejemplo, el dominio, el email o el identificador de escaneo que nos indiques). Si has dejado tu email, puedes retirar el consentimiento y pedir que se borre en cualquier momento, sin que eso afecte al tratamiento hecho antes de la retirada.
+    Puedes solicitar acceso, rectificación, supresión, u oposición sobre tus datos escribiendo a <a href="mailto:hola@pipoweb.com">hola@pipoweb.com</a>. Al no haber todavía un sistema de cuentas de usuario, la identificación de qué datos son tuyos se hará caso por caso (por ejemplo, el dominio, el email o el identificador de escaneo que nos indiques). Si has dejado tu email, puedes retirar el consentimiento y pedir que se borre en cualquier momento, sin que eso afecte al tratamiento hecho antes de la retirada.
   </p>
 </main>
 

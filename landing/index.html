@@ -31,7 +31,7 @@
   "url": "https://www.pipoweb.com/",
   "logo": "https://www.pipoweb.com/favicon-192.png",
   "description": "Pipo analiza tu web gratis: seguridad, RGPD/cookies, SEO técnico y velocidad, sin tocar tu servidor.",
-  "email": "alberyules11@gmail.com",
+  "email": "hola@pipoweb.com",
   "areaServed": "ES"
 }
 </script>
@@ -91,9 +91,17 @@
      vista, pero en móvil el menú entero se oculta (regla de arriba) —
      sin esto, alguien que hace scroll pierde de vista cualquier forma
      de empezar el escaneo hasta llegar al final de la página. */
+  /* Nota bajo el botón del plan que todavía no existe: el botón decía
+     "Avisadme cuando esté" y solo hacía scroll, sin captar ningún email.
+     Ahora dice a dónde lleva de verdad y dónde se deja el aviso. */
+  .nota-plan{margin:10px 0 0;font-size:13px;line-height:1.45;color:var(--brown-dark);opacity:.75}
   .cta-fija-movil{display:none}
   @media(max-width:780px){
-    .cta-fija-movil{
+    /* Nota bajo el botón del plan que todavía no existe: el botón decía
+     "Avisadme cuando esté" y solo hacía scroll, sin captar ningún email.
+     Ahora dice a dónde lleva de verdad y dónde se deja el aviso. */
+  .nota-plan{margin:10px 0 0;font-size:13px;line-height:1.45;color:var(--brown-dark);opacity:.75}
+  .cta-fija-movil{
       display:block;position:fixed;left:0;right:0;bottom:0;z-index:60;
       padding:12px 16px calc(12px + env(safe-area-inset-bottom));
       background:rgba(245,239,230,.92);backdrop-filter:blur(12px);
@@ -811,7 +819,8 @@
           <li>Arreglos pequeños incluidos</li>
           <li>Histórico de tu web</li>
         </ul>
-        <a href="#demo" class="btn btn-ghost">Avisadme cuando esté</a>
+        <a href="#demo" class="btn btn-ghost">Empezar por la revisión</a>
+        <p class="nota-plan">Cuando revises tu web podrás dejarnos el email en el informe, y te avisamos en cuanto esté listo.</p>
       </div>
     </div>
   </div>
@@ -855,7 +864,7 @@
       <a href="aviso-legal.html">Aviso legal</a>
       <a href="privacidad.html">Privacidad</a>
       <a href="cookies.html">Cookies</a>
-      <a href="mailto:alberyules11@gmail.com">Contacto</a>
+      <a href="mailto:hola@pipoweb.com">Contacto</a>
       <a href="tel:+34674761226">+34 674 76 12 26</a>
       <a href="https://wa.me/34674761226" target="_blank" rel="noopener">WhatsApp</a>
     </div>
@@ -1195,7 +1204,12 @@
       }
 
       const datos = await respuesta.json();
-      pintarResultado(zona, dominio, datos);
+      // Se pinta el dominio que devuelve el backend, ya normalizado, no el
+      // texto que escribió el usuario: ese texto acababa dentro de un
+      // innerHTML, y el backend acepta "example.com/<lo que sea>" porque
+      // se queda solo con la parte de delante de la barra. Además así la
+      // tarjeta enseña "ejemplo.es" y no "HTTPS://Ejemplo.ES/".
+      pintarResultado(zona, datos.dominio || dominio, datos);
     } catch (error) {
       // Fallo de red: el backend no responde, o el navegador ha bloqueado
       // la petición (por ejemplo, si la API no está arrancada).

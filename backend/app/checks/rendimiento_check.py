@@ -53,10 +53,12 @@ async def comprobar_rendimiento(dominio: str, timeout: float = 45.0) -> dict:
     en el color.
     """
     if not GOOGLE_PAGESPEED_API_KEY:
+        # sin_datos y no ámbar: que a Pipo le falte una variable de
+        # entorno no puede bajarle la nota a la web de nadie.
         return _resultado(
-            estado="ambar",
+            estado="sin_datos",
             prioridad="baja",
-            detalle="Pipo no tiene configurada la clave de PageSpeed todavía; este check no se ha podido ejecutar.",
+            detalle="Pipo no tiene configurada la clave de PageSpeed todavía; este check no se ha podido ejecutar. No cuenta para la nota.",
         )
 
     try:
@@ -82,6 +84,18 @@ async def comprobar_rendimiento(dominio: str, timeout: float = 45.0) -> dict:
 
     puntuacion = movil["rendimiento"]
     datos = {"mobile": movil, "desktop": ordenador}
+
+    # puntuacion_categoria() devuelve None a propósito cuando Google no
+    # manda esa categoría, cosa que pasa de vez en cuando. Compararlo con
+    # un número reventaba el endpoint entero con un TypeError, justo en el
+    # botón que el cliente pulsa después de esperar medio minuto.
+    if puntuacion is None:
+        return _resultado(
+            estado="sin_datos",
+            prioridad="baja",
+            detalle="Google ha auditado la web pero no ha devuelto la nota de velocidad. No cuenta para la nota.",
+            datos=datos,
+        )
 
     if puntuacion >= UMBRAL_VERDE:
         return _resultado(

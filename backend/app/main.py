@@ -404,7 +404,8 @@ async def escanear(
 
 
 @app.get("/api/scan/{id_escaneo}")
-def obtener_scan(id_escaneo: int, t: str = ""):
+@limiter.limit("30/minute")
+async def obtener_scan(request: Request, id_escaneo: int, t: str = ""):
     """
     Recupera un escaneo ya guardado, por su id y su token (el `t` del
     enlace del informe). Sin el token no se devuelve nada: los ids son
@@ -471,7 +472,16 @@ async def crear_lead(
     if not REGEX_EMAIL.match(email_limpio):
         raise HTTPException(status_code=400, detail="Ese email no parece válido.")
 
-    guardar_lead(email=email_limpio, dominio=dominio, id_escaneo=id_escaneo, consiente_marketing=marketing)
+    # El dominio se coge del escaneo, no del parámetro: ya está validado y
+    # normalizado, y así abrir informe.html sin "&dominio=" no deja un lead
+    # sin dominio en el panel. El parámetro se sigue aceptando para no
+    # romper los enlaces que ya circulan, pero no se usa.
+    guardar_lead(
+        email=email_limpio,
+        dominio=escaneo["dominio"],
+        id_escaneo=id_escaneo,
+        consiente_marketing=marketing,
+    )
     return {"ok": True}
 
 

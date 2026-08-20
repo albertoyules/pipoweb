@@ -25,7 +25,7 @@ import re
 
 import httpx
 
-from app.checks.pagina import USER_AGENT_PIPO
+from app.checks.pagina import raiz_del_sitio, USER_AGENT_PIPO
 from bs4 import BeautifulSoup
 from packaging.version import InvalidVersion, Version
 
@@ -35,6 +35,13 @@ from packaging.version import InvalidVersion, Version
 # Gemini en app/ia/cliente.py) — no es crítico si se queda unas
 # versiones por detrás, solo hace la comparación un poco menos precisa.
 ULTIMA_VERSION_WP_RESPALDO = "6.7"
+
+# Plataformas que actualizan ellas mismas: el dueño del negocio no tiene
+# ningún botón que pulsar ni nada que arreglar. Marcarlas en ámbar por
+# "no ha sido posible comprobar si está actualizada" era un reproche que
+# no se puede atender — el peor tipo — y arrastraba un peso 2 en una
+# familia crítica para siempre.
+PLATAFORMAS_GESTIONADAS = {"Wix", "Squarespace", "Shopify"}
 
 
 async def comprobar_tecnologia(pagina: dict) -> dict:
@@ -64,6 +71,14 @@ async def comprobar_tecnologia(pagina: dict) -> dict:
 
     if cms == "WordPress" and version is None:
         version = await _version_wordpress_desde_readme(pagina["url"])
+
+    if cms in PLATAFORMAS_GESTIONADAS:
+        return _resultado(
+            estado="verde",
+            prioridad="baja",
+            detalle=f"La web está hecha con {cms}, una plataforma que se mantiene y actualiza sola: aquí no hay nada que tengas que actualizar tú.",
+            datos={"cms_detectado": cms, "version_detectada": version, "gestionada": True},
+        )
 
     if cms != "WordPress" or version is None:
         detalle_version = f" (versión {version})" if version else ""
@@ -128,7 +143,7 @@ async def _version_wordpress_desde_readme(url_base: str) -> str | None:
     """
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=4.0, headers={"User-Agent": USER_AGENT_PIPO}) as cliente:
-            respuesta = await cliente.get(url_base.rstrip("/") + "/readme.html")
+            respuesta = await cliente.get(raiz_del_sitio(url_base) + "/readme.html")
     except httpx.RequestError:
         return None
 

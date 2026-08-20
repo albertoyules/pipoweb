@@ -21,7 +21,7 @@ Qué comprobamos:
 import httpx
 from bs4 import BeautifulSoup
 
-from app.checks.pagina import parece_dibujada_con_javascript, USER_AGENT_PIPO
+from app.checks.pagina import parece_dibujada_con_javascript, raiz_del_sitio, USER_AGENT_PIPO
 
 LONGITUD_TITLE_RECOMENDADA = (10, 60)  # caracteres, orientativo
 LONGITUD_DESCRIPTION_RECOMENDADA = (50, 160)
@@ -146,7 +146,7 @@ async def _existe(url_base: str, ruta: str) -> bool:
     """Comprueba si un archivo público estándar (robots.txt, sitemap.xml) existe."""
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=4.0, headers={"User-Agent": USER_AGENT_PIPO}) as cliente:
-            respuesta = await cliente.get(url_base.rstrip("/") + ruta)
+            respuesta = await cliente.get(raiz_del_sitio(url_base) + ruta)
             return respuesta.status_code == 200
     except httpx.RequestError:
         return False

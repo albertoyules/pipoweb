@@ -24,6 +24,7 @@ import re
 import httpx
 
 from app.checks.pagina import USER_AGENT_PIPO
+from app.seguridad import dominio_raiz, variante_www
 from bs4 import BeautifulSoup
 
 # A partir de aquí el HTML solo (sin contar imágenes ni scripts) ya es
@@ -144,13 +145,25 @@ async def _responde_variante_www(dominio: str) -> bool | None:
     Si el dominio es "tunegocio.es", prueba "www.tunegocio.es" (y al
     revés). Devuelve None si no se pudo comprobar, para no acusar a
     nadie por un fallo de red nuestro.
+
+    Si lo que se analiza es otro subdominio ("tienda.tunegocio.es"), la
+    pregunta no tiene sentido: nadie escribe "www.tienda.tunegocio.es",
+    y la raíz con www es una web distinta. En ese caso no se comprueba
+    nada y se devuelve None.
     """
-    alterno = dominio[4:] if dominio.startswith("www.") else f"www.{dominio}"
+    if dominio != dominio_raiz(dominio) and not dominio.startswith("www."):
+        return None
+
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=TIMEOUT_WWW, headers={"User-Agent": USER_AGENT_PIPO}) as cliente:
-            respuesta = await cliente.get(f"https://{alterno}")
+            respuesta = await cliente.get(f"https://{variante_www(dominio)}")
     except httpx.RequestError:
-        return False
+        # Un timeout o un fallo de DNS puntual es una limitación NUESTRA,
+        # no una avería de su web. Hasta el 20 ago 2026 esto devolvía
+        # False y se convertía en el reproche "la otra forma de escribir
+        # la dirección no responde" — el docstring ya prometía None desde
+        # el principio, pero no había ningún camino que lo devolviera.
+        return None
     return respuesta.status_code < 400
 
 

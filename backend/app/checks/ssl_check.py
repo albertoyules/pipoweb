@@ -26,6 +26,7 @@ from datetime import datetime, timezone
 import requests
 
 from app.checks.pagina import USER_AGENT_PIPO
+from app.seguridad import variante_www
 
 TIMEOUT_REDIRECCION = 5.0
 
@@ -87,7 +88,7 @@ def _parsear_fecha_certificado(texto_fecha: str) -> datetime:
     return fecha.replace(tzinfo=timezone.utc)
 
 
-def comprobar_ssl(dominio: str, timeout: float = 5.0) -> dict:
+def _comprobar_ssl_de_un_host(dominio: str, timeout: float = 5.0) -> dict:
     """
     Se conecta al dominio por HTTPS (puerto 443) y examina su
     certificado. Devuelve siempre el mismo formato: estado (semáforo),
@@ -107,8 +108,8 @@ def comprobar_ssl(dominio: str, timeout: float = 5.0) -> dict:
 
     except socket.timeout:
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
+            estado="sin_datos",
+            prioridad="baja",
             detalle="El servidor no respondió a tiempo al intentar conectar por HTTPS.",
         )
     except ssl.SSLCertVerificationError as error:
@@ -119,8 +120,8 @@ def comprobar_ssl(dominio: str, timeout: float = 5.0) -> dict:
         )
     except (socket.gaierror, ConnectionRefusedError, OSError) as error:
         return _resultado(
-            estado="rojo",
-            prioridad="alta",
+            estado="sin_datos",
+            prioridad="baja",
             detalle=f"No se ha podido conectar por HTTPS al dominio ({error}).",
         )
 
@@ -190,3 +191,73 @@ def _resultado(estado: str, prioridad: str, detalle: str, datos: dict | None = N
         "detalle": detalle,
         "datos": datos or {},
     }
+
+
+def comprobar_ssl(dominio: str, timeout: float = 5.0) -> dict:
+    """
+    El certificado del host pedido y, si ese host no responde, el de la
+    otra forma de escribir la dirección.
+
+    Por qué: obtener_pagina() aprendió el 16 ago 2026 a reintentar con la
+    variante del "www" cuando solo una de las dos está bien configurada
+    (el caso de mchomeinmobiliaria.com, que no sirve HTTPS en la raíz
+    pero sí en www.). Este check no lo aprendió, así que sobre esa misma
+    web los checks de contenido decían "bien" y este decía "no se ha
+    podido conectar por HTTPS" en ROJO — y con peso 3 en una familia
+    crítica, ese rojo solo ya pintaba el informe entero de rojo.
+
+    Un certificado que no se ha podido mirar es "sin_datos", nunca rojo:
+    un fallo de conexión nuestro no es una acusación contra su web. Los
+    problemas reales del certificado (caducado, no fiable, TLS viejo) sí
+    siguen siendo rojo, porque ahí sí hemos podido mirar.
+    """
+    resultado = _comprobar_ssl_de_un_host(dominio, timeout)
+    if resultado["estado"] != "sin_datos":
+        return resultado
+
+    otra_forma = variante_www(dominio)
+    if otra_forma == dominio:
+        return resultado
+
+    alternativa = _comprobar_ssl_de_un_host(otra_forma, timeout)
+    if alternativa["estado"] != "sin_datos":
+        alternativa["datos"]["host_analizado"] = otra_forma
+        return alternativa
+
+    # Ninguna de las dos formas da certificado. Queda una pregunta que sí
+    # importa: ¿es que la web no responde (limitación nuestra, sin_datos)
+    # o es que responde pero SOLO sin cifrar? Lo segundo es un problema
+    # real y grave del negocio, y dejarlo en sin_datos sería el error
+    # contrario al que se está arreglando: taparlo.
+    if _sirve_solo_sin_cifrar(dominio) or _sirve_solo_sin_cifrar(otra_forma):
+        return _resultado(
+            estado="rojo",
+            prioridad="alta",
+            detalle=(
+                "La web funciona pero solo por http://, sin cifrar: no tiene un certificado "
+                "válido en https://. Los navegadores la marcan como \"No es seguro\" y todo lo "
+                "que escriba un cliente viaja en abierto."
+            ),
+            datos={"https_disponible": False},
+        )
+
+    return resultado
+
+
+def _sirve_solo_sin_cifrar(dominio: str) -> bool:
+    """
+    ¿Responde este host por http:// con una página de verdad? Se usa solo
+    cuando ya sabemos que por https:// no hay nada, para distinguir "no
+    tiene HTTPS" (culpa suya, rojo) de "no hemos podido conectar" (culpa
+    nuestra, sin_datos).
+    """
+    try:
+        respuesta = requests.get(
+            f"http://{dominio}",
+            timeout=TIMEOUT_REDIRECCION,
+            allow_redirects=True,
+            headers={"User-Agent": USER_AGENT_PIPO},
+        )
+    except requests.exceptions.RequestException:
+        return False
+    return respuesta.status_code < 400 and not str(respuesta.url).startswith("https://")

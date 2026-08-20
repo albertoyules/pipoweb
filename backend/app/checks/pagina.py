@@ -10,6 +10,8 @@ Sigue siendo 100% pasivo: es la misma petición que hace un navegador
 al entrar en la web.
 """
 
+from urllib.parse import urlparse
+
 import httpx
 from bs4 import BeautifulSoup
 
@@ -32,6 +34,23 @@ USER_AGENT_PIPO = "Mozilla/5.0 (compatible; PipoBot/1.0; +https://pipoweb.com)"
 # vacío, no la web que ve una persona.
 MARCAS_DE_JAVASCRIPT = ('id="root"', "id='root'", 'id="app"', "id='app'", 'id="__next"', "data-reactroot", "ng-version")
 MINIMO_TEXTO_VISIBLE = 400  # caracteres
+
+
+def raiz_del_sitio(url: str) -> str:
+    """
+    Solo el esquema y el host de una URL: de "https://ejemplo.es/es/"
+    saca "https://ejemplo.es".
+
+    Hace falta porque la url que devuelve obtener_pagina() es la FINAL,
+    ya seguidos los redirects, y muchas webs mandan la home a un
+    subdirectorio de idioma. Pegándole la ruta a esa url, Pipo pedía
+    "/es/robots.txt" —que no existe en ninguna parte— y acusaba de no
+    tener robots.txt ni sitemap.xml a webs que tienen los dos. Lo mismo
+    con /es/readme.html en tecnologia_check, que por eso no detectaba la
+    versión de WordPress en esas webs. Encontrado el 20 ago 2026.
+    """
+    partes = urlparse(url)
+    return f"{partes.scheme}://{partes.netloc}"
 
 
 def parece_dibujada_con_javascript(html: str) -> bool:

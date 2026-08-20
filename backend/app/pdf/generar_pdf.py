@@ -317,7 +317,7 @@ def generar_pdf_informe(escaneo: dict, marca: str | None = None) -> bytes:
       <div class="cierre">
         <strong>¿Prefieres que lo arreglemos nosotros?</strong>
         Este informe te dice qué falla y por qué importa. Si quieres que lo dejemos todo en
-        verde sin que tengas que tocar nada, escríbenos a alberyules11@gmail.com indicando
+        verde sin que tengas que tocar nada, escríbenos a hola@pipoweb.com indicando
         tu dominio y te pasamos presupuesto cerrado en menos de 24 horas.
       </div>
 

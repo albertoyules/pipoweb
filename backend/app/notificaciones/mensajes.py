@@ -30,7 +30,11 @@ def _checks_a_mejorar(checks: list[dict]) -> list[str]:
     "detalle" que ya escribe cada check — no hace falta duplicar esas
     frases aquí, ya están pensadas para leerse en cristiano.
     """
-    return [check["detalle"] for check in checks if check["estado"] != "verde"]
+    # "sin_datos" fuera: bajo el titular "Esto es lo que hay que tocar"
+    # aparecía "No hemos podido comprobar la caducidad de este dominio...
+    # No es ni bueno ni malo", que se contradice solo en la misma frase —
+    # y es el primer email que recibe alguien que acaba de pedir precio.
+    return [check["detalle"] for check in checks if check["estado"] not in ("verde", "sin_datos")]
 
 
 def mensaje_solicitud_cliente(

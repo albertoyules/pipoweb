@@ -84,5 +84,54 @@ def interpretar_hallazgos(resultado_escaneo: dict) -> dict:
         "dominio": resultado_escaneo["dominio"],
         "puntuacion_global": calcular_puntuacion(checks),
         "resumen_ejecutivo": resultado_ia.get("resumen_ejecutivo", ""),
-        "hallazgos": resultado_ia.get("hallazgos", []),
+        "hallazgos": _hallazgos_verificados(resultado_ia.get("hallazgos", []), checks),
     }
+
+
+def _hallazgos_verificados(hallazgos: list, checks: list[dict]) -> list[dict]:
+    """
+    Hace cumplir por código las tres reglas que hasta el 20 ago 2026 solo
+    estaban escritas en el prompt: un hallazgo por check, referenciado por
+    su id, con la prioridad copiada del dato original.
+
+    Por qué no basta el prompt: lo que devuelva el modelo se guardaba y se
+    enseñaba tal cual. Y hay un camino real para tensarlo — entre los
+    datos que se le mandan va texto sacado de la web analizada (el
+    <title>, la cabecera Server, las URLs de los recursos), así que una
+    web hostil puede escribir instrucciones ahí dentro. Esto no impide que
+    el modelo redacte mal, pero sí que invente un hallazgo sobre un check
+    que no se ejecutó, o que suba una prioridad para asustar.
+
+    Se conserva el orden de los checks reales, no el que devuelva la IA.
+    """
+    if not isinstance(hallazgos, list):
+        return []
+
+    por_id = {}
+    for hallazgo in hallazgos:
+        if isinstance(hallazgo, dict) and hallazgo.get("check") not in por_id:
+            por_id[hallazgo.get("check")] = hallazgo
+
+    verificados = []
+    for check in checks:
+        hallazgo = por_id.get(check["check"])
+        if hallazgo is None:
+            # La IA se dejó este check. Mejor una fila con el texto técnico
+            # que ya escribió el propio check que ninguna fila: el cliente
+            # no debe perder un hallazgo porque el modelo tuviera un mal día.
+            hallazgo = {
+                "titulo": check["detalle"].split(".")[0][:80],
+                "explicacion_llana": check["detalle"],
+                "impacto_negocio": "",
+            }
+        verificados.append(
+            {
+                "check": check["check"],
+                "titulo": str(hallazgo.get("titulo", ""))[:120],
+                "explicacion_llana": str(hallazgo.get("explicacion_llana", "")),
+                "impacto_negocio": str(hallazgo.get("impacto_negocio", "")),
+                # La prioridad NO se acepta de la IA: se copia del escaneo.
+                "prioridad": check["prioridad"],
+            }
+        )
+    return verificados
