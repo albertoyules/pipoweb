@@ -293,15 +293,17 @@ El escalón de 19€ tenía tres problemas: el nivel de 19€/mes costaba lo mis
 
 **El remitente NO está escrito en el código**: `config.py` lee la variable de entorno `PIPO_REMITENTE` (formato `Pipo <hola@pipoweb.com>`) y solo cae a `onboarding@resend.dev` si esa variable falta. O sea, que los emails salgan con marca depende de que `PIPO_REMITENTE` esté puesta **en Railway**, no de tocar `enviar.py`. Si algún día vuelven a salir desde `resend.dev`, mirar ahí antes que en el código.
 
-🟡 **RECIBIR correo en `hola@pipoweb.com` — a medias, 19 ago 2026.** Enviar y recibir son sistemas separados: Resend solo ENVÍA, así que hasta ahora un email a `hola@pipoweb.com` **rebotaba** (la raíz no tenía ningún MX). El parche que evita perder mensajes ya existía: `RESPONDER_A` mete un `reply_to` al Gmail de Alberto, así que quien responda a un email de Pipo sí llega.
+✅ **RECIBIR correo en `hola@pipoweb.com` — HECHO el 20 ago 2026**, verificado con un email real que llegó a la bandeja. Enviar y recibir son sistemas separados: Resend solo ENVÍA, así que hasta esta fecha un email a `hola@pipoweb.com` **rebotaba** (la raíz no tenía ningún MX).
 
-Se contrató **Zoho Mail Lite** (10,80€+IVA al año, 1 usuario, 5 GB, **renovación automática el 19 ago 2027**), en el **centro de datos europeo** — importante, porque los MX del `.eu` y los del `.com` son distintos. Hecho ya: dominio verificado (TXT `zoho-verification=...zmverify.zoho.eu` en la raíz) y buzón `hola@pipoweb.com` creado.
+Se contrató **Zoho Mail Lite** (10,80€+IVA al año, 1 usuario, 5 GB, **renovación automática el 19 ago 2027**), en el **centro de datos europeo** — importante, porque los MX del `.eu` y los del `.com` son distintos. En la raíz hay ahora: MX `mx.zoho.eu` (10), `mx2.zoho.eu` (20), `mx3.zoho.eu` (50); SPF `v=spf1 include:zohomail.eu ~all`; y DKIM en `zmail._domainkey`.
 
-**Lo que falta, por orden:**
-1. En Namecheap (Advanced DNS, con Mail Settings en `Custom MX`): borrar los 5 MX de `eforward.registrar-servers.com` y poner `mx.zoho.eu` (10), `mx2.zoho.eu` (20), `mx3.zoho.eu` (50) en `@`.
-2. SPF de la raíz: hoy es `v=spf1 -all` ("nadie envía desde pipoweb.com"). Pasar a `v=spf1 include:zoho.eu ~all`. **No afecta a Resend**, que usa el SPF de `send.pipoweb.com`.
-3. DKIM de Zoho, desde su panel. Con el DMARC en `p=quarantine`, sin DKIM ni SPF bien puestos los emails de Alberto irían a spam.
-4. Configurar IMAP en Gmail (Mail Lite sí lo incluye; el plan gratuito de Zoho NO — por eso se descartó).
+**Por qué `zohomail.eu` y no `zoho.eu`** (el panel de Zoho lo avisa, y se comprobó con `dig`): los rangos de IP de `spf.zohomail.eu` están DENTRO de los de `spf.zoho.eu`, así que los dos funcionan — pero `zoho.eu` autoriza a todos los servicios de Zoho a enviar en nombre del dominio y `zohomail.eu` solo al correo. Tampoco se usó la opción "fusionada" que ofrece Zoho (`include:zohomail.eu include:zoho.eu`): un SPF solo admite **10 consultas DNS** antes de fallar entero, y la fusionada gasta dos para autorizar los mismos servidores.
+
+**Por qué NO se pudo usar el reenvío gratis de Namecheap**, que era el plan inicial: su sección "Redirect Email" solo se desbloquea con Mail Settings en `Email Forwarding`, y ese modo se lleva por delante los MX personalizados — o sea, el `send` de Resend. Los 5 MX de `eforward.registrar-servers.com` llegaron a publicarse y no sirvieron de nada; se borraron al poner los de Zoho.
+
+**Trampa de diagnóstico ya pagada:** tras editar el SPF, los DOS servidores autoritativos de Namecheap siguieron sirviendo el valor viejo durante ~25 minutos, mientras el panel ya enseñaba el nuevo. Se comprobó contra `dns1`, `dns2`, `1.1.1.1` y `8.8.8.8` y los cuatro daban lo viejo. **No era un fallo de guardado**: era retraso real de Namecheap entre su panel y sus servidores. Y algunas respuestas de `dns1` volvían vacías de forma intermitente. Antes de dar por perdido un cambio de DNS ahí, repetir la consulta varias veces y esperar media hora.
+
+**Pendiente (opcional):** conectar el buzón al Gmail de Alberto — POP en `poppro.zoho.eu` y "Enviar como" con `smtppro.zoho.eu`. Mail Lite sí incluye POP/IMAP; el plan gratuito de Zoho NO, y por eso se descartó.
 
 **LO QUE NO SE TOCA NUNCA en ese DNS:** el MX de host `send` (`feedback-smtp.eu-west-1.amazonses.com`), su TXT SPF, y el TXT `resend._domainkey`. Son de Resend y borrarlos deja a Pipo sin poder enviar. Por eso Mail Settings tiene que seguir en `Custom MX`: poner el desplegable en `Email Forwarding` (la vía "fácil" del reenvío gratis de Namecheap) se lleva por delante los MX personalizados, y además esa opción no sirve — Redirect Email queda bloqueado mientras haya MX a medida.
 
