@@ -642,6 +642,55 @@ URL sin mirarlo; ahora lo coge del escaneo. El logo de los emails apunta ya a `w
   - Probado con Playwright real, de punta a punta: `index.html` enseña las 7 filas sin formulario; al entrar en `informe.html` sin haber dejado email antes, aparece el bloqueo y la IA no se llama todavía; tras enviar el email, se ve el estado de carga y luego el informe real (Gemini respondió de verdad, no un mock); recargar la página del mismo escaneo con el `localStorage` ya puesto salta el bloqueo directamente.
   - Probado con Playwright real: el formulario aparece y el link al informe está oculto antes de dejar el email; tras enviarlo, las 7 filas se ven y el lead queda guardado en `pipo.db` (comprobado por SQL directo). También probado el límite de 5/minuto y los casos de email inválido (400) y escaneo inexistente (404).
 
+### 🟡 P2-bis — Siete mejoras seleccionadas de dos checklists de TikTok (21 ago 2026)
+
+Alberto trajo dos listas de TikTok (20 puntos de UI, 27 de SEO/visibilidad en IA) y pidió
+auditarlas contra lo que hay. **Se comprobaron los 47 contra el código, no de memoria** — y tres
+de los "sí" iniciales eran falsos positivos del propio grep (la palabra "consentimiento" contiene
+"consent"; "compartir" aparecía en prosa, no en ningún botón). Ya estaban cubiertos 17.
+
+**Lo seleccionado, por orden. Nada de esto está hecho todavía:**
+
+1. **Menú móvil** — no es un extra, es un fallo: `.nav-links{display:none}` en ≤780px deja al
+   visitante de móvil **sin los cuatro enlaces** del nav (Qué revisa, Cómo funciona, Precios,
+   FAQ); solo queda la CTA fija. El tráfico de publicidad es sobre todo móvil.
+2. **Schema de FAQ** (JSON-LD `FAQPage`) — las 6 preguntas ya existen escritas en `<details>` en
+   `index.html`. Es copiarlas a JSON-LD. Lo más barato de la lista con retorno claro.
+3. **Botón de copiar el enlace del informe** en `informe.html` — hoy compartirlo obliga a copiar
+   la URL de la barra, y el informe es la mejor tarjeta de visita que tiene el proyecto.
+4. **GA4 + banner de consentimiento** — van juntos SIEMPRE, nunca por separado (en la UE la
+   cookie de analítica no puede cargar antes de aceptar). Ya estaba pendiente de antes. Hace
+   falta el ID `G-XXXXXXX` de Alberto y reescribir `cookies.html` y `privacidad.html`. El
+   **tracking UTM va después de esto**, no antes: sin GA4 no mide nada.
+5. **Enlace "saltar al contenido"** — accesibilidad básica, y Pipo audita la accesibilidad de
+   otros. Zapatero descalzo.
+6. **`llms.txt`** — barato y encaja con el gancho de "aparecer en ChatGPT", pero es un estándar
+   **propuesto**, no adoptado oficialmente por OpenAI ni Anthropic. Beneficio incierto, decirlo así.
+7. **Fecha de última actualización en la home** — las tres legales ya la tienen.
+
+**Descartado a propósito, y por qué (no reproponerlo sin releer esto):**
+- **Banner de cookies por sí solo**: Pipo no instala ninguna cookie. Un banner declarando cookies
+  inexistentes es la misma clase de mentira que se corrigió en `cookies.html`. Solo entra con GA4.
+- **Schema `LocalBusiness`**: pide publicar dirección y datos de un negocio local. Alberto **no
+  está dado de alta**, no tiene local y el NIF del aviso legal figura pendiente. Inventarse esos
+  datos para posicionar es justo lo que el proyecto evita. Se hace cuando se dé de alta.
+- **Ver contraseña / modales de confirmación / buscador del sitio**: no hay ni un campo de
+  contraseña (no hay cuentas), ninguna acción destructiva, y el sitio tiene 5 páginas.
+- **Nombres y alt de imágenes**: no hay ni un `<img>`, todo el dibujo es SVG en línea.
+- **Barra de progreso de scroll / desindexar `/page/`**: son para blogs con artículos y
+  paginación. No hay ni lo uno ni lo otro.
+- **Modo oscuro**: mucho CSS, ilustraciones con colores fijos y el efecto invierno, para poco
+  retorno. **Hoja de impresión**: ya existe el PDF, que es mejor. **Botón de subir arriba**: menor.
+
+**La observación de fondo, que vale más que la lista:** ocho de los 27 puntos de SEO (intención
+de búsqueda, TL;DR, CTA tras el primer párrafo, clusters, interlinkado) **dan por hecho un sitio
+con artículos**. Pipo tiene una landing y tres páginas legales. No son ocho tareas: son una sola
+pregunta de negocio — **¿Pipo va a tener blog?** Un par de artículos del tipo "qué significa que
+tu web diga «no es seguro»" serían la puerta de entrada desde Google para quien todavía no sabe
+que necesita esto. Es decisión de Alberto sobre en qué gasta el tiempo, no una casilla.
+
+**Sin comprobar:** si el sitemap está enviado dentro de Search Console (solo lo ve Alberto).
+
 ### 🟢 P3 — Crecimiento, más adelante
 - **Nivel "Vigilancia" (19€/mes)**: re-escaneo automático mensual, comparación con el histórico ("esto ha empeorado desde la última vez"), alertas por email. Necesita tareas programadas (cron/Celery) que hoy no existen.
 - **HIBP**, pero solo dentro del futuro servicio de "acompañamiento" manual (ver decisión #4 arriba) — nunca en el flujo self-service.
