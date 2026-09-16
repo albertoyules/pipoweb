@@ -26,6 +26,7 @@ from app.checks.experiencia_check import comprobar_experiencia
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
 from app.checks.pagina import obtener_pagina
+from app.checks.perfil_sitio import detectar_perfil
 from app.checks.privacidad_check import comprobar_privacidad
 from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
@@ -305,6 +306,13 @@ async def check_experiencia(dominio: str):
     limpio = await _dominio_de_depuracion(dominio)
     pagina = await obtener_pagina(limpio)
     return await comprobar_experiencia(pagina, limpio)
+
+
+@depuracion.get("/perfil")
+async def check_perfil(dominio: str):
+    """Detección de perfil de sitio (tipo, CMS, señales), aislado. No es un check con semáforo."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
+    return await detectar_perfil(pagina)
 
 
 @depuracion.get("/archivos-expuestos")
@@ -745,6 +753,11 @@ async def informe(request: Request, id_escaneo: int, t: str = ""):
         **escaneo["informe"],
         "resumen": escaneo["resultado"].get("resumen"),
         "comparacion": escaneo["resultado"].get("comparacion"),
+        # Qué tipo de sitio es, con qué CMS está hecho (ver
+        # perfil_sitio.py). Metadata de detección, no interpretación de
+        # la IA, así que viaja igual que resumen/comparacion: se añade
+        # al vuelo desde el escaneo guardado, no desde la caché de IA.
+        "perfil_sitio": escaneo["resultado"].get("perfil_sitio"),
         "fecha": escaneo["fecha"],
         # Precio orientativo del arreglo, para poder enseñarlo antes de
         # que nadie rellene ningún formulario. Fórmula fija, nunca IA.

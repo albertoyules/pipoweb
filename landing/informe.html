@@ -155,6 +155,16 @@
   .informe-nota{grid-area:nota;font-family:'Fraunces';font-size:44px;font-weight:600;color:var(--amber);padding-left:16px;line-height:1}
   .informe-nota.g{color:var(--sage)}.informe-nota.a{color:var(--amber)}.informe-nota.r{color:var(--brick)}
 
+  /* etiqueta del perfil de sitio detectado (tipo + CMS), justo debajo
+     de la cabecera. Solo se muestra si el backend trae perfil_sitio —
+     escaneos guardados antes de que existiera esta detección no lo
+     traen, y el bloque se queda simplemente vacío. */
+  .perfil-sitio{display:none;align-items:center;gap:8px;margin:-14px 0 24px;font-size:13.5px;
+    color:var(--brown-dark);font-weight:700}
+  .perfil-sitio.visible{display:flex}
+  .perfil-sitio .chip{background:var(--cream-deep);border-radius:999px;padding:5px 14px;
+    font-family:'Nunito';letter-spacing:.01em}
+
   /* En móvil: el búho, el dominio y la nota comparten la fila de arriba,
      y el texto de la IA pasa a ocupar el ancho completo debajo. Así la
      tarjeta deja de ser una columna alta y estrecha. */
@@ -325,6 +335,8 @@
       <p id="txt-resumen"></p>
     </div>
 
+    <div class="perfil-sitio" id="perfil-sitio"></div>
+
     <div class="zona-detalle" id="zona-detalle">
       <!-- Desglose por áreas y comparación: se rellenan desde JS solo
            si el backend los manda (los escaneos viejos no los traen). -->
@@ -394,6 +406,16 @@
 
   const LETRA = { verde: "g", ambar: "a", rojo: "r", sin_datos: "n" };
   const LETRA_PRIORIDAD = { alta: "r", media: "a", baja: "g", info: "n" };
+
+  // Etiqueta legible para el tipo de sitio detectado (ver
+  // app/checks/perfil_sitio.py). Solo texto de presentación: la
+  // detección real vive en el backend, esto no decide nada.
+  const NOMBRE_TIPO_SITIO = {
+    tienda_online: "Tienda online",
+    area_privada: "Área privada / panel de cliente",
+    blog: "Blog / web de contenido",
+    landing_servicios: "Landing de servicios",
+  };
 
   // Mismos umbrales que usa Google (y que ya usa el backend en
   // rendimiento_check.py) para decidir si una categoría es buena,
@@ -574,12 +596,38 @@
       lista.append(fila);
     });
 
+    pintarPerfilSitio(datos.perfil_sitio);
     pintarFamilias(datos.resumen);
     pintarComparacion(datos.comparacion);
     document.getElementById("btn-pdf").href = conToken(`${API_BASE}/api/informe/${idEscaneo}/pdf`);
 
     document.getElementById("contenido").style.display = "block";
     compararConLaMedia(datos.puntuacion_global);
+  }
+
+  // Etiqueta con el tipo de sitio + CMS detectado. Escaneos guardados
+  // antes de que existiera perfil_sitio (o webs que no se dejaron
+  // descargar) no traen tipo_sitio: el bloque se queda oculto en vez
+  // de enseñar una etiqueta vacía o "None".
+  function pintarPerfilSitio(perfil) {
+    const zona = document.getElementById("perfil-sitio");
+    if (!perfil || !perfil.tipo_sitio) return;
+
+    const nombreTipo = NOMBRE_TIPO_SITIO[perfil.tipo_sitio] || perfil.tipo_sitio;
+    zona.textContent = "";
+    const chipTipo = document.createElement("span");
+    chipTipo.className = "chip";
+    chipTipo.textContent = nombreTipo;
+    zona.append(chipTipo);
+
+    if (perfil.cms) {
+      const chipCms = document.createElement("span");
+      chipCms.className = "chip";
+      chipCms.textContent = perfil.version_cms ? `${perfil.cms} ${perfil.version_cms}` : perfil.cms;
+      zona.append(chipCms);
+    }
+
+    zona.classList.add("visible");
   }
 
   // Desglose por áreas: seguridad, cumplimiento legal y clientes. Es lo

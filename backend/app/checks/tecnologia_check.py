@@ -25,6 +25,7 @@ import re
 
 import httpx
 
+from app.checks.deteccion_cms import detectar_cms_y_version
 from app.checks.pagina import raiz_del_sitio, USER_AGENT_PIPO
 from bs4 import BeautifulSoup
 from packaging.version import InvalidVersion, Version
@@ -59,7 +60,7 @@ async def comprobar_tecnologia(pagina: dict) -> dict:
 
     soup = BeautifulSoup(pagina["html"], "html.parser")
 
-    cms, version = _detectar_cms_y_version(soup, pagina["html"])
+    cms, version = detectar_cms_y_version(soup, pagina["html"])
 
     if cms is None:
         return _resultado(
@@ -93,44 +94,6 @@ async def comprobar_tecnologia(pagina: dict) -> dict:
     ultima_version = await _ultima_version_estable_wordpress()
 
     return _evaluar_wordpress(version, ultima_version)
-
-
-def _detectar_cms_y_version(soup: BeautifulSoup, html: str) -> tuple[str | None, str | None]:
-    """
-    Primero mira la etiqueta <meta name="generator">, que es la forma
-    más directa (varios CMS la rellenan solos). Si no está, busca
-    huellas de WordPress que quedan aunque se quite esa etiqueta por
-    seguridad: el enlace de descubrimiento de su API REST, o rutas
-    /wp-content//wp-includes/ que aparecen en cualquier instalación
-    por defecto (scripts, hojas de estilo...).
-    """
-    generator = soup.find("meta", attrs={"name": "generator"})
-    contenido = generator.get("content", "").strip() if generator else ""
-
-    if contenido:
-        coincidencia = re.match(r"WordPress\s+([\d.]+)", contenido, re.IGNORECASE)
-        if coincidencia:
-            return "WordPress", coincidencia.group(1)
-        if contenido.lower().startswith("joomla"):
-            return "Joomla", None
-        if contenido.lower().startswith("drupal"):
-            coincidencia = re.search(r"Drupal\s+([\d.]+)", contenido, re.IGNORECASE)
-            return "Drupal", coincidencia.group(1) if coincidencia else None
-        if "prestashop" in contenido.lower():
-            return "PrestaShop", None
-        if "wix.com" in contenido.lower():
-            return "Wix", None
-        if "squarespace" in contenido.lower():
-            return "Squarespace", None
-
-    # Sin <meta generator>: buscamos huellas de WordPress que sobreviven
-    # aunque esa etiqueta se haya quitado a propósito.
-    tiene_enlace_api_rest = soup.find("link", attrs={"rel": "https://api.w.org/"}) is not None
-    tiene_rutas_wp = "/wp-content/" in html or "/wp-includes/" in html
-    if tiene_enlace_api_rest or tiene_rutas_wp:
-        return "WordPress", None
-
-    return None, None
 
 
 async def _version_wordpress_desde_readme(url_base: str) -> str | None:

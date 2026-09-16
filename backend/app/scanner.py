@@ -19,6 +19,7 @@ from app.checks.experiencia_check import comprobar_experiencia
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
 from app.checks.pagina import obtener_pagina
+from app.checks.perfil_sitio import detectar_perfil
 from app.checks.privacidad_check import comprobar_privacidad
 from app.checks.rendimiento_check import comprobar_rendimiento
 from app.checks.seo_check import comprobar_seo
@@ -76,13 +77,20 @@ async def ejecutar_escaneo(
     # lanzan después, en cuanto esa descarga termina.
     pagina, *resultados_iniciales = await asyncio.gather(obtener_pagina(dominio), *tareas)
 
-    resultados_dependientes_de_pagina = await asyncio.gather(
-        comprobar_seo(pagina),
-        asyncio.to_thread(comprobar_privacidad, pagina),
-        asyncio.to_thread(comprobar_mixed_content, pagina),
-        comprobar_tecnologia(pagina),
-        asyncio.to_thread(comprobar_accesibilidad, pagina),
-        comprobar_experiencia(pagina, dominio),
+    resultados_dependientes_de_pagina, perfil_sitio = await asyncio.gather(
+        asyncio.gather(
+            comprobar_seo(pagina),
+            asyncio.to_thread(comprobar_privacidad, pagina),
+            asyncio.to_thread(comprobar_mixed_content, pagina),
+            comprobar_tecnologia(pagina),
+            asyncio.to_thread(comprobar_accesibilidad, pagina),
+            comprobar_experiencia(pagina, dominio),
+        ),
+        # Metadata, no un check: no tiene semáforo ni entra en la nota
+        # (ver puntuacion.py). Se calcula aquí, no dentro de un check
+        # concreto, porque en el futuro decide qué checks condicionales
+        # se añaden a esta misma lista (tienda online, área privada...).
+        detectar_perfil(pagina),
     )
 
     checks = [*resultados_iniciales, *resultados_dependientes_de_pagina]
@@ -97,4 +105,5 @@ async def ejecutar_escaneo(
         # para el informe, el PDF y los emails.
         "resumen": resumir_checks(checks),
         "checks": checks,
+        "perfil_sitio": perfil_sitio,
     }
