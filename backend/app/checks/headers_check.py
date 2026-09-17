@@ -21,9 +21,12 @@ Qué comprobamos:
   una pista gratis de qué vulnerabilidades conocidas probar primero.
 """
 
+import asyncio
+
 import httpx
 
-from app.checks.pagina import USER_AGENT_PIPO
+from app.checks import pagina
+from app.checks.pagina import CODIGOS_REINTENTABLES, USER_AGENT_PIPO
 
 # Nombre de la cabecera -> qué protege, en una frase que se pueda
 # mostrar tal cual en el informe.
@@ -72,21 +75,37 @@ def _cookies_sin_flags_seguras(respuesta: httpx.Response) -> list[str]:
     return nombres_con_problema
 
 
+async def _pedir(url: str, timeout: float) -> httpx.Response:
+    """Una única petición, sin reintentos. Puede lanzar httpx.RequestError."""
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=timeout,
+        headers={"User-Agent": USER_AGENT_PIPO},
+    ) as cliente:
+        return await cliente.get(url)
+
+
 async def comprobar_headers(dominio: str, timeout: float = 5.0) -> dict:
     """
     Pide la home del dominio por HTTPS y examina qué cabeceras de
     seguridad trae la respuesta. Devuelve el mismo formato que el
     resto de checks: estado, prioridad, detalle y datos.
+
+    Reintenta una vez, igual que obtener_pagina() (ver pagina.py), si
+    el primer intento da un código típico de bloqueo temporal
+    (403/429/503) — un WAF o un rate-limit pueden ceder a la segunda.
     """
     url = f"https://{dominio}"
 
     try:
-        async with httpx.AsyncClient(
-            follow_redirects=True,
-            timeout=timeout,
-            headers={"User-Agent": USER_AGENT_PIPO},
-        ) as cliente:
-            respuesta = await cliente.get(url)
+        respuesta = await _pedir(url, timeout)
+        if respuesta.status_code in CODIGOS_REINTENTABLES:
+            # pagina.ESPERA_REINTENTO_SEGUNDOS, no importado suelto: los
+            # tests lo parchean a 0 (ver conftest.py) y un import suelto
+            # con "from ... import X" copia el valor en el momento de
+            # importar, así que el parche no lo alcanzaría.
+            await asyncio.sleep(pagina.ESPERA_REINTENTO_SEGUNDOS)
+            respuesta = await _pedir(url, timeout)
     except httpx.RequestError as error:
         # Mismo criterio que los checks de contenido (ver pagina.py): no
         # haber podido mirar no es lo mismo que estar mal, así que no
@@ -95,6 +114,21 @@ async def comprobar_headers(dominio: str, timeout: float = 5.0) -> dict:
             estado="sin_datos",
             prioridad="baja",
             detalle=f"No hemos podido leer las cabeceras de la web ({error}). No cuenta para la nota.",
+        )
+
+    # Un 403/500 es la página de error de un WAF o del propio servidor,
+    # no la web del cliente — y esa página de error, lógicamente, no
+    # trae CSP ni HSTS. Sin esta comprobación, Pipo analizaba esa
+    # página de bloqueo y acusaba al cliente de "faltan cabeceras de
+    # seguridad" cuando en realidad ni siquiera había podido leer su
+    # web (encontrado el 17 sep 2026 con toldosonline.es, detrás de un
+    # WAF que bloquea el origen de Railway con 403). Mismo criterio que
+    # el resto de checks que leen la home (ver pagina.py, ssl_check.py).
+    if respuesta.status_code >= 400:
+        return _resultado(
+            estado="sin_datos",
+            prioridad="baja",
+            detalle=f"No hemos podido leer las cabeceras de la web (el servidor respondió {respuesta.status_code}). No cuenta para la nota.",
         )
 
     # httpx.Headers ya ignora mayúsculas/minúsculas al comparar, igual

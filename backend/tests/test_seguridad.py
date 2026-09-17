@@ -227,6 +227,75 @@ def test_un_404_no_se_reintenta():
     assert len(llamadas) == 2
 
 
+# --- headers_check no debe analizar la página de error de un WAF (17 sep 2026) ---
+
+
+def test_headers_no_acusa_de_faltar_cabeceras_en_un_403():
+    """
+    headers_check.py no comprobaba respuesta.status_code: si un WAF
+    bloqueaba con 403 (encontrado con toldosonline.es, detrás de un
+    WAF que bloquea el origen de Railway), Pipo analizaba la página de
+    error —que lógicamente no trae CSP ni HSTS— y reportaba "faltan
+    cabeceras de seguridad" sobre una web que nunca llegó a leer. Debe
+    caer en sin_datos, igual que el resto de checks de contenido.
+    """
+    import httpx
+
+    from app.checks.headers_check import comprobar_headers
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, text="bloqueado por el WAF")
+
+    transporte = httpx.MockTransport(responder)
+    original = httpx.AsyncClient
+
+    class ClienteFalso(original):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transporte
+            super().__init__(*args, **kwargs)
+
+    httpx.AsyncClient = ClienteFalso
+    try:
+        resultado = asyncio.run(comprobar_headers("ejemplo.es"))
+    finally:
+        httpx.AsyncClient = original
+
+    assert resultado["estado"] == "sin_datos"
+    assert "403" in resultado["detalle"]
+
+
+def test_headers_reintenta_un_403_y_puede_recuperarse():
+    """Mismo criterio de reintento que obtener_pagina (ver pagina.py)."""
+    import httpx
+
+    from app.checks.headers_check import comprobar_headers
+
+    llamadas = []
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        llamadas.append(1)
+        if len(llamadas) == 1:
+            return httpx.Response(403, text="bloqueado")
+        return httpx.Response(200, headers={"strict-transport-security": "max-age=1"})
+
+    transporte = httpx.MockTransport(responder)
+    original = httpx.AsyncClient
+
+    class ClienteFalso(original):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transporte
+            super().__init__(*args, **kwargs)
+
+    httpx.AsyncClient = ClienteFalso
+    try:
+        resultado = asyncio.run(comprobar_headers("ejemplo.es"))
+    finally:
+        httpx.AsyncClient = original
+
+    assert resultado["estado"] != "sin_datos"
+    assert len(llamadas) == 2
+
+
 def test_pipo_se_identifica_por_su_nombre():
     """No se disfraza de navegador: dice quién es y dónde preguntar."""
     from app.checks.pagina import USER_AGENT_PIPO
