@@ -24,11 +24,7 @@ justo lo mismo que ya hace perfil_sitio.py para detectar tiene_login.
 
 from bs4 import BeautifulSoup
 
-# Mismas rutas que perfil_sitio.py usa para detectar tiene_login — se
-# repiten aquí (no se importan) porque el criterio de "está indexable"
-# es más estricto: aquí además importa si hay algún <meta robots
-# noindex> cerca, algo que perfil_sitio.py no necesita saber.
-RUTAS_LOGIN = ("/wp-login.php", "/mi-cuenta", "/my-account", "/login", "/acceso", "/area-cliente", "/area-privada", "/wp-admin")
+from app.checks.senales_sitio import RUTAS_LOGIN
 
 
 def comprobar_area_privada(pagina: dict) -> dict:

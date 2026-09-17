@@ -29,23 +29,14 @@ from bs4 import BeautifulSoup
 
 from app.checks.deteccion_cms import detectar_cms_y_version
 from app.checks.pagina import USER_AGENT_PIPO, parece_dibujada_con_javascript, raiz_del_sitio
+from app.checks.senales_sitio import RUTAS_BLOG, RUTAS_CHECKOUT, RUTAS_LOGIN
 
-# Huellas de que hay un carrito/checkout de verdad, no solo la palabra
-# "comprar" suelta en un botón de landing. Se buscan en el HTML crudo
-# (rutas, scripts) y en enlaces/formularios ya parseados.
-RUTAS_CHECKOUT = ("/carrito", "/cart", "/checkout", "/cesta", "/finalizar-compra")
+# Huellas de checkout/carrito específicas de cada CMS (no son rutas,
+# son fragmentos que aparecen en el HTML/JS de cualquier página de una
+# instalación de esa plataforma, con o sin carrito lleno).
 HUELLAS_WOOCOMMERCE = ("woocommerce", "wc-cart", "add-to-cart")
 HUELLAS_SHOPIFY = ("cdn.shopify.com", "shopify.theme", "/cart.js")
-HUELLAS_PRESTASHOP = ("prestashop", "id_product")
-
-# Rutas de login típicas. No se piden por red (eso sería activo): solo
-# se busca si APARECEN COMO ENLACE en el HTML de la home, que es lo
-# mismo que vería cualquier visitante que mire el código fuente.
-RUTAS_LOGIN = ("/wp-login.php", "/mi-cuenta", "/my-account", "/login", "/acceso", "/area-cliente", "/area-privada", "/wp-admin")
-
-# Señales de que la web es un blog/web de contenido: feed RSS, o
-# estructura típica de posts (/blog/, /category/, /tag/, /author/).
-RUTAS_BLOG = ("/feed", "/blog/", "/category/", "/tag/", "/author/", "rss+xml")
+HUELLAS_PRESTASHOP = ("prestashop", "id_product", "/module/", "ps_shoppingcart")
 
 LIMITE_URLS_SITEMAP = 5000  # por si el sitemap es enorme, no lo leemos entero
 
