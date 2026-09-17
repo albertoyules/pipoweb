@@ -147,6 +147,86 @@ def test_un_403_no_se_analiza_como_si_fuera_la_web():
     assert resultado["html"] == ""
 
 
+def test_un_403_se_reintenta_y_puede_recuperarse():
+    """
+    Confirmado en producción el 17 sep 2026 (toldosonline.es): un
+    bloqueo con 403 a veces es intermitente, no permanente — la misma
+    petición repetida segundos después a veces sí pasa. obtener_pagina
+    reintenta una vez antes de rendirse (ver CODIGOS_REINTENTABLES en
+    pagina.py). Aquí se simula que el primer intento a la raíz falla y
+    el reintento (mismo host) ya responde bien.
+    """
+    import httpx
+
+    from app.checks.pagina import obtener_pagina
+
+    llamadas = []
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        llamadas.append(str(peticion.url))
+        if len(llamadas) == 1:
+            return httpx.Response(403, text="bloqueado")
+        return httpx.Response(200, text="<html><title>ok</title></html>")
+
+    transporte = httpx.MockTransport(responder)
+    original = httpx.AsyncClient
+
+    class ClienteFalso(original):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transporte
+            super().__init__(*args, **kwargs)
+
+    httpx.AsyncClient = ClienteFalso
+    try:
+        resultado = asyncio.run(obtener_pagina("ejemplo.es"))
+    finally:
+        httpx.AsyncClient = original
+
+    assert resultado["ok"] is True
+    assert "ok" in resultado["html"]
+    # Dos llamadas al MISMO host (ejemplo.es): el reintento no salta
+    # todavía a la variante www, primero reintenta la que se pidió.
+    assert len(llamadas) == 2
+    assert all("ejemplo.es" in url and "www." not in url for url in llamadas)
+
+
+def test_un_404_no_se_reintenta():
+    """
+    Un 404 es un error real de la web (la página no existe), no un
+    bloqueo temporal — reintentarlo no cambiaría nada y solo añadiría
+    latencia sin motivo. Solo se reintentan los códigos de
+    CODIGOS_REINTENTABLES (403/429/503).
+    """
+    import httpx
+
+    from app.checks.pagina import obtener_pagina
+
+    llamadas = []
+
+    def responder(peticion: httpx.Request) -> httpx.Response:
+        llamadas.append(str(peticion.url))
+        return httpx.Response(404, text="no encontrado")
+
+    transporte = httpx.MockTransport(responder)
+    original = httpx.AsyncClient
+
+    class ClienteFalso(original):
+        def __init__(self, *args, **kwargs):
+            kwargs["transport"] = transporte
+            super().__init__(*args, **kwargs)
+
+    httpx.AsyncClient = ClienteFalso
+    try:
+        asyncio.run(obtener_pagina("ejemplo.es"))
+    finally:
+        httpx.AsyncClient = original
+
+    # Una sola llamada al host pedido (más la variante www, que sí se
+    # prueba siempre que la primera falla — ver obtener_pagina): dos en
+    # total, ninguna repetida por reintento.
+    assert len(llamadas) == 2
+
+
 def test_pipo_se_identifica_por_su_nombre():
     """No se disfraza de navegador: dice quién es y dónde preguntar."""
     from app.checks.pagina import USER_AGENT_PIPO

@@ -10,12 +10,21 @@ Sigue siendo 100% pasivo: es la misma petición que hace un navegador
 al entrar en la web.
 """
 
+import asyncio
 from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 
 from app.seguridad import variante_www
+
+# Códigos típicos de un bloqueo temporal (rate-limit, challenge de un
+# WAF) en vez de un error real de la web. Vale la pena reintentar una
+# vez: se ha visto en producción que la MISMA petición, repetida a los
+# pocos segundos, a veces sí pasa — mientras que 404/500 son errores
+# reales que repetir no arregla. Ver ejecutar_escaneo en scanner.py.
+CODIGOS_REINTENTABLES = (403, 429, 503)
+ESPERA_REINTENTO_SEGUNDOS = 1.5
 
 # Pipo se identifica por su nombre, no se disfraza de navegador.
 #
@@ -79,8 +88,8 @@ def parece_dibujada_con_javascript(html: str) -> bool:
     return len(texto_visible) < MINIMO_TEXTO_VISIBLE
 
 
-async def _descargar(host: str, timeout: float) -> dict:
-    """Un intento de descarga contra un host concreto."""
+async def _intentar_una_vez(host: str, timeout: float) -> dict:
+    """Un único intento de descarga contra un host concreto, sin reintentos."""
     url = f"https://{host}"
     try:
         async with httpx.AsyncClient(
@@ -93,6 +102,7 @@ async def _descargar(host: str, timeout: float) -> dict:
         return {
             "ok": False,
             "error": str(error),
+            "status_code": None,
             "url": url,
             "html": "",
             "headers": {},
@@ -111,6 +121,7 @@ async def _descargar(host: str, timeout: float) -> dict:
         return {
             "ok": False,
             "error": f"el servidor respondió {respuesta.status_code}",
+            "status_code": respuesta.status_code,
             "url": str(respuesta.url),
             "html": "",
             "headers": respuesta.headers,
@@ -121,12 +132,34 @@ async def _descargar(host: str, timeout: float) -> dict:
     return {
         "ok": True,
         "error": None,
+        "status_code": respuesta.status_code,
         "url": str(respuesta.url),
         "html": respuesta.text,
         "headers": respuesta.headers,
         "host_pedido": host,
         "host_servido": host,
     }
+
+
+async def _descargar(host: str, timeout: float) -> dict:
+    """
+    Descarga con un reintento si el primer intento da un código
+    típico de bloqueo temporal (ver CODIGOS_REINTENTABLES). No es
+    infalible: si el bloqueo es permanente contra el origen desde el
+    que llama Pipo (visto en producción con algún hosting que
+    bloquea por IP de datacenter, no por nada que Pipo mande), el
+    reintento también falla y se acaba devolviendo sin_datos, que es
+    lo correcto — no es un fallo de la web analizada, es un límite de
+    lo que Pipo puede comprobar desde fuera (ver decisión #13 de
+    CLAUDE.md: si un servidor bloquea a PipoBot, se acepta el
+    sin_datos, nunca se camufla el origen).
+    """
+    resultado = await _intentar_una_vez(host, timeout)
+    if resultado["ok"] or resultado["status_code"] not in CODIGOS_REINTENTABLES:
+        return resultado
+
+    await asyncio.sleep(ESPERA_REINTENTO_SEGUNDOS)
+    return await _intentar_una_vez(host, timeout)
 
 
 async def obtener_pagina(dominio: str, timeout: float = 5.0) -> dict:

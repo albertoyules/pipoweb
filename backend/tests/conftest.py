@@ -25,7 +25,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.checks import experiencia_check, seo_check, tecnologia_check  # noqa: E402
+from app.checks import experiencia_check, pagina, seo_check, tecnologia_check  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -48,3 +48,7 @@ def sin_red(monkeypatch):
     monkeypatch.setattr(experiencia_check, "_responde_variante_www", www_desconocido)
     monkeypatch.setattr(tecnologia_check, "_version_wordpress_desde_readme", sin_readme)
     monkeypatch.setattr(tecnologia_check, "_ultima_version_estable_wordpress", ultima_version_fija)
+    # Sin esto, cualquier test que mockee un 403/429/503 (obtener_pagina
+    # reintenta esos códigos, ver pagina.py) espera de verdad 1.5s reales
+    # por cada reintento — un test no debe tardar lo mismo que la red.
+    monkeypatch.setattr(pagina, "ESPERA_REINTENTO_SEGUNDOS", 0)
