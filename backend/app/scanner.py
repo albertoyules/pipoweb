@@ -13,8 +13,10 @@ import time
 
 from app.checks.accesibilidad_check import comprobar_accesibilidad
 from app.checks.archivos_expuestos import comprobar_archivos_expuestos
+from app.checks.area_privada_check import comprobar_area_privada
 from app.checks.dns_check import comprobar_dns
 from app.checks.dominio_check import comprobar_dominio
+from app.checks.ecommerce_check import comprobar_ecommerce
 from app.checks.experiencia_check import comprobar_experiencia
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
@@ -88,12 +90,24 @@ async def ejecutar_escaneo(
         ),
         # Metadata, no un check: no tiene semáforo ni entra en la nota
         # (ver puntuacion.py). Se calcula aquí, no dentro de un check
-        # concreto, porque en el futuro decide qué checks condicionales
-        # se añaden a esta misma lista (tienda online, área privada...).
+        # concreto, porque decide qué checks condicionales se añaden a
+        # continuación (tienda online, área privada...).
         detectar_perfil(pagina),
     )
 
-    checks = [*resultados_iniciales, *resultados_dependientes_de_pagina]
+    # Módulos condicionales: solo se lanzan si el perfil detectó la
+    # señal correspondiente. Una landing sin carrito ni login no gana
+    # ni pierde nada por no tener estos checks — simplemente no
+    # aparecen (ver puntuacion.py sobre cómo se combina la nota).
+    tareas_condicionales = []
+    if perfil_sitio["senales"].get("tiene_checkout"):
+        tareas_condicionales.append(asyncio.to_thread(comprobar_ecommerce, pagina))
+    if perfil_sitio["senales"].get("tiene_login"):
+        tareas_condicionales.append(asyncio.to_thread(comprobar_area_privada, pagina))
+
+    resultados_condicionales = await asyncio.gather(*tareas_condicionales)
+
+    checks = [*resultados_iniciales, *resultados_dependientes_de_pagina, *resultados_condicionales]
     duracion_segundos = round(time.monotonic() - inicio, 2)
 
     return {

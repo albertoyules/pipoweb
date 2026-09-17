@@ -420,6 +420,11 @@
      algo fallara, contradiciendo a los puntitos de debajo. */
   .score{margin-left:auto;font-family:'Fraunces';font-size:30px;font-weight:600;color:var(--amber)}
   .score.g{color:var(--sage)}.score.a{color:var(--amber)}.score.r{color:var(--brick)}
+  /* Chip con el tipo de sitio + CMS detectado (ver app/checks/perfil_sitio.py).
+     Debajo de la cabecera, antes del semáforo: es contexto, no un check más. */
+  .perfil-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 16px}
+  .perfil-chips .chip{background:var(--cream-deep);border-radius:999px;padding:4px 12px;
+    font-size:12.5px;font-weight:700;color:var(--brown-dark)}
   /* Título de área dentro del semáforo (Seguridad / Cumplimiento legal
      / Clientes): agrupa las filas para que se lea de qué tipo es cada
      problema, en vez de una lista plana de diez cosas sueltas. */
@@ -903,6 +908,8 @@
     experiencia: "Experiencia del cliente (móvil, contacto)",
     rendimiento: "Velocidad de carga",
     archivos_expuestos: "Archivos sensibles expuestos",
+    ecommerce: "Seguridad de la tienda online",
+    area_privada: "Exposición del acceso privado",
   };
 
   // A qué área pertenece cada check, para agrupar el semáforo igual que
@@ -912,6 +919,16 @@
     seguridad: "Seguridad",
     cumplimiento: "Cumplimiento legal",
     clientes: "Clientes y visibilidad",
+  };
+
+  // Etiqueta legible para el tipo de sitio detectado (ver
+  // app/checks/perfil_sitio.py). Mismo texto que usa informe.html, para
+  // que el usuario vea siempre la misma palabra en los dos sitios.
+  const NOMBRE_TIPO_SITIO = {
+    tienda_online: "Tienda online",
+    area_privada: "Área privada / panel de cliente",
+    blog: "Blog / web de contenido",
+    landing_servicios: "Landing de servicios",
   };
 
   // Misma fórmula que puntuacion.py en el backend: verde=100, ámbar=60,
@@ -1004,6 +1021,18 @@
         ${grupo.checks.map(fila).join("")}`)
       .join("");
 
+    // Chip con el tipo de sitio + CMS, si se pudo detectar (ver
+    // perfil_sitio.py). Escaneos donde la página no respondió no traen
+    // tipo_sitio, así que el bloque se queda vacío en vez de mostrar
+    // una etiqueta rota.
+    const perfil = datos.perfil_sitio;
+    const chipsPerfil = perfil?.tipo_sitio
+      ? `<div class="perfil-chips">
+          <span class="chip">${NOMBRE_TIPO_SITIO[perfil.tipo_sitio] || perfil.tipo_sitio}</span>
+          ${perfil.cms ? `<span class="chip">${perfil.version_cms ? `${perfil.cms} ${perfil.version_cms}` : perfil.cms}</span>` : ""}
+        </div>`
+      : "";
+
     zona.innerHTML = `
       <div class="report">
         <div class="report-head">
@@ -1011,6 +1040,7 @@
           <span class="u">${dominio}</span>
           <span class="score ${LETRA_ESTADO[estadoGlobal] || 'a'}" data-contador data-hasta="${nota}">0</span>
         </div>
+        ${chipsPerfil}
         ${bloques}
       </div>
       <a class="ver-informe" href="informe.html?id=${datos.id}&t=${encodeURIComponent(datos.token)}&dominio=${encodeURIComponent(dominio)}">Ver informe completo →</a>`;

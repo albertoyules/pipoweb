@@ -193,6 +193,12 @@
   .hallazgo h3{font-family:'Nunito';font-weight:800;font-size:16px;color:var(--brown-dark);margin-bottom:4px}
   .hallazgo p{font-size:14px;color:#5f5142;margin-bottom:6px}
   .hallazgo .impacto{font-size:13px;color:var(--terracotta);font-weight:700}
+  .hallazgo-cabecera{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:4px}
+  .hallazgo-cabecera h3{margin-bottom:0}
+  /* Solo aparece en hallazgos de relevancia "alta" (ver app/relevancia.py):
+     algo que a este tipo de web concreto le importa más de lo normal. */
+  .relevancia-alta{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--terracotta);background:rgba(201,123,90,.12);border-radius:999px;padding:2px 9px}
 
   /* acciones */
   .acciones{border-top:1px solid var(--line);padding-top:32px;display:flex;flex-direction:column;gap:28px}
@@ -583,14 +589,26 @@
       punto.className = `pill ${LETRA_PRIORIDAD[h.prioridad] || "a"}`;
 
       const caja = document.createElement("div");
+      const cabeceraTitulo = document.createElement("div");
+      cabeceraTitulo.className = "hallazgo-cabecera";
       const titulo = document.createElement("h3");
       titulo.textContent = h.titulo || "";
+      cabeceraTitulo.append(titulo);
+      // Solo se marca la relevancia "alta" (ver app/relevancia.py): es
+      // la única que aporta algo — "normal" es el caso por defecto y
+      // decirlo en cada fila sería ruido, no información.
+      if (h.relevancia === "alta") {
+        const etiquetaRelevancia = document.createElement("span");
+        etiquetaRelevancia.className = "relevancia-alta";
+        etiquetaRelevancia.textContent = "Te importa especialmente";
+        cabeceraTitulo.append(etiquetaRelevancia);
+      }
       const explicacion = document.createElement("p");
       explicacion.textContent = h.explicacion_llana || "";
       const impacto = document.createElement("span");
       impacto.className = "impacto";
       impacto.textContent = h.impacto_negocio || "";
-      caja.append(titulo, explicacion, impacto);
+      caja.append(cabeceraTitulo, explicacion, impacto);
 
       fila.append(punto, caja);
       lista.append(fila);

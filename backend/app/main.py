@@ -20,8 +20,10 @@ from slowapi.middleware import SlowAPIMiddleware
 
 from app.checks.accesibilidad_check import comprobar_accesibilidad
 from app.checks.archivos_expuestos import comprobar_archivos_expuestos
+from app.checks.area_privada_check import comprobar_area_privada
 from app.checks.dns_check import comprobar_dns
 from app.checks.dominio_check import comprobar_dominio
+from app.checks.ecommerce_check import comprobar_ecommerce
 from app.checks.experiencia_check import comprobar_experiencia
 from app.checks.headers_check import comprobar_headers
 from app.checks.mixed_content_check import comprobar_mixed_content
@@ -60,6 +62,7 @@ from app.notificaciones.enviar import ErrorEmail, enviar_email
 from app.notificaciones.mensajes import mensaje_solicitud_alberto, mensaje_solicitud_cliente
 from app.pdf.generar_pdf import generar_pdf_informe
 from app.puntuacion import calcular_precio_arreglo, comparar_escaneos
+from app.relevancia import relevancia_de
 from app.scanner import ejecutar_escaneo
 from app.seguridad import (
     DominioNoValido,
@@ -313,6 +316,20 @@ async def check_perfil(dominio: str):
     """Detección de perfil de sitio (tipo, CMS, señales), aislado. No es un check con semáforo."""
     pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return await detectar_perfil(pagina)
+
+
+@depuracion.get("/ecommerce")
+async def check_ecommerce(dominio: str):
+    """Check condicional de tienda online, aislado. Normalmente solo se lanza si tiene_checkout=True."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
+    return await asyncio.to_thread(comprobar_ecommerce, pagina)
+
+
+@depuracion.get("/area-privada")
+async def check_area_privada(dominio: str):
+    """Check condicional de exposición del acceso privado, aislado. Normalmente solo se lanza si tiene_login=True."""
+    pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
+    return await asyncio.to_thread(comprobar_area_privada, pagina)
 
 
 @depuracion.get("/archivos-expuestos")
@@ -745,19 +762,33 @@ async def informe(request: Request, id_escaneo: int, t: str = ""):
         guardar_informe(id_escaneo, resultado)
         escaneo["informe"] = resultado
 
+    perfil_sitio = escaneo["resultado"].get("perfil_sitio")
+
+    # Relevancia por tipo de sitio (ver app/relevancia.py): "esto te
+    # importa más/menos por ser el tipo de web que eres". Fórmula fija,
+    # igual que la prioridad — nunca la decide la IA. Se calcula al
+    # vuelo con el perfil de este escaneo, así que un informe cacheado
+    # de antes de que existiera esta tabla también la lleva sin volver
+    # a llamar a la IA.
+    hallazgos_con_relevancia = [
+        {**hallazgo, "relevancia": relevancia_de(hallazgo["check"], perfil_sitio)}
+        for hallazgo in escaneo["informe"].get("hallazgos", [])
+    ]
+
     # El desglose por familias y la comparación con el escaneo anterior
     # se añaden al vuelo, no se guardan dentro del informe: son datos del
     # escaneo, no de la interpretación de la IA. Así los informes que ya
     # estaban cacheados también los llevan, sin volver a llamar a la IA.
     return {
         **escaneo["informe"],
+        "hallazgos": hallazgos_con_relevancia,
         "resumen": escaneo["resultado"].get("resumen"),
         "comparacion": escaneo["resultado"].get("comparacion"),
         # Qué tipo de sitio es, con qué CMS está hecho (ver
         # perfil_sitio.py). Metadata de detección, no interpretación de
         # la IA, así que viaja igual que resumen/comparacion: se añade
         # al vuelo desde el escaneo guardado, no desde la caché de IA.
-        "perfil_sitio": escaneo["resultado"].get("perfil_sitio"),
+        "perfil_sitio": perfil_sitio,
         "fecha": escaneo["fecha"],
         # Precio orientativo del arreglo, para poder enseñarlo antes de
         # que nadie rellene ningún formulario. Fórmula fija, nunca IA.

@@ -52,9 +52,18 @@ PESOS = {
     "dns": 2,
     "dominio": 1,
     "whois": 1,
+    # area_privada: peso 2, como headers — expone la puerta de acceso,
+    # pero no es tan grave por sí solo como un certificado roto. Solo
+    # aparece cuando perfil_sitio.py detecta tiene_login (ver
+    # scanner.py); no penaliza a una web sin ninguna zona de acceso.
+    "area_privada": 2,
     # Cumplimiento
     "privacidad": 3,
     "accesibilidad": 1,
+    # ecommerce: peso 3, como privacidad — mezcla seguridad del pago
+    # (HTTPS roto) y cumplimiento (condiciones de venta obligatorias
+    # en España). Solo aparece si tiene_checkout=True.
+    "ecommerce": 3,
     # Clientes
     "seo": 2,
     "experiencia": 2,
@@ -63,10 +72,14 @@ PESOS = {
 PESO_POR_DEFECTO = 1
 
 # Las tres familias, con el nombre que se le enseña al cliente. El orden
-# importa: es el que usa el informe para pintarlas.
+# importa: es el que usa el informe para pintarlas. ecommerce y
+# area_privada son checks condicionales (ver perfil_sitio.py): solo
+# aparecen en checks[] cuando el perfil detectado los activa, así que
+# listarlos aquí no penaliza a quien no los tiene — simplemente no
+# aparecen en esa fila del desglose (ver resumir_checks).
 FAMILIAS = (
-    ("seguridad", "Seguridad", ("ssl", "headers", "mixed_content", "tecnologia", "archivos_expuestos", "dns", "dominio", "whois")),
-    ("cumplimiento", "Cumplimiento legal", ("privacidad", "accesibilidad")),
+    ("seguridad", "Seguridad", ("ssl", "headers", "mixed_content", "tecnologia", "archivos_expuestos", "dns", "dominio", "whois", "area_privada")),
+    ("cumplimiento", "Cumplimiento legal", ("privacidad", "accesibilidad", "ecommerce")),
     ("clientes", "Clientes y visibilidad", ("seo", "experiencia", "rendimiento")),
 )
 
