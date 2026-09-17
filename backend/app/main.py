@@ -12,6 +12,7 @@ import re
 import secrets
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -330,6 +331,38 @@ async def check_area_privada(dominio: str):
     """Check condicional de exposición del acceso privado, aislado. Normalmente solo se lanza si tiene_login=True."""
     pagina = await obtener_pagina(await _dominio_de_depuracion(dominio))
     return await asyncio.to_thread(comprobar_area_privada, pagina)
+
+
+# TEMPORAL — diagnóstico del 403 de toldosonline.es contra Railway (17 sep
+# 2026). Mismo patrón que /api/diagnostico-email de agosto: exponer el dato
+# real en vez de adivinar, y borrar este endpoint en el commit siguiente.
+# Compara qué código de estado da un dominio con las cabeceras actuales de
+# Pipo (solo User-Agent) frente a cabeceras completas de navegador, para
+# saber si el bloqueo es por huella HTTP/cabeceras o por la IP de Railway
+# (en cuyo caso ningún cambio de cabeceras lo arregla).
+@depuracion.get("/diagnostico-bloqueo")
+async def diagnostico_bloqueo(dominio: str):
+    limpio = await _dominio_de_depuracion(dominio)
+    resultados = {}
+    for etiqueta, headers in (
+        ("solo_user_agent", {"User-Agent": "Mozilla/5.0 (compatible; PipoBot/1.0; +https://pipoweb.com)"}),
+        (
+            "cabeceras_navegador",
+            {
+                "User-Agent": "Mozilla/5.0 (compatible; PipoBot/1.0; +https://pipoweb.com)",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+                "Accept-Encoding": "gzip, deflate, br",
+            },
+        ),
+    ):
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=8.0, headers=headers) as cliente:
+                respuesta = await cliente.get(f"https://{limpio}")
+            resultados[etiqueta] = {"status": respuesta.status_code, "bytes": len(respuesta.content)}
+        except httpx.RequestError as error:
+            resultados[etiqueta] = {"error": str(error)}
+    return resultados
 
 
 @depuracion.get("/archivos-expuestos")
