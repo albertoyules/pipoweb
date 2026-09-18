@@ -200,6 +200,16 @@
   .relevancia-alta{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;
     color:var(--terracotta);background:rgba(201,123,90,.12);border-radius:999px;padding:2px 9px}
 
+  /* Sección propia para los hallazgos de checks condicionales
+     (ecommerce, area_privada — ver perfil_sitio.py). Mismo aspecto que
+     .hallazgo, pero en su propio bloque con borde superior y título,
+     para que se lea como "esto es específico de TU tipo de web" y no
+     se mezcle con el resto del diagnóstico general. */
+  .seccion-especifica{border-top:2px solid var(--terracotta);padding-top:28px;margin-bottom:36px}
+  .seccion-especifica h2{font-size:19px;color:var(--ink);margin-bottom:6px}
+  .seccion-especifica .desc{font-size:14px;color:var(--brown-dark);margin-bottom:18px}
+  .seccion-especifica .hallazgos{margin-bottom:0}
+
   /* acciones */
   .acciones{border-top:1px solid var(--line);padding-top:32px;display:flex;flex-direction:column;gap:28px}
   .accion h2{font-size:19px;color:var(--ink);margin-bottom:6px}
@@ -350,6 +360,16 @@
       <div id="zona-comparacion"></div>
 
       <div class="hallazgos" id="lista-hallazgos"></div>
+
+      <!-- Sección aparte para los hallazgos de checks condicionales
+           (ecommerce, area_privada — ver perfil_sitio.py). Solo se
+           rellena y se muestra si el escaneo tiene alguno; el resto
+           de informes no la ven en absoluto. -->
+      <div class="seccion-especifica" id="seccion-especifica" style="display:none">
+        <h2 id="titulo-seccion-especifica"></h2>
+        <p class="desc" id="desc-seccion-especifica"></p>
+        <div class="hallazgos" id="lista-hallazgos-especificos"></div>
+      </div>
 
       <div class="acciones">
         <div class="accion">
@@ -579,9 +599,7 @@
     // hay en la web analizada, así que se meten como TEXTO, nunca como
     // HTML: con innerHTML, una web hostil podría colar código en su
     // propio título y acabar ejecutándose aquí, en el dominio de Pipo.
-    const lista = document.getElementById("lista-hallazgos");
-    lista.textContent = "";
-    datos.hallazgos.forEach((h) => {
+    function crearFilaHallazgo(h) {
       const fila = document.createElement("div");
       fila.className = "hallazgo";
 
@@ -611,8 +629,41 @@
       caja.append(cabeceraTitulo, explicacion, impacto);
 
       fila.append(punto, caja);
-      lista.append(fila);
-    });
+      return fila;
+    }
+
+    // Los hallazgos de checks condicionales (ecommerce, area_privada —
+    // ver perfil_sitio.py) van en su propia sección, no mezclados con
+    // el resto: son específicos de ESTE tipo de web, y agruparlos deja
+    // claro por qué aparecen aquí y no en el informe de cualquier otro.
+    const CHECKS_ESPECIFICOS = {
+      ecommerce: { titulo: "Seguridad de tu tienda online", desc: "Esto se revisa porque tu web tiene carrito de compra." },
+      area_privada: { titulo: "Exposición de tu acceso privado", desc: "Esto se revisa porque tu web tiene una zona de acceso o panel de cliente." },
+    };
+    const hallazgosComunes = datos.hallazgos.filter((h) => !CHECKS_ESPECIFICOS[h.check]);
+    const hallazgosEspecificos = datos.hallazgos.filter((h) => CHECKS_ESPECIFICOS[h.check]);
+
+    const lista = document.getElementById("lista-hallazgos");
+    lista.textContent = "";
+    hallazgosComunes.forEach((h) => lista.append(crearFilaHallazgo(h)));
+
+    const zonaEspecifica = document.getElementById("seccion-especifica");
+    if (hallazgosEspecificos.length) {
+      // Si hay varios (una tienda con zona de clientes tiene los dos a
+      // la vez), se combinan los títulos/descripciones en vez de que
+      // uno tape al otro.
+      const titulos = hallazgosEspecificos.map((h) => CHECKS_ESPECIFICOS[h.check].titulo);
+      const descs = hallazgosEspecificos.map((h) => CHECKS_ESPECIFICOS[h.check].desc);
+      document.getElementById("titulo-seccion-especifica").textContent = [...new Set(titulos)].join(" y ");
+      document.getElementById("desc-seccion-especifica").textContent = [...new Set(descs)].join(" ");
+
+      const listaEspecifica = document.getElementById("lista-hallazgos-especificos");
+      listaEspecifica.textContent = "";
+      hallazgosEspecificos.forEach((h) => listaEspecifica.append(crearFilaHallazgo(h)));
+      zonaEspecifica.style.display = "block";
+    } else {
+      zonaEspecifica.style.display = "none";
+    }
 
     pintarPerfilSitio(datos.perfil_sitio);
     pintarFamilias(datos.resumen);
