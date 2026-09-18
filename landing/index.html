@@ -85,7 +85,34 @@
   .btn-primary:hover{box-shadow:0 18px 34px -12px var(--terracotta)}
   .btn-ghost{background:transparent;color:var(--brown-dark);border:1.5px solid var(--line)}
   .btn-ghost:hover{background:var(--cream-deep);border-color:var(--terracotta)}
-  @media(max-width:780px){.nav-links{display:none}}
+
+  /* MENÚ MÓVIL: hasta el 18 sep 2026 .nav-links{display:none} escondía
+     los 4 enlaces del nav en móvil SIN ningún sustituto — solo quedaba
+     la CTA fija de "Revisar mi web", así que en el canal por donde entra
+     más tráfico (publicidad, sobre todo móvil) no había forma de llegar
+     a Precios o FAQ salvo haciendo scroll a ciegas. Botón hamburguesa
+     que abre un panel con los mismos enlaces, sin JavaScript de terceros
+     ni framework: un <button> que alterna una clase en <body>. */
+  .nav-burger{display:none;background:none;border:none;padding:8px;cursor:pointer;color:var(--brown-dark)}
+  .nav-burger svg{width:26px;height:26px;display:block}
+  @media(max-width:780px){
+    .nav-links{display:none}
+    .nav-burger{display:block}
+  }
+
+  .menu-movil{
+    display:none;position:fixed;inset:70px 0 0 0;z-index:49;
+    background:var(--cream);overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+  body.menu-abierto .menu-movil{display:block}
+  body.menu-abierto{overflow:hidden}
+  .menu-movil-in{display:flex;flex-direction:column;padding:8px 24px 24px}
+  .menu-movil a{
+    font-family:'Fraunces';font-weight:600;font-size:22px;color:var(--brown-dark);
+    padding:18px 0;border-bottom:1px solid var(--line);
+  }
+  .menu-movil .btn{margin-top:22px;justify-content:center}
 
   /* CTA FIJA EN MÓVIL: en escritorio el botón del nav siempre está a la
      vista, pero en móvil el menú entero se oculta (regla de arriba) —
@@ -642,8 +669,25 @@
       <a href="#faq">FAQ</a>
       <a href="#demo" class="btn btn-primary">Revisar mi web</a>
     </div>
+    <button class="nav-burger" id="nav-burger" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu-movil">
+      <svg id="nav-burger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+        <path id="nav-burger-linea1" d="M4 7h16"/>
+        <path id="nav-burger-linea2" d="M4 12h16"/>
+        <path id="nav-burger-linea3" d="M4 17h16"/>
+      </svg>
+    </button>
   </div>
 </nav>
+
+<div class="menu-movil" id="menu-movil">
+  <div class="menu-movil-in">
+    <a href="#que-revisa">Qué revisa</a>
+    <a href="#como">Cómo funciona</a>
+    <a href="#precios">Precios</a>
+    <a href="#faq">FAQ</a>
+    <a href="#demo" class="btn btn-primary">Revisar mi web</a>
+  </div>
+</div>
 
 <!-- HERO -->
 <header class="hero">
@@ -1515,6 +1559,47 @@
       },
       { threshold: 0.1 }
     ).observe(formularioDemo);
+  }
+
+  // MENÚ MÓVIL: el botón alterna una clase en <body> (el CSS decide qué
+  // se ve), y el propio icono pasa de hamburguesa a aspa reordenando sus
+  // tres líneas con transform — sin cargar un segundo SVG.
+  const navBurger = document.getElementById("nav-burger");
+  const menuMovil = document.getElementById("menu-movil");
+  if (navBurger && menuMovil) {
+    const linea1 = document.getElementById("nav-burger-linea1");
+    const linea2 = document.getElementById("nav-burger-linea2");
+    const linea3 = document.getElementById("nav-burger-linea3");
+
+    const cerrarMenu = () => {
+      document.body.classList.remove("menu-abierto");
+      navBurger.setAttribute("aria-expanded", "false");
+      navBurger.setAttribute("aria-label", "Abrir menú");
+      linea1.style.transform = "";
+      linea2.style.opacity = "1";
+      linea3.style.transform = "";
+    };
+
+    const abrirMenu = () => {
+      document.body.classList.add("menu-abierto");
+      navBurger.setAttribute("aria-expanded", "true");
+      navBurger.setAttribute("aria-label", "Cerrar menú");
+      linea1.style.transform = "translateY(5px) rotate(45deg)";
+      linea2.style.opacity = "0";
+      linea3.style.transform = "translateY(-5px) rotate(-45deg)";
+    };
+
+    navBurger.addEventListener("click", () => {
+      document.body.classList.contains("menu-abierto") ? cerrarMenu() : abrirMenu();
+    });
+
+    // Cerrar al elegir un enlace: si no, el menú se queda tapando la
+    // sección a la que se acaba de saltar.
+    menuMovil.querySelectorAll("a").forEach((enlace) => enlace.addEventListener("click", cerrarMenu));
+
+    document.addEventListener("keydown", (evento) => {
+      if (evento.key === "Escape") cerrarMenu();
+    });
   }
 </script>
 
