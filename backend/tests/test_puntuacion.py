@@ -203,3 +203,42 @@ def test_una_web_normal_no_cae_siempre_en_el_tope():
     unos_cuantos = [check(c["check"], "ambar", "media") if c["check"] in ("dns", "privacidad") else c for c in unos_cuantos]
     precio = calcular_precio_arreglo(unos_cuantos)
     assert 89 < precio < 149
+
+
+def test_sin_perfil_el_precio_es_igual_que_antes():
+    """Escaneos guardados antes del recargo no tienen perfil_sitio."""
+    assert calcular_precio_arreglo(TODO_VERDE, None) == 89
+    assert calcular_precio_arreglo(TODO_VERDE, {}) == 89
+
+
+def test_una_tienda_con_checkout_paga_el_recargo():
+    perfil = {"senales": {"tiene_checkout": True}, "tamano": {"paginas_aprox": 5}}
+    assert calcular_precio_arreglo(TODO_VERDE, perfil) == 89 + 20
+
+
+def test_un_sitio_grande_paga_el_recargo():
+    perfil = {"senales": {"tiene_checkout": False}, "tamano": {"paginas_aprox": 500}}
+    assert calcular_precio_arreglo(TODO_VERDE, perfil) == 89 + 10
+
+
+def test_un_sitio_normal_no_paga_ningun_recargo():
+    perfil = {"senales": {"tiene_checkout": False}, "tamano": {"paginas_aprox": 12}}
+    assert calcular_precio_arreglo(TODO_VERDE, perfil) == 89
+
+
+def test_tienda_grande_suma_los_dos_recargos():
+    perfil = {"senales": {"tiene_checkout": True}, "tamano": {"paginas_aprox": 200}}
+    assert calcular_precio_arreglo(TODO_VERDE, perfil) == 89 + 20 + 10
+
+
+def test_el_tope_sube_para_no_absorber_los_recargos():
+    """Una tienda grande muy rota no debe perder el recargo dentro del tope viejo."""
+    todo_roto = [check(c["check"], "rojo", "alta") for c in TODO_VERDE]
+    perfil = {"senales": {"tiene_checkout": True}, "tamano": {"paginas_aprox": 200}}
+    assert calcular_precio_arreglo(todo_roto, perfil) == 149 + 20 + 10
+
+
+def test_paginas_aprox_none_no_rompe_ni_suma_recargo():
+    """Sitios sin sitemap legible (paginas_aprox=None) no deben dar error."""
+    perfil = {"senales": {"tiene_checkout": False}, "tamano": {"paginas_aprox": None}}
+    assert calcular_precio_arreglo(TODO_VERDE, perfil) == 89

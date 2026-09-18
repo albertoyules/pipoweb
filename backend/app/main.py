@@ -549,7 +549,7 @@ async def crear_solicitud(
         raise HTTPException(status_code=400, detail="Ese email no parece válido.")
 
     referencia = f"PIPO{id_escaneo}-{secrets.token_hex(2).upper()}"
-    precio_estimado = calcular_precio_arreglo(escaneo["resultado"]["checks"])
+    precio_estimado = calcular_precio_arreglo(escaneo["resultado"]["checks"], escaneo["resultado"].get("perfil_sitio"))
     guardar_solicitud(
         referencia=referencia,
         email=email_limpio,
@@ -792,7 +792,7 @@ async def informe(request: Request, id_escaneo: int, t: str = ""):
         "fecha": escaneo["fecha"],
         # Precio orientativo del arreglo, para poder enseñarlo antes de
         # que nadie rellene ningún formulario. Fórmula fija, nunca IA.
-        "precio_arreglo_estimado": calcular_precio_arreglo(escaneo["resultado"]["checks"]),
+        "precio_arreglo_estimado": calcular_precio_arreglo(escaneo["resultado"]["checks"], perfil_sitio),
     }
 
 

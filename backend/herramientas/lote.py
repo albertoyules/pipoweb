@@ -83,7 +83,7 @@ async def revisar(dominio: str) -> dict:
         "estado": resumen["estado_global"],
         "graves": resumen["conteo"]["rojo"],
         "a_mejorar": resumen["conteo"]["ambar"],
-        "precio_estimado": calcular_precio_arreglo(resultado["checks"]),
+        "precio_estimado": calcular_precio_arreglo(resultado["checks"], resultado.get("perfil_sitio")),
         "peor": "; ".join(c["check"] for c in problemas if c["estado"] == "rojo") or "—",
         "error": None,
     }

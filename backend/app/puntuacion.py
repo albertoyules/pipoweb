@@ -286,14 +286,32 @@ PUNTOS_POR_PRIORIDAD = {
     "alta": 9,
 }
 
+# Recargo por complejidad ESTRUCTURAL del sitio (18 sep 2026), no por
+# cuántos checks fallan — eso ya lo cubre PUNTOS_POR_PRIORIDAD y el tope
+# PRECIO_MAXIMO_ARREGLO de arriba, que no se tocan. Una tienda con
+# pasarela de pago real es más delicada de tocar que un formulario de
+# contacto, tenga los mismos fallos o no: hay que probar que el cambio
+# no rompa una venta de verdad. Un sitio grande multiplica el tiempo de
+# verificación porque el mismo fallo puede repetirse en muchas páginas.
+# Se suma DESPUÉS de aplicar el tope de dificultad, no antes: si no, una
+# web normal muy rota y una tienda muy rota acabarían en el mismo tope y
+# el recargo no significaría nada en el caso que más lo necesita.
+RECARGO_TIENDA = 20
+RECARGO_SITIO_GRANDE = 10
+PAGINAS_SITIO_GRANDE = 30
 
-def calcular_precio_arreglo(checks: list[dict]) -> int:
+
+def calcular_precio_arreglo(checks: list[dict], perfil_sitio: dict | None = None) -> int:
     """
     Precio orientativo de que Pipo aplique las soluciones en vez del
     dueño del negocio. Se calcula a partir de los checks del escaneo
     (no de las soluciones interpretadas por IA), así que está disponible
     desde el momento de la solicitud, sin depender de haber generado
     antes las soluciones.
+
+    perfil_sitio es opcional (compatible con escaneos guardados antes
+    del 18 sep 2026, que no lo tienen): sin él, el precio es el de
+    siempre, solo por dificultad de los checks.
     """
     # "sin_datos" queda fuera igual que en la nota: si una web no se deja
     # descargar, seis checks caen ahí y le añadían puntos al precio por un
@@ -303,4 +321,14 @@ def calcular_precio_arreglo(checks: list[dict]) -> int:
         for check in checks
         if check["estado"] not in ("verde", "sin_datos")
     )
-    return min(PRECIO_MAXIMO_ARREGLO, PRECIO_BASE_ARREGLO + incremento)
+    precio_por_dificultad = min(PRECIO_MAXIMO_ARREGLO, PRECIO_BASE_ARREGLO + incremento)
+
+    senales = (perfil_sitio or {}).get("senales") or {}
+    recargo = 0
+    if senales.get("tiene_checkout"):
+        recargo += RECARGO_TIENDA
+    paginas_aprox = (perfil_sitio or {}).get("tamano", {}).get("paginas_aprox")
+    if paginas_aprox is not None and paginas_aprox > PAGINAS_SITIO_GRANDE:
+        recargo += RECARGO_SITIO_GRANDE
+
+    return precio_por_dificultad + recargo
