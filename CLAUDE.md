@@ -127,6 +127,10 @@ No hay `__init__.py` en ningún paquete — funciona porque Python 3.3+ soporta 
 | `GET /api/leads?clave=` | Todos los emails captados por el formulario de avisos | Rate limited 20/min. Incluye `consiente_marketing` por fila |
 | `GET /api/actividad?clave=` | Los últimos 60 escaneos, con el email captado si lo hay | Rate limited 20/min. "Quién ha entrado a la web" |
 | `POST /api/solicitudes/{id}/estado?clave=&estado=` | Mueve una solicitud: `nueva` → `presupuestada` → `hecha` | Rate limited 20/min. `400` con un estado inventado, `404` si no existe |
+| `POST /api/suscripciones?clave=&email=&dominio=&id_escaneo=` | Da de alta el nivel Tranquilidad para un dominio | Rate limited 20/min. Alta manual desde el panel, sin cobro automático (ver P3) |
+| `GET /api/suscripciones?clave=` | Lista todas las suscripciones al nivel Tranquilidad | Rate limited 20/min |
+| `POST /api/suscripciones/{id}/baja?clave=` | Desactiva una suscripción | Rate limited 20/min. No borra la fila, solo `activa=0` |
+| `POST /api/tareas/re-escanear-suscripciones?clave=` | Motor del nivel Tranquilidad: re-escanea lo que toque y manda el resumen mensual | Rate limited 5/min. Sin scheduler propio — lo llama un cron externo (ver P3) |
 
 ---
 
@@ -692,7 +696,15 @@ que necesita esto. Es decisión de Alberto sobre en qué gasta el tiempo, no una
 **Sin comprobar:** si el sitemap está enviado dentro de Search Console (solo lo ve Alberto).
 
 ### 🟢 P3 — Crecimiento, más adelante
-- **Nivel "Vigilancia" (19€/mes)**: re-escaneo automático mensual, comparación con el histórico ("esto ha empeorado desde la última vez"), alertas por email. Necesita tareas programadas (cron/Celery) que hoy no existen.
+
+- ✅ **Motor del nivel "Tranquilidad" — hecho (18 sep 2026), sin cobro automático todavía.** Antes hacía falta "tareas programadas (cron/Celery) que hoy no existen" (nota vieja de este archivo) — resuelto sin Celery ni proceso propio: un endpoint protegido que un cron EXTERNO llama por HTTP, mismo patrón que ya usa todo lo admin de Pipo (`?clave=`).
+  - **Tabla nueva `suscripciones`** (`app/database.py`): `email`, `dominio`, `activa`, `ultima_ejecucion`. Sin cobro ni referencia de pago dentro — Alberto la da de alta a mano desde el panel cuando cierra un cliente por Bizum/transferencia, igual que ya hacía con `solicitudes` antes de tener pagos automatizados.
+  - **`app/tareas.py`** (`ejecutar_re_escaneos_pendientes`): recorre `suscripciones_pendientes_de_re_escaneo` (activas con `ultima_ejecucion` de hace ≥30 días, o nunca ejecutadas), re-escanea cada dominio con el mismo `ejecutar_escaneo` de siempre, lo guarda como un escaneo normal (el cliente conserva su enlace de toda la vida), calcula `comparar_escaneos` contra el anterior (esa función ya existía, del 14 ago) y manda el resumen por email — **siempre, haya cambios o no** (decisión explícita de Alberto: es la prueba de que el servicio sigue vivo, no solo una alerta). Secuencial, no en paralelo entre dominios: cada escaneo ya paraleliza sus checks por dentro, y lanzar muchos dominios ajenos a la vez desde el mismo proceso es justo el patrón que `seguridad.py` existe para evitar.
+  - **Nunca se detiene por un fallo suelto**: un dominio caído no para la cola de los demás, y si el email falla (Resend caído, o simplemente no hay `RESEND_API_KEY` en local) el escaneo ya se ha guardado y la suscripción ya quedó marcada como ejecutada — no se reintenta mañana solo por el email.
+  - **Endpoints** (todos con `?clave=` admin, ver tabla de endpoints): `POST /api/suscripciones` (alta), `GET /api/suscripciones` (lista, para el panel), `POST /api/suscripciones/{id}/baja`, y `POST /api/tareas/re-escanear-suscripciones` — este último es el que llama el cron externo. Límite 5/min (no 20/min como el resto de admin): cada llamada puede disparar varios escaneos completos seguidos, no es una simple lectura.
+  - Probado de punta a punta con curl real contra una copia de `pipo.db` (nunca la real, ver más abajo): alta → primer re-escaneo (coge la suscripción porque `ultima_ejecucion` es NULL) → queda marcada → una segunda llamada inmediata al cron ya no la reprocesa (no han pasado 30 días) → baja → deja de aparecer. `email_enviado: false` en local es lo esperado, no hay `RESEND_API_KEY` fuera de Railway.
+  - **PENDIENTE de Alberto, no se puede hacer desde el código**: dar de alta el cron de verdad. La opción elegida es **cron-job.org** (gratis): crear una cuenta, añadir una tarea que llame una vez al día a `POST https://pipo-analiza-production.up.railway.app/api/tareas/re-escanear-suscripciones?clave=<CLAVE_ADMIN>`. Llamarlo más de una vez al día no duplica nada — cada pasada solo coge lo que ya tocaba por fecha. No hace falta activarlo hasta tener el primer cliente real de Tranquilidad dado de alta.
+  - **Lo que queda fuera de esta iteración, a propósito**: cobro recurrente real (Alberto no está dado de alta como autónomo todavía, ver decisión sobre Bizum manual), y el botón "Avisadme cuando esté" de la landing sigue sin activar — captura intención, no dispara nada todavía.
 - **HIBP**, pero solo dentro del futuro servicio de "acompañamiento" manual (ver decisión #4 arriba) — nunca en el flujo self-service.
 - Volver a intentar el pago con Anthropic si se resuelve el problema de la tarjeta, y plantearse si migrar la capa de IA de Gemini a Claude (calidad de escritura en español, mejor seguimiento de instrucciones anti-alucinación).
 

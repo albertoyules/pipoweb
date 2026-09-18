@@ -38,6 +38,7 @@ from app.checks.whois_check import comprobar_whois
 from app.config import CLAVE_ADMIN, GMAIL_EMAIL, MOSTRAR_DOCS
 from app.database import (
     ESTADOS_SOLICITUD,
+    dar_de_baja_suscripcion,
     escaneo_anterior,
     estadisticas_globales,
     guardar_escaneo,
@@ -47,10 +48,12 @@ from app.database import (
     guardar_rendimiento,
     guardar_solicitud,
     guardar_soluciones,
+    guardar_suscripcion,
     inicializar_db,
     listar_actividad_reciente,
     listar_leads,
     listar_solicitudes,
+    listar_suscripciones,
     marcar_cobro_solicitud,
     marcar_estado_solicitud,
     obtener_escaneo,
@@ -64,6 +67,7 @@ from app.pdf.generar_pdf import generar_pdf_informe
 from app.puntuacion import calcular_precio_arreglo, comparar_escaneos
 from app.relevancia import relevancia_de
 from app.scanner import ejecutar_escaneo
+from app.tareas import ejecutar_re_escaneos_pendientes
 from app.seguridad import (
     DominioNoValido,
     comprobar_dominio_publico,
@@ -679,6 +683,59 @@ async def ver_actividad(request: Request, clave: str):
     """
     _verificar_clave_admin(clave)
     return listar_actividad_reciente()
+
+
+@app.post("/api/suscripciones")
+@limiter.limit("20/minute")
+async def alta_suscripcion(request: Request, clave: str, email: str, dominio: str, id_escaneo: int | None = None):
+    """
+    Da de alta el nivel Tranquilidad para un dominio. Herramienta
+    interna: Alberto la usa desde el panel cuando cierra un cliente a
+    mano (Bizum/transferencia); no hay ningún formulario público que
+    llame aquí ni cobro automático detrás (ver CLAUDE.md, P3).
+    """
+    _verificar_clave_admin(clave)
+    limpio = _normalizar_o_400(dominio)
+    id_suscripcion = guardar_suscripcion(email=email.strip().lower(), dominio=limpio, id_escaneo_origen=id_escaneo)
+    return {"ok": True, "id": id_suscripcion}
+
+
+@app.get("/api/suscripciones")
+@limiter.limit("20/minute")
+async def ver_suscripciones(request: Request, clave: str):
+    """Lista todas las suscripciones al nivel Tranquilidad, para el panel."""
+    _verificar_clave_admin(clave)
+    return listar_suscripciones()
+
+
+@app.post("/api/suscripciones/{id_suscripcion}/baja")
+@limiter.limit("20/minute")
+async def baja_suscripcion(request: Request, id_suscripcion: int, clave: str):
+    """Desactiva una suscripción. No la borra: queda el histórico de que existió."""
+    _verificar_clave_admin(clave)
+    if not dar_de_baja_suscripcion(id_suscripcion):
+        raise HTTPException(status_code=404, detail="Esa suscripción no existe.")
+    return {"ok": True}
+
+
+@app.post("/api/tareas/re-escanear-suscripciones")
+@limiter.limit("5/minute")
+async def re_escanear_suscripciones(request: Request, clave: str):
+    """
+    Motor del nivel Tranquilidad: re-escanea toda suscripción activa a
+    la que le toque revisión (30 días desde la última, o nunca
+    ejecutada) y manda el resumen mensual por email (ver app/tareas.py).
+
+    No tiene scheduler propio — lo dispara un cron EXTERNO llamando a
+    este endpoint (a diario es razonable). Llamarlo de más no duplica
+    trabajo: cada pasada solo coge lo que ya tocaba por fecha. Límite
+    bajo (5/min, no 20/min) a propósito: cada llamada puede disparar
+    varios escaneos completos seguidos, no es una simple lectura del
+    panel.
+    """
+    _verificar_clave_admin(clave)
+    resultados = await ejecutar_re_escaneos_pendientes()
+    return {"procesadas": len(resultados), "resultados": resultados}
 
 
 @app.get("/api/scan/{id_escaneo}/rendimiento")

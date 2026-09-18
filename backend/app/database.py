@@ -169,6 +169,35 @@ def inicializar_db() -> None:
         for viejo, nuevo in (("nueva", "nuevo"), ("presupuestada", "presupuesto_enviado"), ("hecha", "cerrado")):
             conexion.execute("UPDATE solicitudes SET estado = ? WHERE estado = ?", (nuevo, viejo))
 
+        # Nivel "Tranquilidad" (18 sep 2026, ver CLAUDE.md P3): re-escaneo
+        # mensual con aviso por email. Sin cobro automático todavía —
+        # Alberto da de alta la suscripción a mano desde el panel cuando
+        # cierra un cliente, igual que ya hace con `solicitudes`. Por eso
+        # no hay ninguna referencia de pago aquí: es solo "a quién y a
+        # qué dominio hay que volver a mirar cada mes".
+        #
+        # `ultima_ejecucion` es lo que decide a quién le toca cuando el
+        # cron llama al endpoint de re-escaneo: NULL significa "nunca se
+        # ha ejecutado, tócale ya". No hay FOREIGN KEY hacia escaneos
+        # (id_escaneo_origen es solo referencia informativa de con qué
+        # escaneo empezó) por el mismo motivo que en `leads`: ciclos de
+        # vida distintos, no hace falta que la integridad de uno bloquee
+        # al otro.
+        conexion.execute(
+            """
+            CREATE TABLE IF NOT EXISTS suscripciones (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL,
+                dominio TEXT NOT NULL,
+                id_escaneo_origen INTEGER,
+                activa INTEGER NOT NULL DEFAULT 1,
+                fecha_alta TEXT NOT NULL DEFAULT (datetime('now')),
+                ultimo_escaneo_id INTEGER,
+                ultima_ejecucion TEXT
+            )
+            """
+        )
+
 
 def _asegurar_columna(conexion: sqlite3.Connection, tabla: str, columna: str) -> None:
     """
@@ -479,5 +508,68 @@ def marcar_cobro_solicitud(id_solicitud: int, importe_cobrado: int) -> bool:
         cursor = conexion.execute(
             "UPDATE solicitudes SET importe_cobrado = ?, fecha_cobro = datetime('now') WHERE id = ?",
             (importe_cobrado, id_solicitud),
+        )
+        return cursor.rowcount > 0
+
+
+def guardar_suscripcion(email: str, dominio: str, id_escaneo_origen: int | None) -> int:
+    """
+    Da de alta una suscripción al nivel Tranquilidad. `ultima_ejecucion`
+    empieza NULL a propósito: así el motor de re-escaneo (ver
+    app/tareas.py) la coge en la primera pasada, en vez de esperar 30
+    días desde el alta para el primer aviso.
+    """
+    with obtener_conexion() as conexion:
+        cursor = conexion.execute(
+            "INSERT INTO suscripciones (email, dominio, id_escaneo_origen) VALUES (?, ?, ?)",
+            (email, dominio, id_escaneo_origen),
+        )
+        return cursor.lastrowid
+
+
+def listar_suscripciones(solo_activas: bool = False) -> list[dict]:
+    """Todas las suscripciones, más recientes primero."""
+    consulta = "SELECT * FROM suscripciones"
+    if solo_activas:
+        consulta += " WHERE activa = 1"
+    consulta += " ORDER BY id DESC"
+    with obtener_conexion() as conexion:
+        filas = conexion.execute(consulta).fetchall()
+    return [{**dict(fila), "activa": fila["activa"] == 1} for fila in filas]
+
+
+def suscripciones_pendientes_de_re_escaneo(dias: int = 30) -> list[dict]:
+    """
+    Suscripciones activas a las que les toca re-escaneo: nunca
+    ejecutadas, o con la última ejecución de hace `dias` o más. Es la
+    cola que consume el cron (ver app/tareas.py) — llamarlo de más no
+    duplica trabajo, porque cada pasada solo coge lo que ya tocaba.
+    """
+    with obtener_conexion() as conexion:
+        filas = conexion.execute(
+            f"""
+            SELECT * FROM suscripciones
+            WHERE activa = 1
+              AND (ultima_ejecucion IS NULL OR ultima_ejecucion <= datetime('now', '-{int(dias)} days'))
+            ORDER BY id ASC
+            """
+        ).fetchall()
+    return [{**dict(fila), "activa": fila["activa"] == 1} for fila in filas]
+
+
+def marcar_ejecutada_suscripcion(id_suscripcion: int, id_escaneo_nuevo: int) -> None:
+    """Registra que se ha re-escaneado esta suscripción ahora mismo."""
+    with obtener_conexion() as conexion:
+        conexion.execute(
+            "UPDATE suscripciones SET ultimo_escaneo_id = ?, ultima_ejecucion = datetime('now') WHERE id = ?",
+            (id_escaneo_nuevo, id_suscripcion),
+        )
+
+
+def dar_de_baja_suscripcion(id_suscripcion: int) -> bool:
+    """Desactiva una suscripción. No la borra: queda el histórico de que existió."""
+    with obtener_conexion() as conexion:
+        cursor = conexion.execute(
+            "UPDATE suscripciones SET activa = 0 WHERE id = ?", (id_suscripcion,)
         )
         return cursor.rowcount > 0

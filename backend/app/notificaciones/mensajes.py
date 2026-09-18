@@ -162,3 +162,91 @@ escaneo, y contéstale con el presupuesto cerrado.
     )
 
     return asunto, cuerpo, html
+
+
+def _describe_cambio(cambio: dict) -> str:
+    nombres = {
+        "ssl": "certificado y cifrado", "headers": "cabeceras de seguridad",
+        "dns": "correo (SPF/DKIM/DMARC)", "dominio": "registro del dominio",
+        "whois": "caducidad del dominio", "seo": "SEO", "privacidad": "privacidad y RGPD",
+        "mixed_content": "contenido mixto", "tecnologia": "tecnología usada",
+        "accesibilidad": "accesibilidad", "experiencia": "experiencia de usuario",
+        "rendimiento": "velocidad", "archivos_expuestos": "archivos expuestos",
+        "area_privada": "zona de acceso privado", "ecommerce": "tienda online",
+    }
+    nombre = nombres.get(cambio["check"], cambio["check"])
+    return f"{nombre}: pasó de {cambio['antes']} a {cambio['ahora']}"
+
+
+def mensaje_resumen_mensual(
+    dominio: str,
+    nota_actual: int,
+    comparacion: dict | None,
+) -> tuple[str, str, str]:
+    """
+    Devuelve (asunto, cuerpo_texto, cuerpo_html) del resumen mensual del
+    nivel Tranquilidad. Se manda siempre, haya cambios o no — es la
+    prueba de que el servicio sigue activo y vigilando, aunque ese mes
+    no haya pasado nada (ver CLAUDE.md, nivel Tranquilidad).
+
+    `comparacion` es lo que ya calcula puntuacion.py::comparar_escaneos
+    entre el escaneo de este mes y el anterior; None si es la primera
+    vez que se re-escanea esta suscripción (no hay "antes" con que
+    comparar todavía).
+    """
+    asunto = f"Pipo — revisión mensual de {dominio} ({nota_actual}/100)"
+
+    mejoras = comparacion["mejoras"] if comparacion else []
+    empeoramientos = comparacion["empeoramientos"] if comparacion else []
+
+    if not comparacion:
+        resumen_texto = "Es la primera revisión mensual desde que te diste de alta, así que todavía no hay nada con qué comparar."
+    elif not mejoras and not empeoramientos:
+        resumen_texto = "Sin cambios desde la última revisión — todo sigue como estaba."
+    else:
+        partes = []
+        if empeoramientos:
+            partes.append("Esto ha empeorado:\n" + "\n".join(f"- {_describe_cambio(c)}" for c in empeoramientos))
+        if mejoras:
+            partes.append("Esto ha mejorado:\n" + "\n".join(f"- {_describe_cambio(c)}" for c in mejoras))
+        resumen_texto = "\n\n".join(partes)
+
+    cuerpo = f"""Hola,
+
+Esta es tu revisión mensual de {dominio}.
+
+Nota actual: {nota_actual}/100
+
+{resumen_texto}
+
+Un saludo,
+Pipo (Alberto)
+"""
+
+    if not comparacion:
+        contenido_resumen = p.parrafo(p.esc(resumen_texto), tenue=True)
+    elif not mejoras and not empeoramientos:
+        contenido_resumen = p.parrafo(p.esc(resumen_texto), tenue=True)
+    else:
+        bloques = []
+        if empeoramientos:
+            bloques.append(p.parrafo("<strong>Esto ha empeorado:</strong>"))
+            bloques.append(p.lista([p.esc(_describe_cambio(c)) for c in empeoramientos]))
+        if mejoras:
+            bloques.append(p.parrafo("<strong>Esto ha mejorado:</strong>"))
+            bloques.append(p.lista([p.esc(_describe_cambio(c)) for c in mejoras]))
+        contenido_resumen = "".join(bloques)
+
+    contenido_html = "".join([
+        p.parrafo(f"Esta es tu revisión mensual de <strong>{p.esc(dominio)}</strong>."),
+        p.nota_destacada(nota_actual),
+        contenido_resumen,
+    ])
+    html = p.envolver(
+        titulo=f"Revisión mensual de {dominio}",
+        contenido=contenido_html,
+        preheader=f"Nota actual: {nota_actual}/100",
+        firma="Un saludo,<br>Pipo (Alberto)",
+    )
+
+    return asunto, cuerpo, html
