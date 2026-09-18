@@ -193,16 +193,33 @@ def mensaje_resumen_mensual(
     entre el escaneo de este mes y el anterior; None si es la primera
     vez que se re-escanea esta suscripción (no hay "antes" con que
     comparar todavía).
+
+    Tres tonos, no uno solo (18 sep 2026, tras ver el primer email real:
+    leía como un informe corporativo, sin ninguna de las dos cosas que
+    hacen a Pipo reconocible en el resto de la web — el saludo de mascota
+    y que la urgencia se note en el propio primer renglón). Un "sin
+    cambios" y un "ha empeorado" no pueden abrir igual: el primero es
+    tranquilidad de verdad, el segundo tiene que destacar por delante de
+    cualquier otro email de la bandeja.
     """
-    asunto = f"Pipo — revisión mensual de {dominio} ({nota_actual}/100)"
+    hay_empeoramiento = bool(comparacion and comparacion["empeoramientos"])
+
+    if hay_empeoramiento:
+        saludo = "¡Atención! Soy Pipo 🦉"
+        titular = f"Algo ha empeorado en {dominio}"
+        asunto = f"⚠️ Pipo — algo ha empeorado en {dominio} ({nota_actual}/100)"
+    else:
+        saludo = "¡Hola! Soy Pipo 🦉, tu vigilante de {dominio}".format(dominio=dominio)
+        titular = f"Tu revisión mensual de {dominio}"
+        asunto = f"Pipo — {dominio} sigue bien ({nota_actual}/100)"
 
     mejoras = comparacion["mejoras"] if comparacion else []
     empeoramientos = comparacion["empeoramientos"] if comparacion else []
 
     if not comparacion:
-        resumen_texto = "Es la primera revisión mensual desde que te diste de alta, así que todavía no hay nada con qué comparar."
+        resumen_texto = "Es la primera revisión desde que te diste de alta, así que todavía no tengo nada con qué comparar. A partir de la que viene ya te podré decir qué ha cambiado."
     elif not mejoras and not empeoramientos:
-        resumen_texto = "Sin cambios desde la última revisión — todo sigue como estaba."
+        resumen_texto = "Buenas noticias: tu web sigue exactamente igual que la última vez. Nada que tocar."
     else:
         partes = []
         if empeoramientos:
@@ -211,9 +228,9 @@ def mensaje_resumen_mensual(
             partes.append("Esto ha mejorado:\n" + "\n".join(f"- {_describe_cambio(c)}" for c in mejoras))
         resumen_texto = "\n\n".join(partes)
 
-    cuerpo = f"""Hola,
+    cuerpo = f"""{saludo}
 
-Esta es tu revisión mensual de {dominio}.
+He vuelto a revisar {dominio} como cada mes.
 
 Nota actual: {nota_actual}/100
 
@@ -223,10 +240,8 @@ Un saludo,
 Pipo (Alberto)
 """
 
-    if not comparacion:
-        contenido_resumen = p.parrafo(p.esc(resumen_texto), tenue=True)
-    elif not mejoras and not empeoramientos:
-        contenido_resumen = p.parrafo(p.esc(resumen_texto), tenue=True)
+    if not comparacion or (not mejoras and not empeoramientos):
+        contenido_resumen = p.parrafo(p.esc(resumen_texto), tenue=not hay_empeoramiento)
     else:
         bloques = []
         if empeoramientos:
@@ -238,12 +253,12 @@ Pipo (Alberto)
         contenido_resumen = "".join(bloques)
 
     contenido_html = "".join([
-        p.parrafo(f"Esta es tu revisión mensual de <strong>{p.esc(dominio)}</strong>."),
+        p.parrafo(f"{p.esc(saludo)}. He vuelto a revisar <strong>{p.esc(dominio)}</strong> como cada mes."),
         p.nota_destacada(nota_actual),
         contenido_resumen,
     ])
     html = p.envolver(
-        titulo=f"Revisión mensual de {dominio}",
+        titulo=titular,
         contenido=contenido_html,
         preheader=f"Nota actual: {nota_actual}/100",
         firma="Un saludo,<br>Pipo (Alberto)",

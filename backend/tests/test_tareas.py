@@ -143,8 +143,22 @@ def test_resumen_sin_comparacion_dice_que_es_la_primera_vez():
 def test_resumen_sin_cambios_lo_dice_claramente():
     comparacion = {"mejoras": [], "empeoramientos": []}
     _, cuerpo, html = mensaje_resumen_mensual("ejemplo.es", 80, comparacion)
-    assert "Sin cambios" in cuerpo
-    assert "Sin cambios" in html
+    assert "sigue exactamente igual" in cuerpo
+    assert "sigue exactamente igual" in html
+
+
+def test_resumen_con_empeoramiento_usa_tono_de_alerta():
+    """El asunto y el saludo deben destacar cuando hay malas noticias."""
+    comparacion = {"mejoras": [], "empeoramientos": [{"check": "ssl", "antes": "verde", "ahora": "rojo"}]}
+    asunto, cuerpo, html = mensaje_resumen_mensual("ejemplo.es", 60, comparacion)
+    assert "ha empeorado" in asunto
+    assert "Atención" in cuerpo
+
+
+def test_resumen_sin_empeoramiento_usa_tono_tranquilo():
+    asunto, cuerpo, _ = mensaje_resumen_mensual("ejemplo.es", 90, None)
+    assert "ha empeorado" not in asunto
+    assert "Hola" in cuerpo
 
 
 def test_resumen_con_empeoramiento_lo_lista():
