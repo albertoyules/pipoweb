@@ -35,6 +35,65 @@
   "areaServed": "ES"
 }
 </script>
+<!-- Mismas 6 preguntas del <details id="faq"> de más abajo, palabra por
+     palabra: si se cambia el texto ahí, hay que cambiarlo aquí también,
+     o Google verá una respuesta distinta a la que lee el visitante. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "¿Pipo entra en mi web o la hackea?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Pipo solo mira información pública, la misma que ve cualquier visitante o Google. No accede a tu servidor, no prueba contraseñas y no toca ningún dato. Es una revisión desde fuera."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Necesito conocimientos técnicos?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Ninguno. El informe está escrito para el dueño de un negocio, no para un informático. Cada punto te dice qué pasa, por qué importa y qué hacer."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Puedo revisar la web de otro negocio?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Solo debes analizar webs de las que seas responsable o tengas permiso. Al usar Pipo confirmas que es así; queda registrado."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Qué pasa después del informe?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "El diagnóstico y el PDF son tuyos, gratis, para hacer con ellos lo que quieras. Si prefieres no pelearte con esto, nos encargamos nosotros: presupuesto cerrado antes de tocar nada, sin compromiso."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "¿Esto me sirve para el RGPD?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Pipo detecta fallos visibles de cookies y privacidad y te orienta, pero no sustituye a un asesor legal ni a un Delegado de Protección de Datos. Es un buen primer diagnóstico."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Si os pido que me lo arregléis, ¿cuánto tardáis?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "La revisión y el PDF son al instante. Si nos pides el arreglo, te contestamos normalmente en menos de 24 horas con el presupuesto cerrado y lo que necesitamos de ti para entrar. No se paga nada por adelantado."
+      }
+    }
+  ]
+}
+</script>
 <!-- Fuentes autohospedadas. Antes venían del CDN de Google Fonts, lo que
      metía un tercero sin `integrity` en la página (lo marcaba el propio
      escáner de Pipo) y mandaba la IP del visitante a Google. Ver fonts.css. -->
@@ -68,6 +127,18 @@
   .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
   a{text-decoration:none;color:inherit}
   section{position:relative}
+
+  /* SKIP LINK: invisible hasta que alguien navega con teclado (Tab) y
+     le da foco — para quien no usa ratón, es la diferencia entre
+     empezar a oír/leer el nav entero cada vez o llegar directo al
+     contenido. Pipo audita accesibilidad en otras webs; zapatero
+     descalzo si no lo tiene en la suya. */
+  .skip-link{
+    position:absolute;top:-100px;left:16px;z-index:100;
+    background:var(--terracotta);color:#fff;font-weight:700;font-size:15px;
+    padding:12px 20px;border-radius:0 0 10px 10px;transition:top .2s ease;
+  }
+  .skip-link:focus{top:0}
 
   /* NAV */
   nav{position:sticky;top:0;z-index:50;background:rgba(245,239,230,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
@@ -606,6 +677,8 @@
 </head>
 <body>
 
+<a class="skip-link" href="#contenido">Saltar al contenido</a>
+
 <div id="barra-progreso"></div>
 
 <!-- Pipo SVG defined once, referenced via <use> -->
@@ -697,7 +770,7 @@
 </nav>
 
 <!-- HERO -->
-<header class="hero">
+<header class="hero" id="contenido">
   <svg class="leaf" data-parallax=".18" style="width:90px;top:40px;left:-20px;color:var(--terracotta);transform:translateY(var(--py,0px)) rotate(20deg)"><use href="#leaf"/></svg>
   <svg class="leaf" data-parallax=".32" style="width:60px;top:260px;right:40px;color:var(--amber);transform:translateY(var(--py,0px)) rotate(-30deg)"><use href="#leaf"/></svg>
   <svg class="leaf" data-parallax=".25" style="width:44px;bottom:20px;left:15%;color:var(--sage);transform:translateY(var(--py,0px)) rotate(60deg)"><use href="#leaf"/></svg>
@@ -924,7 +997,7 @@
       <a href="tel:+34674761226">+34 674 76 12 26</a>
       <a href="https://wa.me/34674761226" target="_blank" rel="noopener">WhatsApp</a>
     </div>
-    <span style="font-size:13px;opacity:.6">© 2026 Pipo · Málaga</span>
+    <span style="font-size:13px;opacity:.6">© 2026 Pipo · Málaga · Última actualización: 18 de septiembre de 2026</span>
   </div>
 </footer>
 

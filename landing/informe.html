@@ -214,6 +214,7 @@
   .acciones{border-top:1px solid var(--line);padding-top:32px;display:flex;flex-direction:column;gap:28px}
   .accion h2{font-size:19px;color:var(--ink);margin-bottom:6px}
   .accion .desc{font-size:14px;color:var(--brown-dark);margin-bottom:14px}
+  .botones-llevate{display:flex;gap:10px;flex-wrap:wrap}
   .espera{display:flex;align-items:center;gap:10px;color:var(--brown-dark);font-weight:600;font-size:14px;margin-top:12px}
   .espera svg{width:26px;height:26px}
 
@@ -382,7 +383,10 @@
         <div class="accion">
           <h2>Llévate el informe</h2>
           <p class="desc">Un PDF con la marca de Pipo, para guardarlo, enseñárselo a tu socio o mandárselo a quien te lleva la web. Gratis y sin dejar ningún dato.</p>
-          <a class="btn btn-ghost" id="btn-pdf" href="#" download>Descargar informe en PDF</a>
+          <div class="botones-llevate">
+            <a class="btn btn-ghost" id="btn-pdf" href="#" download>Descargar informe en PDF</a>
+            <button class="btn btn-ghost" id="btn-copiar-enlace" type="button">Copiar enlace del informe</button>
+          </div>
         </div>
 
         <div class="accion accion-pago" id="accion-arreglo">
@@ -672,6 +676,41 @@
 
     document.getElementById("contenido").style.display = "block";
     compararConLaMedia(datos.puntuacion_global);
+  }
+
+  // Copiar el enlace de ESTE informe (no el de la API): location.href ya
+  // trae ?id= y &t=, porque es como se ha llegado a esta misma página —
+  // no hace falta reconstruir nada. navigator.clipboard exige HTTPS o
+  // localhost; en el resto de casos (raro hoy) cae al método viejo con
+  // un <textarea> temporal, para que el botón no se quede mudo.
+  const btnCopiarEnlace = document.getElementById("btn-copiar-enlace");
+  if (btnCopiarEnlace) {
+    btnCopiarEnlace.addEventListener("click", async () => {
+      const enlace = location.href;
+      try {
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(enlace);
+        } else {
+          const area = document.createElement("textarea");
+          area.value = enlace;
+          area.style.position = "fixed";
+          area.style.opacity = "0";
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand("copy");
+          area.remove();
+        }
+        const textoOriginal = btnCopiarEnlace.textContent;
+        btnCopiarEnlace.textContent = "¡Enlace copiado!";
+        btnCopiarEnlace.disabled = true;
+        setTimeout(() => {
+          btnCopiarEnlace.textContent = textoOriginal;
+          btnCopiarEnlace.disabled = false;
+        }, 2200);
+      } catch {
+        btnCopiarEnlace.textContent = "No se pudo copiar, copia la URL de arriba";
+      }
+    });
   }
 
   // Etiqueta con el tipo de sitio + CMS detectado. Escaneos guardados
